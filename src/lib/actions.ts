@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { moderateLocationDescription } from '@/ai/flows/moderate-location-description';
+// Removed: import { moderateLocationDescription } from '@/ai/flows/moderate-location-description';
 import type { NewLocationSuggestion } from './types';
 import { addSuggestedLocation, mockTowns } from './data'; // Using mockTowns for validation
 
@@ -18,7 +18,7 @@ export interface FormState {
   message: string;
   type: 'success' | 'error' | 'info';
   errors?: Record<string, string[] | undefined>;
-  submittedLocation?: NewLocationSuggestion & { moderationResult?: any };
+  submittedLocation?: NewLocationSuggestion; // Removed moderationResult
 }
 
 export async function submitSuggestion(
@@ -47,23 +47,23 @@ export async function submitSuggestion(
 
   const { description, townName, ...restOfData } = validatedFields.data;
 
-  // Step 1: Content Moderation
-  try {
-    const moderationResult = await moderateLocationDescription({ description });
-    if (!moderationResult.isAppropriate) {
-      return {
-        message: `Submission rejected due to content policy: ${moderationResult.reason || 'Inappropriate content detected.'}`,
-        type: 'error',
-        submittedLocation: { ...validatedFields.data, moderationResult },
-      };
-    }
-  } catch (error) {
-    console.error("Error during content moderation:", error);
-    return {
-      message: "Could not moderate content at this time. Please try again later.",
-      type: 'error',
-    };
-  }
+  // Step 1: Content Moderation - REMOVED
+  // try {
+  //   const moderationResult = await moderateLocationDescription({ description });
+  //   if (!moderationResult.isAppropriate) {
+  //     return {
+  //       message: `Submission rejected due to content policy: ${moderationResult.reason || 'Inappropriate content detected.'}`,
+  //       type: 'error',
+  //       submittedLocation: { ...validatedFields.data, moderationResult },
+  //     };
+  //   }
+  // } catch (error) {
+  //   console.error("Error during content moderation:", error);
+  //   return {
+  //     message: "Could not moderate content at this time. Please try again later.",
+  //     type: 'error',
+  //   };
+  // }
   
   // Step 2: (Mock) Find Town ID or handle new town. For now, let's assume town exists or is new.
   const existingTown = mockTowns.find(t => t.name.toLowerCase() === townName.toLowerCase());
@@ -90,7 +90,7 @@ export async function submitSuggestion(
     return {
       message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" for The Local Glow has been received and is pending review.`,
       type: 'success',
-      submittedLocation: { ...validatedFields.data, moderationResult: { isAppropriate: true } },
+      submittedLocation: { ...validatedFields.data }, // Removed moderationResult
     };
 
   } catch (error) {
