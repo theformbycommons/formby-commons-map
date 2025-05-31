@@ -5,9 +5,10 @@ import type { Location, Town } from '@/lib/types';
 import LocationCard from '@/components/location/LocationCard';
 import L, { type Map as LeafletMapClass } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+// Removed problematic local image imports
+// import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+// import iconUrl from 'leaflet/dist/images/marker-icon.png';
+// import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import React, { useEffect, useRef } from 'react';
 
 interface TownMapProps {
@@ -21,14 +22,13 @@ export default function TownMap({ locations, town }: TownMapProps) {
 
   useEffect(() => {
     if (mapContainerRef.current && !mapRef.current) {
-      
-      // Configure Leaflet icons
+      // Configure Leaflet icons using CDN paths
       // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
       delete L.Icon.Default.prototype._getIconUrl;
       L.Icon.Default.mergeOptions({
-        iconRetinaUrl: iconRetinaUrl.src,
-        iconUrl: iconUrl.src,
-        shadowUrl: shadowUrl.src,
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
       const townCenter: L.LatLngExpression = [town.coordinates.lat, town.coordinates.lng];
@@ -59,18 +59,8 @@ export default function TownMap({ locations, town }: TownMapProps) {
         marker.bindPopup(popupContent);
       });
       
-      // Marker for town center
-      const townMarkerIcon = L.icon({
-          iconUrl: iconUrl.src,
-          iconRetinaUrl: iconRetinaUrl.src,
-          shadowUrl: shadowUrl.src,
-          iconSize: [25,41],
-          iconAnchor: [12,41],
-          popupAnchor: [1,-34],
-          tooltipAnchor: [16,-28],
-          shadowSize: [41,41]
-      });
-      L.marker(townCenter, { icon: townMarkerIcon })
+      // Marker for town center - using default icon which is now configured
+      L.marker(townCenter)
         .addTo(mapRef.current!)
         .bindPopup(`<strong style="font-family: 'PT Sans', sans-serif; color: hsl(var(--primary));">${town.name} Town Center</strong>`);
 

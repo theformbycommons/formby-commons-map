@@ -3,10 +3,11 @@
 
 import type { Town } from '@/lib/types';
 import L, { type Map as LeafletMapClass } from 'leaflet';
-import 'leaflet/dist/leaflet.css'; 
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+import 'leaflet/dist/leaflet.css';
+// Removed problematic local image imports
+// import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+// import iconUrl from 'leaflet/dist/images/marker-icon.png';
+// import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapPin, Eye } from 'lucide-react';
@@ -22,15 +23,14 @@ export default function UKMap({ towns }: UKMapProps) {
   const mapRef = useRef<LeafletMapClass | null>(null);
 
   useEffect(() => {
-    if (mapContainerRef.current && !mapRef.current) { // Initialize map only if ref exists and map not already initialized
-      
-      // Configure Leaflet icons
+    if (mapContainerRef.current && !mapRef.current) {
+      // Configure Leaflet icons using CDN paths
       // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
       delete L.Icon.Default.prototype._getIconUrl;
       L.Icon.Default.mergeOptions({
-        iconRetinaUrl: iconRetinaUrl.src,
-        iconUrl: iconUrl.src,
-        shadowUrl: shadowUrl.src,
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
       const ukCenter: L.LatLngExpression = [54.5, -2.5];
@@ -65,7 +65,7 @@ export default function UKMap({ towns }: UKMapProps) {
         mapRef.current = null;
       }
     };
-  }, [towns]); // Only re-run if towns data changes
+  }, [towns]);
 
   return (
     <div className="space-y-6">
