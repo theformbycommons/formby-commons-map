@@ -20,21 +20,17 @@ interface UKMapProps {
 
 export default function UKMap({ towns }: UKMapProps) {
   useEffect(() => {
-    // This check is still good for client-side only execution of Leaflet specific setup
-    if (typeof window !== 'undefined') {
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: iconRetinaUrl.src,
-        iconUrl: iconUrl.src,
-        shadowUrl: shadowUrl.src,
-      });
-    }
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: iconRetinaUrl.src,
+      iconUrl: iconUrl.src,
+      shadowUrl: shadowUrl.src,
+    });
   }, []);
 
   const ukCenter: L.LatLngExpression = [54.5, -2.5]; // Approx center of UK
   const ukZoom = 6;
 
-  // The component will now only render on the client due to next/dynamic ssr:false
   return (
     <div className="space-y-6">
       <div className="relative w-full h-64 md:h-96 rounded-lg overflow-hidden shadow-lg border border-border">
