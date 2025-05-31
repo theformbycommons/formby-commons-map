@@ -8,22 +8,22 @@ body {
 
 @layer base {
   :root {
-    --background: 30 100% 98%; /* Very light warm peach/cream */
+    --background: 30 90% 97%; /* Very light warm peach/cream - slightly less stark */
     --foreground: 25 40% 20%; /* Dark warm brown */
 
-    --card: 30 100% 99%; /* Slightly off-white card */
+    --card: 30 90% 98%; /* Slightly off-white card - slightly less stark */
     --card-foreground: 25 40% 20%;
 
-    --popover: 30 100% 99%;
+    --popover: 30 90% 98%; /* Slightly less stark */
     --popover-foreground: 25 40% 20%;
 
-    --primary: 35 100% 60%; /* Sunny Orange */
+    --primary: 35 85% 48%; /* Darker, richer Sunny Orange for better contrast */
     --primary-foreground: 35 100% 15%; /* Dark orange/brown for text on primary */
 
-    --secondary: 40 100% 85%; /* Light Peach */
+    --secondary: 40 90% 88%; /* Light Peach - adjusted for harmony */
     --secondary-foreground: 35 60% 30%; /* Medium-dark orange/brown for text on secondary */
 
-    --muted: 40 100% 92%; /* Very Light Peach */
+    --muted: 40 80% 93%; /* Very Light Peach - adjusted for harmony */
     --muted-foreground: 30 30% 45%; /* Warm grey */
 
     --accent: 170 70% 45%; /* Vibrant Teal/Aqua */
@@ -32,9 +32,9 @@ body {
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 30 50% 85%; /* Light warm grey/peach border */
-    --input: 30 50% 90%; /* Slightly lighter for input background */
-    --ring: 35 100% 60%; /* Sunny Orange for rings */
+    --border: 30 60% 90%; /* Light warm grey/peach border - adjusted */
+    --input: 30 70% 94%; /* Slightly lighter for input background - adjusted */
+    --ring: 35 85% 48%; /* Darker Sunny Orange for rings - matches new primary */
     
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -44,14 +44,14 @@ body {
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 30 100% 96%; /* Slightly darker warm peach/cream */
+    --sidebar-background: 30 90% 95%; /* Slightly darker warm peach/cream - adjusted */
     --sidebar-foreground: 25 40% 20%;
-    --sidebar-primary: 35 100% 60%;
+    --sidebar-primary: 35 85% 48%; /* Matches new primary */
     --sidebar-primary-foreground: 35 100% 15%;
     --sidebar-accent: 170 70% 45%;
     --sidebar-accent-foreground: 170 70% 95%;
-    --sidebar-border: 30 50% 80%;
-    --sidebar-ring: 35 100% 60%;
+    --sidebar-border: 30 60% 88%; /* Adjusted */
+    --sidebar-ring: 35 85% 48%; /* Matches new primary */
   }
 
   .dark {
