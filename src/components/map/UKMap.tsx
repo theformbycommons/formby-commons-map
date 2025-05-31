@@ -22,19 +22,17 @@ export default function UKMap({ towns }: UKMapProps) {
   const mapRef = useRef<LeafletMapClass | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    // Configure Leaflet icons
-    delete (L.Icon.Default.prototype as any)._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: iconRetinaUrl.src,
-      iconUrl: iconUrl.src,
-      shadowUrl: shadowUrl.src,
-    });
-
     if (mapContainerRef.current && !mapRef.current) { // Initialize map only if ref exists and map not already initialized
+      
+      // Configure Leaflet icons
+      // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: iconRetinaUrl.src,
+        iconUrl: iconUrl.src,
+        shadowUrl: shadowUrl.src,
+      });
+
       const ukCenter: L.LatLngExpression = [54.5, -2.5];
       const ukZoom = 6;
 
@@ -67,7 +65,7 @@ export default function UKMap({ towns }: UKMapProps) {
         mapRef.current = null;
       }
     };
-  }, [towns]);
+  }, [towns]); // Only re-run if towns data changes
 
   return (
     <div className="space-y-6">

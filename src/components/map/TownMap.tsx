@@ -20,18 +20,17 @@ export default function TownMap({ locations, town }: TownMapProps) {
   const mapRef = useRef<LeafletMapClass | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    delete (L.Icon.Default.prototype as any)._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: iconRetinaUrl.src,
-      iconUrl: iconUrl.src,
-      shadowUrl: shadowUrl.src,
-    });
-
     if (mapContainerRef.current && !mapRef.current) {
+      
+      // Configure Leaflet icons
+      // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: iconRetinaUrl.src,
+        iconUrl: iconUrl.src,
+        shadowUrl: shadowUrl.src,
+      });
+
       const townCenter: L.LatLngExpression = [town.coordinates.lat, town.coordinates.lng];
       const townZoom = 13;
 
