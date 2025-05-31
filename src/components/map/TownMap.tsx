@@ -3,13 +3,12 @@
 
 import type { Location, Town } from '@/lib/types';
 import LocationCard from '@/components/location/LocationCard';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-import Link from 'next/link';
+import L, { type Map as LeafletMapClass } from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface TownMapProps {
   locations: Location[];
@@ -17,43 +16,79 @@ interface TownMapProps {
 }
 
 export default function TownMap({ locations, town }: TownMapProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<LeafletMapClass | null>(null);
+
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: iconRetinaUrl.src,
       iconUrl: iconUrl.src,
       shadowUrl: shadowUrl.src,
     });
-  }, []);
 
-  const townCenter: L.LatLngExpression = [town.coordinates.lat, town.coordinates.lng];
-  const townZoom = 13;
+    if (mapContainerRef.current && !mapRef.current) {
+      const townCenter: L.LatLngExpression = [town.coordinates.lat, town.coordinates.lng];
+      const townZoom = 13;
+
+      mapRef.current = L.map(mapContainerRef.current, {
+        scrollWheelZoom: false,
+      }).setView(townCenter, townZoom);
+
+      L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }
+      ).addTo(mapRef.current);
+
+      locations.forEach((location) => {
+        const marker = L.marker([location.coordinates.lat, location.coordinates.lng]).addTo(mapRef.current!);
+        const popupContent = `
+          <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
+            <strong style="font-size: 1.1em; color: hsl(var(--primary));">${location.name}</strong><br/>
+            <span style="font-size: 0.9em; color: hsl(var(--muted-foreground));">${location.category}</span><br/>
+            <a href="/location/${location.id}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
+              View Details &rarr;
+            </a>
+          </div>
+        `;
+        marker.bindPopup(popupContent);
+      });
+      
+      // Marker for town center
+      const townMarkerIcon = L.icon({
+          iconUrl: iconUrl.src,
+          iconRetinaUrl: iconRetinaUrl.src,
+          shadowUrl: shadowUrl.src,
+          iconSize: [25,41],
+          iconAnchor: [12,41],
+          popupAnchor: [1,-34],
+          tooltipAnchor: [16,-28],
+          shadowSize: [41,41]
+      });
+      L.marker(townCenter, { icon: townMarkerIcon })
+        .addTo(mapRef.current!)
+        .bindPopup(`<strong style="font-family: 'PT Sans', sans-serif; color: hsl(var(--primary));">${town.name} Town Center</strong>`);
+
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [locations, town]);
 
   return (
     <div className="space-y-6">
       <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden shadow-lg border border-border">
-        <MapContainer center={townCenter} zoom={townZoom} scrollWheelZoom={false} className="h-full w-full z-0">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {locations.map((location) => (
-            <Marker key={location.id} position={[location.coordinates.lat, location.coordinates.lng]}>
-              <Popup>
-                <div className="font-semibold">{location.name}</div>
-                <div>{location.category}</div>
-                <Link href={`/location/${location.id}`} className="text-accent hover:underline">
-                  View Details &rarr;
-                </Link>
-              </Popup>
-            </Marker>
-          ))}
-           <Marker position={townCenter} icon={L.icon({iconUrl: iconUrl.src, iconRetinaUrl: iconRetinaUrl.src, shadowUrl: shadowUrl.src, iconSize: [25,41], iconAnchor: [12,41], popupAnchor: [1,-34], tooltipAnchor: [16,-28], shadowSize: [41,41]})}>
-             <Popup>
-               <span className="font-bold">{town.name} Town Center</span>
-             </Popup>
-           </Marker>
-        </MapContainer>
+        <div ref={mapContainerRef} className="h-full w-full z-0" />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent flex items-end justify-center p-6 pointer-events-none">
           <h2 className="text-2xl font-headline font-bold text-white text-center drop-shadow-md">Explore {town.name}</h2>
         </div>

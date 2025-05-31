@@ -2,9 +2,8 @@
 'use client';
 
 import type { Town } from '@/lib/types';
-import Link from 'next/link';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
+import L, { type Map as LeafletMapClass } from 'leaflet';
+import 'leaflet/dist/leaflet.css'; 
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -12,45 +11,68 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapPin, Eye } from 'lucide-react';
 import Image from 'next/image';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface UKMapProps {
   towns: Town[];
 }
 
 export default function UKMap({ towns }: UKMapProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<LeafletMapClass | null>(null);
+
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Configure Leaflet icons
     delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: iconRetinaUrl.src,
       iconUrl: iconUrl.src,
       shadowUrl: shadowUrl.src,
     });
-  }, []);
 
-  const ukCenter: L.LatLngExpression = [54.5, -2.5]; // Approx center of UK
-  const ukZoom = 6;
+    if (mapContainerRef.current && !mapRef.current) { // Initialize map only if ref exists and map not already initialized
+      const ukCenter: L.LatLngExpression = [54.5, -2.5];
+      const ukZoom = 6;
+
+      mapRef.current = L.map(mapContainerRef.current, {
+        scrollWheelZoom: false,
+      }).setView(ukCenter, ukZoom);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(mapRef.current);
+
+      towns.forEach((town) => {
+        const marker = L.marker([town.coordinates.lat, town.coordinates.lng]).addTo(mapRef.current!);
+        const popupContent = `
+          <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
+            <strong style="font-size: 1.1em; color: hsl(var(--primary));">${town.name}</strong><br/>
+            <span style="font-size: 0.9em; color: hsl(var(--muted-foreground));">${town.county}, ${town.country}</span><br/>
+            <a href="/town/${encodeURIComponent(town.name.toLowerCase())}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
+              Explore ${town.name} &rarr;
+            </a>
+          </div>
+        `;
+        marker.bindPopup(popupContent);
+      });
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [towns]);
 
   return (
     <div className="space-y-6">
       <div className="relative w-full h-64 md:h-96 rounded-lg overflow-hidden shadow-lg border border-border">
-        <MapContainer center={ukCenter} zoom={ukZoom} scrollWheelZoom={false} className="h-full w-full z-0">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {towns.map((town) => (
-            <Marker key={town.id} position={[town.coordinates.lat, town.coordinates.lng]}>
-              <Popup>
-                <div className="font-semibold">{town.name}</div>
-                <div>{town.county}, {town.country}</div>
-                <Link href={`/town/${encodeURIComponent(town.name.toLowerCase())}`} className="text-accent hover:underline">
-                  Explore {town.name} &rarr;
-                </Link>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
+        <div ref={mapContainerRef} className="h-full w-full z-0" />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent flex items-end justify-center p-8 pointer-events-none">
           <h2 className="text-3xl font-headline font-bold text-white text-center drop-shadow-lg">Discover Places Across the UK</h2>
         </div>
@@ -83,10 +105,10 @@ export default function UKMap({ towns }: UKMapProps) {
               </CardContent>
               <CardFooter>
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
-                  <Link href={`/town/${encodeURIComponent(town.name.toLowerCase())}`} className="flex items-center gap-2">
+                  <a href={`/town/${encodeURIComponent(town.name.toLowerCase())}`} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
                     Explore {town.name} ({town.locationCount} Locations)
-                  </Link>
+                  </a>
                 </Button>
               </CardFooter>
             </Card>
