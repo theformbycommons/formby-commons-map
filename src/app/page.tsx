@@ -1,3 +1,4 @@
+
 import UKMap from '@/components/map/UKMap';
 import { getTowns } from '@/lib/data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,10 @@ export default async function HomePage() {
       <section className="text-center py-8 bg-card rounded-lg shadow-md">
         <h1 className="text-4xl font-headline font-bold text-primary mb-2">Welcome to The Local Glow</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Explore vibrant towns and hidden gems across the United Kingdom. Discover unique locations shared by locals and travelers alike.
+          Celebrating the Heart and Soul of Our Hometowns
+        </p>
+        <p className="text-sm text-muted-foreground max-w-xl mx-auto mt-3">
+          A vibrant collection of what makes our towns uniquely lovable, seen through the eyes of those who call them home. Discover the everyday magic and cherished corners that define our communities, celebrating their spirit.
         </p>
       </section>
       
