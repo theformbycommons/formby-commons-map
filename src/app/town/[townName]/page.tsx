@@ -73,7 +73,7 @@ export default async function TownPage({ params }: TownPageProps) {
           <CardDescription>Discover interesting places submitted by our community.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TownMap locations={locations} townName={town.name} />
+          <TownMap locations={locations} town={town} />
         </CardContent>
       </Card>
     </div>

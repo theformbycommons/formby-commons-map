@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import AppLayout from '@/components/layout/AppLayout';
 import './globals.css';
+import 'leaflet/dist/leaflet.css';
 
 export const metadata: Metadata = {
   title: 'The Local Glow',
