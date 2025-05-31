@@ -14,7 +14,7 @@ export default function UKMap({ towns }: UKMapProps) {
     <div className="space-y-6">
       <div className="relative w-full h-64 md:h-96 rounded-lg overflow-hidden shadow-lg border border-border">
         <Image
-          src="https://placehold.co/1200x600/f2edf4/946aa8?text=Map+of+the+UK"
+          src="https://placehold.co/1200x600.png"
           alt="Map of the UK highlighting featured towns"
           layout="fill"
           objectFit="cover"
@@ -34,7 +34,7 @@ export default function UKMap({ towns }: UKMapProps) {
               <CardHeader>
                 <div className="relative w-full h-48 rounded-t-md overflow-hidden mb-4">
                   <Image
-                    src={town.imageUrl || `https://placehold.co/400x250/f2edf4/872b55?text=${encodeURIComponent(town.name)}`}
+                    src={town.imageUrl || `https://placehold.co/400x250.png`}
                     alt={`Image of ${town.name}`}
                     layout="fill"
                     objectFit="cover"

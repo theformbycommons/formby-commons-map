@@ -24,7 +24,7 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
       <CardHeader className="p-0 relative">
         <div className="relative w-full h-64 md:h-80 bg-muted">
           <Image
-            src={location.imageUrl || `https://placehold.co/800x400/f2edf4/872b55?text=${encodeURIComponent(location.name)}`}
+            src={location.imageUrl || `https://placehold.co/800x400.png`}
             alt={`Image of ${location.name}`}
             layout="fill"
             objectFit="cover"

@@ -26,7 +26,7 @@ export default function LocationCard({ location }: LocationCardProps) {
       <CardHeader className="p-0">
         <div className="relative w-full h-48">
           <Image
-            src={location.imageUrl || `https://placehold.co/400x250/f2edf4/872b55?text=${encodeURIComponent(location.name)}`}
+            src={location.imageUrl || `https://placehold.co/400x250.png`}
             alt={`Image of ${location.name}`}
             layout="fill"
             objectFit="cover"

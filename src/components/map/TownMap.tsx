@@ -12,7 +12,7 @@ export default function TownMap({ locations, townName }: TownMapProps) {
     <div className="space-y-6">
       <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden shadow-lg border border-border">
         <Image
-          src={`https://placehold.co/1000x500/f2edf4/946aa8?text=Map+of+${encodeURIComponent(townName)}`}
+          src={`https://placehold.co/1000x500.png`}
           alt={`Map of ${townName}`}
           layout="fill"
           objectFit="cover"
