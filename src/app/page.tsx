@@ -20,8 +20,8 @@ export default async function HomePage() {
       
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-primary">Towns with Local Lenses</CardTitle>
-          <CardDescription>Click on a town to explore its unique locations and attractions.</CardDescription>
+          <CardTitle className="font-headline text-2xl text-primary">Towns with Local Glow</CardTitle>
+          <CardDescription>click on a town to explore its unique locations.</CardDescription>
         </CardHeader>
         <CardContent>
           <UKMap towns={towns} />
