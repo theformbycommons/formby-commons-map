@@ -1,7 +1,7 @@
 
-import UKMap from '@/components/map/UKMap';
 import { getTowns } from '@/lib/data';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import ClientUKMap from '@/components/map/ClientUKMap'; // Import the new client component
 
 export default async function HomePage() {
   const towns = await getTowns();
@@ -24,10 +24,9 @@ export default async function HomePage() {
           <CardDescription>Click on a town to explore its unique locations.</CardDescription>
         </CardHeader>
         <CardContent>
-          <UKMap towns={towns} />
+          <ClientUKMap towns={towns} />
         </CardContent>
       </Card>
     </div>
   );
 }
-

@@ -1,10 +1,12 @@
+
 import { getTownByName, getLocationsByTownId } from '@/lib/data';
-import TownMap from '@/components/map/TownMap';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
+import ClientTownMap from '@/components/map/ClientTownMap'; // Import the new client component
+import type { Town } from '@/lib/types'; 
 
 interface TownPageProps {
   params: {
@@ -73,7 +75,7 @@ export default async function TownPage({ params }: TownPageProps) {
           <CardDescription>Discover interesting places submitted by our community.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TownMap locations={locations} town={town} />
+          <ClientTownMap locations={locations} town={town} />
         </CardContent>
       </Card>
     </div>

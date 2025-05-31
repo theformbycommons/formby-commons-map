@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Location, Town } from '@/lib/types';
@@ -8,16 +9,7 @@ import Link from 'next/link';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-
-// Fix for Leaflet default icon path issues with webpack
-if (typeof window !== 'undefined') {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: iconRetinaUrl.src,
-    iconUrl: iconUrl.src,
-    shadowUrl: shadowUrl.src,
-  });
-}
+import React, { useEffect } from 'react';
 
 interface TownMapProps {
   locations: Location[];
@@ -25,30 +17,22 @@ interface TownMapProps {
 }
 
 export default function TownMap({ locations, town }: TownMapProps) {
+  useEffect(() => {
+    // This check is still good for client-side only execution of Leaflet specific setup
+    if (typeof window !== 'undefined') {
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: iconRetinaUrl.src,
+        iconUrl: iconUrl.src,
+        shadowUrl: shadowUrl.src,
+      });
+    }
+  }, []);
+
   const townCenter: L.LatLngExpression = [town.coordinates.lat, town.coordinates.lng];
   const townZoom = 13;
 
-  if (typeof window === 'undefined') {
-    return (
-      <div className="space-y-6">
-        <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden shadow-lg border border-border bg-muted animate-pulse">
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end justify-center p-6">
-              <h2 className="text-2xl font-headline font-bold text-white text-center">Explore {town.name}</h2>
-            </div>
-        </div>
-        {locations.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">No locations found for {town.name}. Be the first to <a href="/suggest-location" className="text-accent hover:underline">suggest one</a>!</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {locations.map((location) => (
-              <LocationCard key={location.id} location={location} />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
+  // The component will now only render on the client due to next/dynamic ssr:false
   return (
     <div className="space-y-6">
       <div className="relative w-full h-64 md:h-80 rounded-lg overflow-hidden shadow-lg border border-border">
