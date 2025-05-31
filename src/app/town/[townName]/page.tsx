@@ -1,0 +1,81 @@
+import { getTownByName, getLocationsByTownId } from '@/lib/data';
+import TownMap from '@/components/map/TownMap';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { ArrowLeft, PlusCircle } from 'lucide-react';
+import Image from 'next/image';
+
+interface TownPageProps {
+  params: {
+    townName: string;
+  };
+}
+
+export default async function TownPage({ params }: TownPageProps) {
+  const townName = decodeURIComponent(params.townName);
+  const town = await getTownByName(townName);
+
+  if (!town) {
+    return (
+      <div className="text-center py-10">
+        <h1 className="text-2xl font-bold text-destructive mb-4">Town Not Found</h1>
+        <p className="text-muted-foreground mb-6">Sorry, we couldn't find information for "{townName}".</p>
+        <Button asChild>
+          <Link href="/">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const locations = await getLocationsByTownId(town.id);
+
+  return (
+    <div className="space-y-8">
+      <section className="relative bg-card rounded-lg shadow-md overflow-hidden p-6 md:p-8">
+        {town.imageUrl && (
+          <Image
+            src={town.imageUrl}
+            alt={`Banner image for ${town.name}`}
+            layout="fill"
+            objectFit="cover"
+            className="opacity-20 z-0"
+            data-ai-hint={`${town.name} landscape`}
+          />
+        )}
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <div>
+              <h1 className="text-4xl font-headline font-bold text-primary mb-1">{town.name}</h1>
+              <p className="text-lg text-muted-foreground">{town.county}, {town.country}</p>
+            </div>
+            <Button asChild variant="outline" className="mt-4 md:mt-0 border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+              <Link href="/suggest-location">
+                <PlusCircle className="mr-2 h-4 w-4" /> Suggest a Location
+              </Link>
+            </Button>
+          </div>
+          <p className="text-md text-foreground max-w-3xl mb-4">{town.description}</p>
+          
+          <Button asChild variant="link" className="px-0 text-accent">
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Towns
+            </Link>
+          </Button>
+        </div>
+      </section>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl text-primary">Locations in {town.name}</CardTitle>
+          <CardDescription>Discover interesting places submitted by our community.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TownMap locations={locations} townName={town.name} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
