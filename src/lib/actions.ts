@@ -88,7 +88,7 @@ export async function submitSuggestion(
     const submitted = await addSuggestedLocation(newSuggestionData); // Mock saving
 
     return {
-      message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received and is pending review.`,
+      message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" for The Local Glow has been received and is pending review.`,
       type: 'success',
       submittedLocation: { ...validatedFields.data, moderationResult: { isAppropriate: true } },
     };

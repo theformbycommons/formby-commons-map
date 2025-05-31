@@ -12,7 +12,7 @@ export default function SuggestLocationPage() {
           </div>
           <CardTitle className="font-headline text-3xl text-primary">Suggest a New Location</CardTitle>
           <CardDescription className="text-md">
-            Help us grow Local Lens UK! Share your favorite spots and hidden gems.
+            Help us grow The Local Glow! Share your favorite spots and hidden gems.
             Your suggestion will be reviewed before appearing on the site.
           </CardDescription>
         </CardHeader>

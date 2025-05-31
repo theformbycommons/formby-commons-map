@@ -4,7 +4,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Local Lens UK',
+  title: 'The Local Glow',
   description: 'Discover and share local gems across the UK.',
 };
 

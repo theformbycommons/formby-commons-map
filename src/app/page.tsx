@@ -8,7 +8,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-8">
       <section className="text-center py-8 bg-card rounded-lg shadow-md">
-        <h1 className="text-4xl font-headline font-bold text-primary mb-2">Welcome to Local Lens UK</h1>
+        <h1 className="text-4xl font-headline font-bold text-primary mb-2">Welcome to The Local Glow</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Explore vibrant towns and hidden gems across the United Kingdom. Discover unique locations shared by locals and travelers alike.
         </p>
