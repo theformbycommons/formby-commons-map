@@ -85,13 +85,14 @@ export default function SuggestLocationForm() {
       <div>
         <Label htmlFor="name" className="font-medium">Location Name</Label>
         <Input id="name" {...register('name')} className="mt-1" aria-invalid={errors.name ? "true" : "false"} />
+        <p className="text-xs text-muted-foreground mt-1">Suggest a name that best describes your entry.</p>
         {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
       </div>
 
       <div>
         <Label htmlFor="description" className="font-medium">Description</Label>
         <Textarea id="description" {...register('description')} rows={4} className="mt-1" aria-invalid={errors.description ? "true" : "false"} />
-        <p className="text-xs text-muted-foreground mt-1">Tell us about this place. What makes it special?</p>
+        <p className="text-xs text-muted-foreground mt-1">Tell us about this place. What makes it special? Please be specific; your unique observations allow us all to experience the charm and warmth of your town through your eyes.</p>
         {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
       </div>
       
@@ -137,6 +138,7 @@ export default function SuggestLocationForm() {
       <div>
         <Label htmlFor="suggesterName" className="font-medium">Your Name</Label>
         <Input id="suggesterName" {...register('suggesterName')} className="mt-1" aria-invalid={errors.suggesterName ? "true" : "false"} />
+        <p className="text-xs text-muted-foreground mt-1">How you'd like to be credited (e.g., first name, nickname, initials, or a pseudonym).</p>
         {errors.suggesterName && <p className="text-sm text-destructive mt-1">{errors.suggesterName.message}</p>}
       </div>
 
