@@ -56,7 +56,6 @@ export const mockLocations: Location[] = [
     postcodeOutcode: 'L37',
     suggesterComment: 'A must-visit in Formby.',
     comments: mockComments,
-    rating: 4.5,
   },
   {
     id: 'formby-red-squirrel-reserve',
@@ -70,7 +69,6 @@ export const mockLocations: Location[] = [
     submittedBy: 'Admin',
     postcodeOutcode: 'L37',
     comments: [{id: 'c3', user: 'NatureLover22', comment: 'Saw three red squirrels! Magical.', date: today}],
-    rating: 4.8,
   },
   {
     id: 'the-railway-formby',
@@ -84,7 +82,6 @@ export const mockLocations: Location[] = [
     submittedBy: 'Admin',
     postcodeOutcode: 'L37',
     comments: [],
-    rating: 4.2,
   },
   // Windermere Locations
   {
@@ -99,7 +96,6 @@ export const mockLocations: Location[] = [
     submittedBy: 'Admin',
     postcodeOutcode: 'LA23',
     comments: [],
-    rating: 4.6,
   },
   {
     id: 'orrest-head',
@@ -113,7 +109,6 @@ export const mockLocations: Location[] = [
     submittedBy: 'Admin',
     postcodeOutcode: 'LA23',
     comments: [],
-    rating: 4.7,
   },
   // St Ives Locations
   {
@@ -128,7 +123,6 @@ export const mockLocations: Location[] = [
     submittedBy: 'Admin',
     postcodeOutcode: 'TR26',
     comments: [],
-    rating: 4.4,
   },
 ];
 
@@ -151,13 +145,12 @@ export async function getLocationById(id: string): Promise<Location | undefined>
 }
 
 // For Suggest New Location - this would interact with a database in a real app
-export async function addSuggestedLocation(locationData: Omit<Location, 'id' | 'comments' | 'rating'>): Promise<Location> {
+export async function addSuggestedLocation(locationData: Omit<Location, 'id' | 'comments'>): Promise<Location> {
   console.log("Mock submitting location:", locationData);
   const newLocation: Location = {
     ...locationData,
     id: `new-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     comments: locationData.suggesterComment ? [{id: 'suggester-comment', user: locationData.submittedBy, comment: locationData.suggesterComment, date: new Date().toISOString()}] : [],
-    rating: undefined, // New locations start unrated
     postcodeOutcode: locationData.postcodeOutcode, // Ensure postcode is passed
   };
   // In a real app, this would be saved to a staging/approval database
@@ -182,5 +175,3 @@ export const locationCategories = [
   "Accommodation",
   "Other"
 ];
-
-    

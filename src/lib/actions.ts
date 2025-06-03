@@ -65,7 +65,7 @@ export async function submitSuggestion(
 
   try {
     // Ensure newSuggestionData matches the expected type for addSuggestedLocation
-    const newSuggestionData: Omit<Location, 'id' | 'comments' | 'rating' | 'imageUrl'> & { imageUrl?: string } = {
+    const newSuggestionData: Omit<Location, 'id' | 'comments'> & { imageUrl?: string } = {
       ...restOfData,
       description,
       townName, 
@@ -93,5 +93,3 @@ export async function submitSuggestion(
     };
   }
 }
-
-    

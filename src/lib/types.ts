@@ -35,7 +35,6 @@ export interface Location {
   suggesterComment?: string; // Initial comment/note from suggester
   postcodeOutcode?: string; // Added postcode outcode
   comments: LocationComment[];
-  rating?: number; // Optional: average rating 0-5
 }
 
 // For form validation and submission
@@ -49,5 +48,3 @@ export interface NewLocationSuggestion {
   suggesterComment?: string;
   suggesterName: string;
 }
-
-    

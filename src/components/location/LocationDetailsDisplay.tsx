@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Tag, UserCircle, MessageSquare, Star, CalendarDays } from 'lucide-react';
+import { ArrowLeft, MapPin, Tag, UserCircle, MessageSquare, CalendarDays } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 interface LocationDetailsDisplayProps {
@@ -40,7 +40,7 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
       </CardHeader>
       
       <CardContent className="p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"> {/* Adjusted to md:grid-cols-2 */}
           <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-md">
             {getCategoryIcon(location.category)}
             <span className="font-medium text-secondary-foreground">Category:</span>
@@ -51,13 +51,6 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
             <span className="font-medium text-secondary-foreground">Coordinates:</span>
             <span>{location.coordinates.lat.toFixed(3)}, {location.coordinates.lng.toFixed(3)}</span>
           </div>
-          {location.rating && (
-            <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-md">
-              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-              <span className="font-medium text-secondary-foreground">Rating:</span>
-              <span>{location.rating.toFixed(1)} / 5</span>
-            </div>
-          )}
         </div>
 
         <div>
