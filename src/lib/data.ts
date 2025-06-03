@@ -1,3 +1,4 @@
+
 import type { Town, Location, LocationComment } from './types';
 
 const today = new Date().toISOString();
@@ -52,6 +53,7 @@ export const mockLocations: Location[] = [
     category: 'Nature Spot',
     coordinates: { lat: 53.561, lng: -3.094 },
     submittedBy: 'Admin',
+    postcodeOutcode: 'L37',
     suggesterComment: 'A must-visit in Formby.',
     comments: mockComments,
     rating: 4.5,
@@ -66,6 +68,7 @@ export const mockLocations: Location[] = [
     category: 'Park',
     coordinates: { lat: 53.552, lng: -3.080 },
     submittedBy: 'Admin',
+    postcodeOutcode: 'L37',
     comments: [{id: 'c3', user: 'NatureLover22', comment: 'Saw three red squirrels! Magical.', date: today}],
     rating: 4.8,
   },
@@ -79,6 +82,7 @@ export const mockLocations: Location[] = [
     category: 'Pub / Restaurant',
     coordinates: { lat: 53.558, lng: -3.064 },
     submittedBy: 'Admin',
+    postcodeOutcode: 'L37',
     comments: [],
     rating: 4.2,
   },
@@ -93,6 +97,7 @@ export const mockLocations: Location[] = [
     category: 'Attraction',
     coordinates: { lat: 54.374, lng: -2.911 },
     submittedBy: 'Admin',
+    postcodeOutcode: 'LA23',
     comments: [],
     rating: 4.6,
   },
@@ -106,6 +111,7 @@ export const mockLocations: Location[] = [
     category: 'Viewpoint',
     coordinates: { lat: 54.386, lng: -2.900 },
     submittedBy: 'Admin',
+    postcodeOutcode: 'LA23',
     comments: [],
     rating: 4.7,
   },
@@ -120,6 +126,7 @@ export const mockLocations: Location[] = [
     category: 'Gallery / Museum',
     coordinates: { lat: 50.216, lng: -5.480 },
     submittedBy: 'Admin',
+    postcodeOutcode: 'TR26',
     comments: [],
     rating: 4.4,
   },
@@ -151,6 +158,7 @@ export async function addSuggestedLocation(locationData: Omit<Location, 'id' | '
     id: `new-${Date.now()}-${Math.random().toString(36).substring(7)}`,
     comments: locationData.suggesterComment ? [{id: 'suggester-comment', user: locationData.submittedBy, comment: locationData.suggesterComment, date: new Date().toISOString()}] : [],
     rating: undefined, // New locations start unrated
+    postcodeOutcode: locationData.postcodeOutcode, // Ensure postcode is passed
   };
   // In a real app, this would be saved to a staging/approval database
   // For mock purposes, we can add it to the list if needed for immediate feedback, or just log it.
@@ -174,3 +182,5 @@ export const locationCategories = [
   "Accommodation",
   "Other"
 ];
+
+    

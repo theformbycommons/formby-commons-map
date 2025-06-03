@@ -1,3 +1,4 @@
+
 export interface Coordinates {
   lat: number;
   lng: number;
@@ -32,6 +33,7 @@ export interface Location {
   coordinates: Coordinates;
   submittedBy: string; // Name of the suggester
   suggesterComment?: string; // Initial comment/note from suggester
+  postcodeOutcode?: string; // Added postcode outcode
   comments: LocationComment[];
   rating?: number; // Optional: average rating 0-5
 }
@@ -41,8 +43,11 @@ export interface NewLocationSuggestion {
   name: string;
   description: string;
   townName: string;
+  postcodeOutcode?: string; // Added postcode outcode
   category: string;
   // pictureFile?: FileList; // Handled by FormData server-side, client-side uses FileList type
   suggesterComment?: string;
   suggesterName: string;
 }
+
+    

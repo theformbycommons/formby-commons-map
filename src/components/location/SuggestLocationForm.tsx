@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFormState, useFormStatus } from 'react-dom';
@@ -22,10 +23,15 @@ const SuggestionFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
   description: z.string().min(10, "Description must be at least 10 characters long.").max(1000, "Description must be 1000 characters or less."),
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
+  postcodeOutcode: z.string()
+    .regex(/^[A-Za-z0-9]{3,4}$/, "Must be 3 or 4 alphanumeric characters.")
+    .transform(val => val.toUpperCase())
+    .optional()
+    .or(z.literal('')), // Allow empty string
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
-  pictureFile: z.any().optional() // Use z.any() to avoid FileList error on SSR
+  pictureFile: z.any().optional()
     .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max file size is 5MB.`)
     .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
       'Only .jpg, .png, .webp formats are supported.'
@@ -59,6 +65,7 @@ export default function SuggestLocationForm() {
       name: '',
       description: '',
       townName: '',
+      postcodeOutcode: '',
       category: '',
       suggesterName: '',
       suggesterComment: '',
@@ -105,27 +112,40 @@ export default function SuggestLocationForm() {
           </datalist>
           {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
         </div>
-
         <div>
-          <Label htmlFor="category" className="font-medium">Category</Label>
-          <Controller
-            name="category"
-            control={control}
-            render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value} aria-invalid={errors.category ? "true" : "false"}>
-                <SelectTrigger id="category" className="mt-1">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locationCategories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+          <Label htmlFor="postcodeOutcode" className="font-medium">Postcode (first part)</Label>
+          <Input 
+            id="postcodeOutcode" 
+            {...register('postcodeOutcode')} 
+            className="mt-1" 
+            placeholder="e.g., L37 or SW1A" 
+            aria-invalid={errors.postcodeOutcode ? "true" : "false"} 
+            maxLength={4}
           />
-          {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
+          <p className="text-xs text-muted-foreground mt-1">Outcode = First 3 or 4 characters.</p>
+          {errors.postcodeOutcode && <p className="text-sm text-destructive mt-1">{errors.postcodeOutcode.message}</p>}
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="category" className="font-medium">Category</Label>
+        <Controller
+          name="category"
+          control={control}
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} defaultValue={field.value} aria-invalid={errors.category ? "true" : "false"}>
+              <SelectTrigger id="category" className="mt-1">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {locationCategories.map(cat => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
       </div>
 
       <div>
@@ -170,3 +190,5 @@ export default function SuggestLocationForm() {
     </form>
   );
 }
+
+    
