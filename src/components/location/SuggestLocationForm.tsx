@@ -25,7 +25,7 @@ const SuggestionFormSchema = z.object({
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
-  pictureFile: z.instanceof(FileList).optional() // Optional file upload
+  pictureFile: z.any().optional() // Use z.any() to avoid FileList error on SSR
     .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max file size is 5MB.`)
     .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
       'Only .jpg, .png, .webp formats are supported.'
@@ -132,7 +132,7 @@ export default function SuggestLocationForm() {
         <Label htmlFor="pictureFile" className="font-medium">Picture (Optional)</Label>
         <Input id="pictureFile" type="file" {...register('pictureFile')} className="mt-1 file:text-sm file:font-medium file:text-primary file:bg-primary-foreground/10 hover:file:bg-primary-foreground/20" />
         <p className="text-xs text-muted-foreground mt-1">Max 5MB. JPG, PNG, or WEBP.</p>
-        {errors.pictureFile && <p className="text-sm text-destructive mt-1">{errors.pictureFile.message}</p>}
+        {errors.pictureFile && <p className="text-sm text-destructive mt-1">{errors.pictureFile.message as string}</p>}
       </div>
       
       <div>
