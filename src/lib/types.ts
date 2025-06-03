@@ -5,46 +5,51 @@ export interface Coordinates {
 }
 
 export interface Town {
-  id: string;
+  id: string; // Firestore document ID
   name: string;
   county: string;
   country: string;
   coordinates: Coordinates;
   description: string;
   imageUrl?: string;
-  locationCount: number;
+  locationCount?: number; // Will be calculated, so make it optional from DB perspective
 }
 
 export interface LocationComment {
-  id: string;
+  id: string; // Can be a unique ID or index if stored as an array
   user: string;
   comment: string;
-  date: string; // ISO date string
+  date: string; // ISO date string (Firestore Timestamps will be converted)
 }
 
 export interface Location {
-  id: string;
+  id: string; // Firestore document ID
   townId: string;
-  townName: string;
+  townName: string; // Denormalized for convenience
   name: string;
   description: string;
   imageUrl?: string;
   category: string;
   coordinates: Coordinates;
-  submittedBy: string; // Name of the suggester
-  suggesterComment?: string; // Initial comment/note from suggester
-  postcodeOutcode?: string; // Added postcode outcode
+  submittedBy: string;
+  suggesterComment?: string;
+  postcodeOutcode?: string;
   comments: LocationComment[];
+  // status: 'approved' | 'pending'; // Might be useful if suggestedLocations are merged here
 }
 
-// For form validation and submission
+// For form validation and submission to 'suggestedLocations'
 export interface NewLocationSuggestion {
   name: string;
   description: string;
   townName: string;
-  postcodeOutcode?: string; // Added postcode outcode
+  postcodeOutcode?: string;
   category: string;
-  // pictureFile?: FileList; // Handled by FormData server-side, client-side uses FileList type
-  suggesterComment?: string;
   suggesterName: string;
+  suggesterComment?: string;
+  // pictureFile is handled by FormData, not directly stored in this type for Firestore
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string; // ISO date string
+  coordinates?: Coordinates; // Will be added later, for now can be placeholder
+  imageUrl?: string; // For uploaded image URL
 }

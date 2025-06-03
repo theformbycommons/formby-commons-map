@@ -2,9 +2,11 @@
 'use server';
 
 import { z } from 'zod';
-// Removed: import { moderateLocationDescription } from '@/ai/flows/moderate-location-description';
-import type { NewLocationSuggestion, Location } from './types';
-import { addSuggestedLocation, mockTowns } from './data'; // Using mockTowns for validation
+import type { NewLocationSuggestion } from './types';
+import { addDoc, collection, Timestamp } from 'firebase/firestore';
+import { db } from './firebase';
+// Using mockTowns for validation (client-side datalist primarily)
+// import { mockTowns } from './data'; // This is only used for client-side datalist now.
 
 const SuggestionSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
@@ -14,7 +16,7 @@ const SuggestionSchema = z.object({
     .regex(/^[A-Za-z0-9]{3,4}$/, "Postcode outcode must be 3 or 4 alphanumeric characters.")
     .transform(val => val.toUpperCase())
     .optional()
-    .or(z.literal('')), // Allow empty string to be valid if optional
+    .or(z.literal('')),
   category: z.string().min(1, "Category is required"),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
   suggesterComment: z.string().max(500).optional(),
@@ -24,7 +26,7 @@ export interface FormState {
   message: string;
   type: 'success' | 'error' | 'info';
   errors?: Record<string, string[] | undefined>;
-  submittedLocation?: NewLocationSuggestion;
+  submittedSuggestionData?: NewLocationSuggestion; // Store the submitted data for potential display
 }
 
 export async function submitSuggestion(
@@ -39,7 +41,7 @@ export async function submitSuggestion(
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
     suggesterComment: formData.get('suggesterComment') as string | undefined,
-    // pictureFile: formData.get('pictureFile') // File handling would be more complex
+    // pictureFile: formData.get('pictureFile') // File handling for storage is a separate step
   };
 
   const validatedFields = SuggestionSchema.safeParse(rawFormData);
@@ -52,41 +54,31 @@ export async function submitSuggestion(
     };
   }
   
-  // Ensure postcodeOutcode is truly optional (empty string becomes undefined)
   const dataToSubmit = {
     ...validatedFields.data,
     postcodeOutcode: validatedFields.data.postcodeOutcode === '' ? undefined : validatedFields.data.postcodeOutcode,
   };
 
-
-  const { description, townName, ...restOfData } = dataToSubmit;
-  
-  const existingTown = mockTowns.find(t => t.name.toLowerCase() === townName.toLowerCase());
-
   try {
-    // Ensure newSuggestionData matches the expected type for addSuggestedLocation
-    const newSuggestionData: Omit<Location, 'id' | 'comments'> & { imageUrl?: string } = {
-      ...restOfData,
-      description,
-      townName, 
-      townId: existingTown?.id || `new-town-${townName.toLowerCase().replace(/\s+/g, '-')}`,
-      submittedBy: dataToSubmit.suggesterName,
-      suggesterComment: dataToSubmit.suggesterComment,
-      postcodeOutcode: dataToSubmit.postcodeOutcode, // Add postcode here
-      coordinates: { lat: 0, lng: 0 }, // Placeholder coordinates
-      // imageUrl would come from picture upload
+    const suggestionForDb: NewLocationSuggestion = {
+      ...dataToSubmit,
+      status: 'pending',
+      submittedAt: Timestamp.now().toDate().toISOString(), // Store as ISO string
+      coordinates: { lat: 0, lng: 0 }, // Placeholder coordinates, actual geocoding/map input needed for real values
+      // imageUrl will be added after image upload to Firebase Storage
     };
-    
-    const submitted = await addSuggestedLocation(newSuggestionData);
+
+    const suggestedLocationsCol = collection(db, 'suggestedLocations');
+    await addDoc(suggestedLocationsCol, suggestionForDb);
 
     return {
-      message: `Thank you, ${dataToSubmit.suggesterName}! Your suggestion for "${dataToSubmit.name}" for The Local Glow has been received and is pending review.`,
+      message: `Thank you, ${dataToSubmit.suggesterName}! Your suggestion for "${dataToSubmit.name}" has been received and is pending review.`,
       type: 'success',
-      submittedLocation: { ...dataToSubmit },
+      submittedSuggestionData: suggestionForDb,
     };
 
   } catch (error) {
-    console.error("Error submitting suggestion:", error);
+    console.error("Error submitting suggestion to Firestore:", error);
     return {
       message: "There was an error submitting your suggestion. Please try again.",
       type: 'error',

@@ -4,10 +4,6 @@
 import type { Town } from '@/lib/types';
 import L, { type Map as LeafletMapClass } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-// Removed problematic local image imports
-// import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-// import iconUrl from 'leaflet/dist/images/marker-icon.png';
-// import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapPin, Eye } from 'lucide-react';
@@ -45,17 +41,19 @@ export default function UKMap({ towns }: UKMapProps) {
       }).addTo(mapRef.current);
 
       towns.forEach((town) => {
-        const marker = L.marker([town.coordinates.lat, town.coordinates.lng]).addTo(mapRef.current!);
-        const popupContent = `
-          <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
-            <strong style="font-size: 1.1em; color: hsl(var(--primary));">${town.name}</strong><br/>
-            <span style="font-size: 0.9em; color: hsl(var(--muted-foreground));">${town.county}, ${town.country}</span><br/>
-            <a href="/town/${encodeURIComponent(town.name.toLowerCase())}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
-              Explore ${town.name} &rarr;
-            </a>
-          </div>
-        `;
-        marker.bindPopup(popupContent);
+        if (town.coordinates) { // Ensure coordinates exist
+          const marker = L.marker([town.coordinates.lat, town.coordinates.lng]).addTo(mapRef.current!);
+          const popupContent = `
+            <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
+              <strong style="font-size: 1.1em; color: hsl(var(--primary));">${town.name}</strong><br/>
+              <span style="font-size: 0.9em; color: hsl(var(--muted-foreground));">${town.county}, ${town.country}</span><br/>
+              <a href="/town/${encodeURIComponent(town.name.toLowerCase())}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
+                Explore ${town.name} &rarr;
+              </a>
+            </div>
+          `;
+          marker.bindPopup(popupContent);
+        }
       });
     }
 
@@ -77,7 +75,7 @@ export default function UKMap({ towns }: UKMapProps) {
       </div>
 
       {towns.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">No towns available to display yet. Check back soon!</p>
+        <p className="text-center text-muted-foreground py-8">No towns available to display yet. Add some to Firestore!</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {towns.map((town) => (
@@ -105,7 +103,7 @@ export default function UKMap({ towns }: UKMapProps) {
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
                   <a href={`/town/${encodeURIComponent(town.name.toLowerCase())}`} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
-                    Explore {town.name} ({town.locationCount} Locations)
+                    Explore {town.name} ({town.locationCount || 0} Locations)
                   </a>
                 </Button>
               </CardFooter>

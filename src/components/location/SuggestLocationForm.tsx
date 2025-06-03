@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react'; // Updated from useFormState
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -13,9 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type FormState } from '@/lib/actions';
-import { locationCategories, mockTowns } from '@/lib/data'; // Using mockTowns for town suggestions
-import { useEffect }
-from 'react';
+import { locationCategories, mockTowns } from '@/lib/data'; // Using mockTowns for town datalist
+import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info } from 'lucide-react';
 
@@ -27,11 +26,11 @@ const SuggestionFormSchema = z.object({
     .regex(/^[A-Za-z0-9]{3,4}$/, "Must be 3 or 4 alphanumeric characters.")
     .transform(val => val.toUpperCase())
     .optional()
-    .or(z.literal('')), // Allow empty string
+    .or(z.literal('')), 
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
-  pictureFile: z.any().optional()
+  pictureFile: z.any().optional() // Changed from z.instanceof(FileList)
     .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max file size is 5MB.`)
     .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
       'Only .jpg, .png, .webp formats are supported.'
@@ -46,7 +45,7 @@ const initialState: FormState = {
 };
 
 function SubmitButton() {
-  const { pending } = useFormStatus();
+  const { pending } = useFormStatus(); // from 'react-dom'
   return (
     <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
       {pending ? <Spinner size={20} className="mr-2" /> : null}
@@ -56,7 +55,7 @@ function SubmitButton() {
 }
 
 export default function SuggestLocationForm() {
-  const [state, formAction] = useFormState(submitSuggestion, initialState);
+  const [state, formAction] = useActionState(submitSuggestion, initialState);
   const { toast } = useToast();
 
   const { register, handleSubmit, control, formState: { errors }, reset } = useForm<SuggestionFormData>({
@@ -81,14 +80,27 @@ export default function SuggestLocationForm() {
         variant: state.type === 'error' ? 'destructive' : 'default',
       });
       if (state.type === 'success') {
-        reset(); // Reset form on successful submission
+        reset(); 
       }
     }
   }, [state, toast, reset]);
 
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form
+      onSubmit={handleSubmit(data => {
+        const formData = new FormData();
+        Object.entries(data).forEach(([key, value]) => {
+          if (key === 'pictureFile' && value instanceof FileList && value.length > 0) {
+            formData.append(key, value[0]);
+          } else if (value !== undefined && value !== null && value !== '') {
+            formData.append(key, String(value));
+          }
+        });
+        formAction(formData);
+      })}
+      className="space-y-6"
+    >
       <div>
         <Label htmlFor="name" className="font-medium">Location Name</Label>
         <Input id="name" {...register('name')} className="mt-1" aria-invalid={errors.name ? "true" : "false"} />
@@ -169,6 +181,7 @@ export default function SuggestLocationForm() {
         {errors.suggesterComment && <p className="text-sm text-destructive mt-1">{errors.suggesterComment.message}</p>}
       </div>
       
+      {/* This Alert can be removed if relying solely on toasts */}
       {state?.message && !state.errors && (
          <Alert variant={state.type === 'error' ? 'destructive' : 'default'} className={
            state.type === 'success' ? 'bg-green-50 border-green-300 text-green-700' : 
@@ -190,5 +203,3 @@ export default function SuggestLocationForm() {
     </form>
   );
 }
-
-    
