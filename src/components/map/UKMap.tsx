@@ -47,7 +47,7 @@ export default function UKMap({ towns }: UKMapProps) {
             <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
               <strong style="font-size: 1.1em; color: hsl(var(--primary));">${town.name}</strong><br/>
               <span style="font-size: 0.9em; color: hsl(var(--muted-foreground));">${town.county}, ${town.country}</span><br/>
-              <a href="/town/${encodeURIComponent(town.name.toLowerCase())}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
+              <a href="/town/${encodeURIComponent(town.name)}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
                 Explore ${town.name} &rarr;
               </a>
             </div>
@@ -101,7 +101,7 @@ export default function UKMap({ towns }: UKMapProps) {
               </CardContent>
               <CardFooter>
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
-                  <a href={`/town/${encodeURIComponent(town.name.toLowerCase())}`} className="flex items-center gap-2">
+                  <a href={`/town/${encodeURIComponent(town.name)}`} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
                     Explore {town.name} ({town.locationCount || 0} Locations)
                   </a>

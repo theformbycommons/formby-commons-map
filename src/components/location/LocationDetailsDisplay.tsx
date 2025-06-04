@@ -150,7 +150,7 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
 
       <CardFooter className="p-6 border-t">
         <Button asChild variant="outline">
-          <Link href={`/town/${encodeURIComponent(location.townName.toLowerCase())}`}>
+          <Link href={`/town/${encodeURIComponent(location.townName)}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to {location.townName}
           </Link>
