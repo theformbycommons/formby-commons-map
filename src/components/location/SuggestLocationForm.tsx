@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useActionState } from 'react'; // Updated from useFormState
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFormStatus } from 'react-hook-form'; // Added useFormStatus
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type FormState } from '@/lib/actions';
-import { locationCategories, mockTowns } from '@/lib/data'; // Using mockTowns for town datalist
-import { useEffect } from 'react';
+import { locationCategories, mockTowns } from '@/lib/data'; 
+import { useEffect, useState } from 'react'; // Added useState
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info } from 'lucide-react';
+import { resizeImage } from '@/lib/imageUtils'; // Import resizeImage
 
 const SuggestionFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
@@ -30,10 +30,10 @@ const SuggestionFormSchema = z.object({
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
-  pictureFile: z.any().optional() // Changed from z.instanceof(FileList)
-    .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max file size is 5MB.`)
+  pictureFile: z.any().optional() 
+    .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max original file size is 5MB.`)
     .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
-      'Only .jpg, .png, .webp formats are supported.'
+      'Only .jpg, .png, .webp formats are supported for original upload.'
     ),
 });
 
@@ -45,11 +45,35 @@ const initialState: FormState = {
 };
 
 function SubmitButton() {
-  const { pending } = useFormStatus(); // from 'react-dom'
+  const { pending } = useFormStatus();
+  const [isResizing, setIsResizing] = useState(false); // Local state for resizing
+
+  // This effect is to share resizing state with the button, assuming form processing is quick
+  // A more robust solution might involve context or Zustand if form processing were slow
+  useEffect(() => {
+    const handleImageResizeStart = () => setIsResizing(true);
+    const handleImageResizeEnd = () => setIsResizing(false);
+    window.addEventListener('image-resize-start', handleImageResizeStart);
+    window.addEventListener('image-resize-end', handleImageResizeEnd);
+    return () => {
+      window.removeEventListener('image-resize-start', handleImageResizeStart);
+      window.removeEventListener('image-resize-end', handleImageResizeEnd);
+    };
+  }, []);
+
+
+  const isDisabled = pending || isResizing;
+  let buttonText = 'Submit Suggestion';
+  if (isResizing) {
+    buttonText = 'Resizing Image...';
+  } else if (pending) {
+    buttonText = 'Submitting...';
+  }
+
   return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-      {pending ? <Spinner size={20} className="mr-2" /> : null}
-      {pending ? 'Submitting...' : 'Submit Suggestion'}
+    <Button type="submit" disabled={isDisabled} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
+      {(pending || isResizing) && <Spinner size={20} className="mr-2" />}
+      {buttonText}
     </Button>
   );
 }
@@ -57,8 +81,9 @@ function SubmitButton() {
 export default function SuggestLocationForm() {
   const [state, formAction] = useActionState(submitSuggestion, initialState);
   const { toast } = useToast();
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
 
-  const { register, handleSubmit, control, formState: { errors }, reset } = useForm<SuggestionFormData>({
+  const { register, handleSubmit, control, formState: { errors }, reset, setValue } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormSchema),
     defaultValues: {
       name: '',
@@ -81,24 +106,65 @@ export default function SuggestLocationForm() {
       });
       if (state.type === 'success') {
         reset(); 
+        setCurrentFile(null);
+        const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
+        if (fileInput) fileInput.value = ''; // Clear file input
       }
     }
   }, [state, toast, reset]);
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setCurrentFile(event.target.files[0]);
+      setValue('pictureFile', event.target.files); // Keep react-hook-form happy
+    } else {
+      setCurrentFile(null);
+      setValue('pictureFile', null);
+    }
+  };
+
+  const processSubmit = async (data: SuggestionFormData) => {
+    const formData = new FormData();
+    let finalFileToUpload: File | null = null;
+
+    if (currentFile) {
+      window.dispatchEvent(new CustomEvent('image-resize-start'));
+      try {
+        // Attempt to resize to webp for better compression, fallback to jpeg
+        const resized = await resizeImage(currentFile, 800, 600, 200, 'image/webp');
+        if (resized.size / 1024 > 250 && resized.type === 'image/webp') { // If webp still too big, try jpeg
+           finalFileToUpload = await resizeImage(currentFile, 800, 600, 200, 'image/jpeg');
+        } else {
+           finalFileToUpload = resized;
+        }
+        
+        // console.log(`Final file to upload: ${finalFileToUpload.name}, size: ${(finalFileToUpload.size / 1024).toFixed(2)}KB, type: ${finalFileToUpload.type}`);
+
+      } catch (error) {
+        // console.error("Image resizing failed:", error);
+        finalFileToUpload = currentFile; // Fallback to original if resize fails
+      } finally {
+        window.dispatchEvent(new CustomEvent('image-resize-end'));
+      }
+    }
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (key === 'pictureFile') {
+        // Append the (potentially resized) file
+        if (finalFileToUpload) {
+          formData.append(key, finalFileToUpload, finalFileToUpload.name);
+        }
+      } else if (value !== undefined && value !== null && value !== '') {
+        formData.append(key, String(value));
+      }
+    });
+    formAction(formData);
+  };
+
 
   return (
     <form
-      onSubmit={handleSubmit(data => {
-        const formData = new FormData();
-        Object.entries(data).forEach(([key, value]) => {
-          if (key === 'pictureFile' && value instanceof FileList && value.length > 0) {
-            formData.append(key, value[0]);
-          } else if (value !== undefined && value !== null && value !== '') {
-            formData.append(key, String(value));
-          }
-        });
-        formAction(formData);
-      })}
+      onSubmit={handleSubmit(processSubmit)}
       className="space-y-6"
     >
       <div>
@@ -161,9 +227,16 @@ export default function SuggestLocationForm() {
       </div>
 
       <div>
-        <Label htmlFor="pictureFile" className="font-medium">Picture (Optional)</Label>
-        <Input id="pictureFile" type="file" {...register('pictureFile')} className="mt-1 file:text-sm file:font-medium file:text-primary file:bg-primary-foreground/10 hover:file:bg-primary-foreground/20" />
-        <p className="text-xs text-muted-foreground mt-1">Max 5MB. JPG, PNG, or WEBP.</p>
+        <Label htmlFor="pictureFile" className="font-medium">Picture (Optional, max 5MB original)</Label>
+        <Input 
+          id="pictureFile" 
+          type="file" 
+          accept="image/jpeg,image/png,image/webp"
+          {...register('pictureFile')} // register is mainly for validation messages
+          onChange={handleFileChange} // We use custom handler for file processing
+          className="mt-1 file:text-sm file:font-medium file:text-primary file:bg-primary-foreground/10 hover:file:bg-primary-foreground/20" 
+        />
+        <p className="text-xs text-muted-foreground mt-1">Max 5MB (will be resized to ~200KB). JPG, PNG, or WEBP.</p>
         {errors.pictureFile && <p className="text-sm text-destructive mt-1">{errors.pictureFile.message as string}</p>}
       </div>
       
@@ -181,7 +254,6 @@ export default function SuggestLocationForm() {
         {errors.suggesterComment && <p className="text-sm text-destructive mt-1">{errors.suggesterComment.message}</p>}
       </div>
       
-      {/* This Alert can be removed if relying solely on toasts */}
       {state?.message && !state.errors && (
          <Alert variant={state.type === 'error' ? 'destructive' : 'default'} className={
            state.type === 'success' ? 'bg-green-50 border-green-300 text-green-700' : 

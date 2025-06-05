@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { getAuth, type Auth, signInAnonymously, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
@@ -29,4 +29,4 @@ auth = getAuth(app);
 db = getFirestore(app);
 storage = getStorage(app);
 
-export { app, auth, db, storage };
+export { app, auth, db, storage, signInAnonymously, onAuthStateChanged, type FirebaseUser };
