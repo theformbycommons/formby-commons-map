@@ -8,97 +8,97 @@ body {
 
 @layer base {
   :root {
-    /* Local Lens UK Theme */
-    --background: 270 33% 95%; /* light pale violet (#f2edf4) */
-    --foreground: 270 10% 25%; /* Darker violet-grey for text */
+    /* New Warm & Vivid Theme: Sunset Glow */
+    --background: 30 100% 97%; /* Pale Orange White */
+    --foreground: 30 20% 25%; /* Dark Warm Brown */
 
-    --card: 270 33% 97%; /* Slightly lighter pale violet for cards */
-    --card-foreground: 270 10% 20%;
+    --card: 30 80% 95%; /* Slightly more saturated pale orange white for cards */
+    --card-foreground: 30 20% 25%;
 
-    --popover: 270 33% 97%;
-    --popover-foreground: 270 10% 20%;
+    --popover: 30 80% 95%;
+    --popover-foreground: 30 20% 25%;
 
-    --primary: 282 23% 50%; /* desaturated violet (#946aa8) */
-    --primary-foreground: 282 23% 95%; /* Light violet/white for text on primary */
+    --primary: 25 95% 60%; /* Vibrant Orange (e.g., #ff8c42) */
+    --primary-foreground: 30 100% 98%; /* Off-white for text on primary */
 
-    --secondary: 270 25% 90%; /* Lighter pale violet for secondary elements */
-    --secondary-foreground: 282 15% 35%; /* Medium-dark violet for text on secondary */
+    --secondary: 30 90% 80%; /* Light Peachy Orange */
+    --secondary-foreground: 30 20% 30%; /* Medium-dark warm brown for text on secondary */
 
-    --muted: 270 20% 85%; /* Muted pale violet */
-    --muted-foreground: 270 10% 45%; /* Muted violet-grey text */
+    --muted: 30 70% 90%; /* Very Pale Peach */
+    --muted-foreground: 30 20% 45%; /* Muted warm brown text */
 
-    --accent: 326 54% 35%; /* deep red violet (#872b55) */
-    --accent-foreground: 326 54% 95%; /* Light pink/violet for text on accent */
+    --accent: 330 85% 55%; /* Vivid Magenta/Pink (e.g., #e61e7c) */
+    --accent-foreground: 30 100% 98%; /* Off-white for text on accent */
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84.2% 60.2%; /* Default red for destructive actions */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 270 20% 88%; /* Pale violet border */
-    --input: 270 25% 92%; /* Pale violet input background */
-    --ring: 282 23% 50%; /* Desaturated violet for rings (matches primary) */
+    --border: 30 20% 88%; /* Pale warm border */
+    --input: 30 50% 94%; /* Pale warm input background */
+    --ring: 25 95% 60%; /* Vibrant Orange for rings (matches primary) */
     
-    --chart-1: 282 23% 50%; /* primary */
-    --chart-2: 326 54% 35%; /* accent */
-    --chart-3: 270 15% 60%; /* a mid violet */
-    --chart-4: 300 30% 70%; /* a lighter purple */
-    --chart-5: 326 30% 55%; /* a slightly lighter deep red violet */
+    --chart-1: 25 95% 60%; /* primary - Vibrant Orange */
+    --chart-2: 330 85% 55%; /* accent - Vivid Magenta/Pink */
+    --chart-3: 45 100% 55%; /* vivid warm yellow */
+    --chart-4: 10 80% 50%;  /* deep warm red */
+    --chart-5: 15 90% 65%;  /* coral/salmon */
     --radius: 0.5rem;
 
     /* Sidebar specific colors - adjust to match new theme */
-    --sidebar-background: 270 33% 93%; /* Slightly darker pale violet */
-    --sidebar-foreground: 270 10% 20%;
-    --sidebar-primary: 282 23% 50%; 
-    --sidebar-primary-foreground: 282 23% 95%;
-    --sidebar-accent: 326 54% 35%;
-    --sidebar-accent-foreground: 326 54% 95%;
-    --sidebar-border: 270 20% 85%; 
-    --sidebar-ring: 282 23% 50%; 
+    --sidebar-background: 30 70% 92%; /* A bit more saturated light peach */
+    --sidebar-foreground: 30 20% 25%;
+    --sidebar-primary: 25 95% 60%; 
+    --sidebar-primary-foreground: 30 100% 98%;
+    --sidebar-accent: 330 85% 55%;
+    --sidebar-accent-foreground: 30 100% 98%;
+    --sidebar-border: 30 20% 85%; 
+    --sidebar-ring: 25 95% 60%; 
   }
 
   .dark {
-    /* Dark Local Lens UK Theme */
-    --background: 270 10% 10%; /* Very dark violet */
-    --foreground: 270 20% 85%; /* Light pale violet text */
+    /* Dark Warm & Vivid Theme */
+    --background: 30 10% 15%; /* Dark Warm Brown */
+    --foreground: 30 20% 85%; /* Light Cream text */
 
-    --card: 270 10% 12%; 
-    --card-foreground: 270 20% 85%;
+    --card: 30 10% 18%; 
+    --card-foreground: 30 20% 85%;
 
-    --popover: 270 10% 12%;
-    --popover-foreground: 270 20% 85%;
+    --popover: 30 10% 18%;
+    --popover-foreground: 30 20% 85%;
 
-    --primary: 282 23% 60%; /* Lighter desaturated violet for dark mode */
-    --primary-foreground: 282 23% 10%; /* Dark violet for text on primary */
+    --primary: 25 90% 70%; /* Brighter Vibrant Orange for dark mode */
+    --primary-foreground: 30 20% 10%; /* Very Dark Brown for text on primary */
 
-    --secondary: 270 15% 20%; /* Darker muted violet */
-    --secondary-foreground: 270 20% 80%; 
+    --secondary: 30 15% 30%; /* Muted Warm Brown for secondary elements */
+    --secondary-foreground: 30 20% 80%; /* Light cream text on secondary */
 
-    --muted: 270 10% 25%; 
-    --muted-foreground: 270 15% 60%; 
+    --muted: 30 10% 22%; /* Darker Muted Brown */
+    --muted-foreground: 30 15% 60%; /* Lighter Muted warm brown text */
 
-    --accent: 326 54% 55%; /* Lighter deep red violet for dark mode */
-    --accent-foreground: 326 54% 95%; /* Consistent light text on accent */
+    --accent: 330 80% 65%; /* Brighter Vivid Magenta/Pink for dark mode */
+    --accent-foreground: 30 100% 98%; /* Off-white for text on accent */
 
-    --destructive: 0 75% 55%;
+    --destructive: 0 75% 55%; /* Default red for destructive actions - dark */
     --destructive-foreground: 0 0% 95%;
 
-    --border: 270 10% 20%; 
-    --input: 270 10% 18%; 
-    --ring: 282 23% 60%; /* Matches dark primary */
+    --border: 30 10% 30%; /* Dark warm border */
+    --input: 30 10% 25%; /* Dark warm input background */
+    --ring: 25 90% 70%; /* Brighter Orange for rings (matches dark primary) */
 
-    --chart-1: 282 23% 60%;
-    --chart-2: 326 54% 55%;
-    --chart-3: 270 15% 50%;
-    --chart-4: 300 30% 60%;
-    --chart-5: 326 30% 45%;
+    --chart-1: 25 90% 70%;
+    --chart-2: 330 80% 65%;
+    --chart-3: 45 95% 65%; /* brighter yellow for dark */
+    --chart-4: 10 75% 60%;  /* brighter warm red for dark */
+    --chart-5: 15 85% 70%;  /* brighter coral for dark */
     
-    --sidebar-background: 270 10% 12%;
-    --sidebar-foreground: 270 20% 85%;
-    --sidebar-primary: 282 23% 60%;
-    --sidebar-primary-foreground: 282 23% 10%;
-    --sidebar-accent: 326 54% 55%;
-    --sidebar-accent-foreground: 326 54% 95%;
-    --sidebar-border: 270 10% 18%;
-    --sidebar-ring: 282 23% 60%;
+    --sidebar-background: 30 10% 12%; /* Darker than main dark bg */
+    --sidebar-foreground: 30 20% 85%;
+    --sidebar-primary: 25 90% 70%;
+    --sidebar-primary-foreground: 30 20% 10%;
+    --sidebar-accent: 330 80% 65%;
+    --sidebar-accent-foreground: 30 100% 98%;
+    --sidebar-border: 30 10% 20%; 
+    --sidebar-ring: 25 90% 70%;
   }
 }
 
