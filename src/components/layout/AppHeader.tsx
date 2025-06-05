@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPinned, PlusCircle, Home } from 'lucide-react';
+import { Heart, PlusCircle, Home } from 'lucide-react'; // Changed MapPinned to Heart
 import { Button } from '@/components/ui/button';
 
 export default function AppHeader() {
@@ -7,7 +7,8 @@ export default function AppHeader() {
     <header className="bg-card border-b border-border shadow-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-xl font-headline font-bold text-primary hover:text-accent transition-colors">
-          <MapPinned className="h-7 w-7 text-accent" />
+          {/* Replaced MapPinned with Heart and added fill + drop-shadow for glow effect */}
+          <Heart className="h-7 w-7 text-accent fill-accent drop-shadow-[0_0_5px_hsl(var(--accent-foreground))]" />
           <span>The Local Glow</span>
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
