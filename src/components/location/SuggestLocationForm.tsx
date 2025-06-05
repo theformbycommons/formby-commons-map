@@ -1,8 +1,10 @@
+
 'use client';
 
-import { useActionState } from 'react'; // Updated from useFormState
+import { useActionState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller, useFormStatus } from 'react-hook-form'; // Added useFormStatus
+import { useForm, Controller } from 'react-hook-form'; // useFormStatus is NOT imported from here
+import { useFormStatus } from 'react-dom'; // CORRECT: useFormStatus is imported from react-dom
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +15,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type FormState } from '@/lib/actions';
 import { locationCategories, mockTowns } from '@/lib/data'; 
-import { useEffect, useState } from 'react'; // Added useState
+import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info } from 'lucide-react';
-import { resizeImage } from '@/lib/imageUtils'; // Import resizeImage
+import { resizeImage } from '@/lib/imageUtils';
 
 const SuggestionFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
@@ -46,18 +48,18 @@ const initialState: FormState = {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
-  const [isResizing, setIsResizing] = useState(false); // Local state for resizing
+  const [isResizing, setIsResizing] = useState(false);
 
-  // This effect is to share resizing state with the button, assuming form processing is quick
-  // A more robust solution might involve context or Zustand if form processing were slow
   useEffect(() => {
     const handleImageResizeStart = () => setIsResizing(true);
     const handleImageResizeEnd = () => setIsResizing(false);
-    window.addEventListener('image-resize-start', handleImageResizeStart);
-    window.addEventListener('image-resize-end', handleImageResizeEnd);
+    
+    window.addEventListener('image-resize-start' as any, handleImageResizeStart);
+    window.addEventListener('image-resize-end' as any, handleImageResizeEnd);
+    
     return () => {
-      window.removeEventListener('image-resize-start', handleImageResizeStart);
-      window.removeEventListener('image-resize-end', handleImageResizeEnd);
+      window.removeEventListener('image-resize-start' as any, handleImageResizeStart);
+      window.removeEventListener('image-resize-end' as any, handleImageResizeEnd);
     };
   }, []);
 
@@ -108,7 +110,7 @@ export default function SuggestLocationForm() {
         reset(); 
         setCurrentFile(null);
         const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
-        if (fileInput) fileInput.value = ''; // Clear file input
+        if (fileInput) fileInput.value = '';
       }
     }
   }, [state, toast, reset]);
@@ -116,7 +118,7 @@ export default function SuggestLocationForm() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       setCurrentFile(event.target.files[0]);
-      setValue('pictureFile', event.target.files); // Keep react-hook-form happy
+      setValue('pictureFile', event.target.files); 
     } else {
       setCurrentFile(null);
       setValue('pictureFile', null);
@@ -130,19 +132,14 @@ export default function SuggestLocationForm() {
     if (currentFile) {
       window.dispatchEvent(new CustomEvent('image-resize-start'));
       try {
-        // Attempt to resize to webp for better compression, fallback to jpeg
         const resized = await resizeImage(currentFile, 800, 600, 200, 'image/webp');
-        if (resized.size / 1024 > 250 && resized.type === 'image/webp') { // If webp still too big, try jpeg
+        if (resized.size / 1024 > 250 && resized.type === 'image/webp') { 
            finalFileToUpload = await resizeImage(currentFile, 800, 600, 200, 'image/jpeg');
         } else {
            finalFileToUpload = resized;
         }
-        
-        // console.log(`Final file to upload: ${finalFileToUpload.name}, size: ${(finalFileToUpload.size / 1024).toFixed(2)}KB, type: ${finalFileToUpload.type}`);
-
       } catch (error) {
-        // console.error("Image resizing failed:", error);
-        finalFileToUpload = currentFile; // Fallback to original if resize fails
+        finalFileToUpload = currentFile; 
       } finally {
         window.dispatchEvent(new CustomEvent('image-resize-end'));
       }
@@ -150,7 +147,6 @@ export default function SuggestLocationForm() {
 
     Object.entries(data).forEach(([key, value]) => {
       if (key === 'pictureFile') {
-        // Append the (potentially resized) file
         if (finalFileToUpload) {
           formData.append(key, finalFileToUpload, finalFileToUpload.name);
         }
@@ -232,8 +228,8 @@ export default function SuggestLocationForm() {
           id="pictureFile" 
           type="file" 
           accept="image/jpeg,image/png,image/webp"
-          {...register('pictureFile')} // register is mainly for validation messages
-          onChange={handleFileChange} // We use custom handler for file processing
+          {...register('pictureFile')}
+          onChange={handleFileChange}
           className="mt-1 file:text-sm file:font-medium file:text-primary file:bg-primary-foreground/10 hover:file:bg-primary-foreground/20" 
         />
         <p className="text-xs text-muted-foreground mt-1">Max 5MB (will be resized to ~200KB). JPG, PNG, or WEBP.</p>
@@ -275,3 +271,6 @@ export default function SuggestLocationForm() {
     </form>
   );
 }
+    
+
+    
