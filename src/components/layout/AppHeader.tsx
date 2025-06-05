@@ -8,7 +8,7 @@ export default function AppHeader() {
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-xl font-headline font-bold text-primary hover:text-accent transition-colors">
           <Star className="h-7 w-7 text-accent fill-accent drop-shadow-[0_0_6px_hsl(var(--accent-foreground))]" />
-          <span>The Local Glow</span>
+          <span>Local Glow</span>
         </Link>
         <nav className="flex items-center gap-2 sm:gap-4">
           <Button variant="ghost" asChild>

@@ -9,7 +9,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-8">
       <section className="text-center py-8 bg-card rounded-lg shadow-md">
-        <h1 className="text-4xl font-headline font-bold text-primary mb-2">Welcome to The Local Glow</h1>
+        <h1 className="text-4xl font-headline font-bold text-primary mb-2">Welcome to Local Glow</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Celebrating the Heart and Soul of Our Hometowns
         </p>

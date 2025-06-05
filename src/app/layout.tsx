@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
 
 export const metadata: Metadata = {
-  title: 'The Local Glow',
+  title: 'Local Glow',
   description: 'Discover and share local gems across the UK.',
 };
 

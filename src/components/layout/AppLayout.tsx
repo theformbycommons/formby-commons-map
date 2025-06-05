@@ -14,7 +14,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </main>
       <footer className="bg-card border-t border-border text-center py-6">
         <p className="text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} The Local Glow. Cultivating Our Shared Sense of Place.
+          &copy; {new Date().getFullYear()} Local Glow. Cultivating Our Shared Sense of Place.
         </p>
       </footer>
     </>
