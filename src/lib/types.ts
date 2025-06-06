@@ -33,9 +33,8 @@ export interface Location {
   coordinates: Coordinates;
   submittedBy: string;
   suggesterComment?: string;
-  postcodeOutcode?: string;
+  postcodeOutcode?: string; // Keep for existing approved locations, but won't be added for new ones
   comments: LocationComment[];
-  // status: 'approved' | 'pending'; // Might be useful if suggestedLocations are merged here
 }
 
 // For form validation and submission to 'suggestedLocations'
@@ -44,13 +43,13 @@ export interface NewLocationSuggestion {
   name: string;
   description: string;
   townName: string;
-  postcodeOutcode?: string;
+  // postcodeOutcode removed
   category: string;
   suggesterName: string;
   suggesterComment?: string;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string; // ISO date string
   submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
-  coordinates: Coordinates; // Changed from optional to required
+  coordinates: Coordinates;
   imageUrl?: string; // For uploaded image URL
 }

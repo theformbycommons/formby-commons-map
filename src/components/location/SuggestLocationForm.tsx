@@ -32,11 +32,7 @@ const SuggestionFormClientSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
   description: z.string().min(10, "Description must be at least 10 characters long.").max(1000, "Description must be 1000 characters or less."),
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
-  postcodeOutcode: z.string()
-    .regex(/^[A-Za-z0-9]{2,4}$/, "Must be 2 to 4 alphanumeric characters.")
-    .transform(val => val.toUpperCase())
-    .optional()
-    .or(z.literal('')),
+  // postcodeOutcode removed
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
@@ -114,7 +110,7 @@ export default function SuggestLocationForm() {
       name: '',
       description: '',
       townName: '',
-      postcodeOutcode: '',
+      // postcodeOutcode removed
       category: '',
       suggesterName: '',
       suggesterComment: '',
@@ -135,7 +131,6 @@ export default function SuggestLocationForm() {
         reset();
         setCurrentFile(null);
         setSelectedMapCoords(null); 
-        // Also reset map coordinates in react-hook-form state if not covered by reset()
         setValue('latitude', undefined as any, { shouldValidate: false });
         setValue('longitude', undefined as any, { shouldValidate: false });
         const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
@@ -143,9 +138,8 @@ export default function SuggestLocationForm() {
       } else if (state.type === 'error' && state.errors) {
         Object.entries(state.errors).forEach(([fieldName, fieldErrors]) => {
           if (fieldErrors && fieldErrors.length > 0) {
-            // Ensure fieldName is a valid key of SuggestionFormData before calling setError
-            if (fieldName in SuggestionFormClientSchema.shape) {
-              setError(fieldName as FieldPath<SuggestionFormData>, {
+            if (Object.keys(SuggestionFormClientSchema.shape).includes(fieldName)) {
+               setError(fieldName as FieldPath<SuggestionFormData>, {
                 type: 'server',
                 message: fieldErrors.join(', '),
               });
@@ -172,21 +166,17 @@ export default function SuggestLocationForm() {
       setValue('latitude', coords.lat, { shouldValidate: true });
       setValue('longitude', coords.lng, { shouldValidate: true });
     } else {
-      setValue('latitude', undefined as any, { shouldValidate: true });
-      setValue('longitude', undefined as any, { shouldValidate: true });
+      setValue('latitude', undefined as any, { shouldValidate: true }); // Explicitly set to undefined for validation
+      setValue('longitude', undefined as any, { shouldValidate: true }); // Explicitly set to undefined for validation
     }
   };
 
   const processSubmit = async (data: SuggestionFormData) => {
-    // Client-side Zod validation will have already run for latitude and longitude being numbers.
-    // The required_error in Zod schema handles cases where they are not selected.
-    
     let imageUrl: string | undefined = undefined;
     let uploadedImageSize: number | undefined = undefined;
     let fileToUpload: File | null = null;
 
     const actualFileToProcess = data.pictureFile?.[0] || currentFile;
-
 
     if (actualFileToProcess) {
       window.dispatchEvent(new CustomEvent('image-resize-start'));
@@ -232,14 +222,30 @@ export default function SuggestLocationForm() {
 
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      if (key !== 'pictureFile' && value !== undefined && value !== null && String(value).trim() !== '') {
-        formDataForServerAction.append(key, String(value));
+      // Ensure postcodeOutcode is not appended
+      if (key === 'postcodeOutcode') return;
+
+      // Handle suggesterComment: only append if it has content after trimming
+      if (key === 'suggesterComment') {
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+          formDataForServerAction.append(key, String(value));
+        }
+        return; // Continue to next entry
+      }
+
+      // General handling for other fields
+      if (key !== 'pictureFile' && value !== undefined && value !== null) {
+         // For most fields, append even if empty string, server will handle optionality.
+         // Exception for latitude/longitude which are numbers and required.
+         // Exception for suggesterComment handled above.
+        if (String(value).trim() !== '' || typeof value === 'number' ) {
+             formDataForServerAction.append(key, String(value));
+        } else if ( (key === 'suggesterName' || key === 'name' || key === 'description' || key === 'townName' || key === 'category') && String(value).trim() === '' ) {
+            // For required string fields, send empty string to trigger server validation if Zod client validation somehow missed it.
+             formDataForServerAction.append(key, "");
+        }
       }
     });
-    if (data.postcodeOutcode) {
-        formDataForServerAction.set('postcodeOutcode', data.postcodeOutcode);
-    }
-
 
     if (imageUrl) {
       formDataForServerAction.append('imageUrl', imageUrl);
@@ -272,29 +278,17 @@ export default function SuggestLocationForm() {
         {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div>
+      {/* Town Name - Kept as is */}
+      <div>
           <Label htmlFor="townName" className="font-medium">Town Name</Label>
           <Input id="townName" {...register('townName')} className="mt-1" placeholder="e.g., Formby" list="town-suggestions" aria-invalid={errors.townName ? "true" : "false"} />
           <datalist id="town-suggestions">
             {mockTowns.map(town => <option key={town.id} value={town.name} />)}
           </datalist>
           {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
-        </div>
-        <div>
-          <Label htmlFor="postcodeOutcode" className="font-medium">Postcode (first part - Optional)</Label>
-          <Input
-            id="postcodeOutcode"
-            {...register('postcodeOutcode')}
-            className="mt-1"
-            placeholder="e.g., L37 or SW1A"
-            aria-invalid={errors.postcodeOutcode ? "true" : "false"}
-            maxLength={4}
-          />
-          <p className="text-xs text-muted-foreground mt-1">e.g., L37 or M1. Optional if map location is set.</p>
-          {errors.postcodeOutcode && <p className="text-sm text-destructive mt-1">{errors.postcodeOutcode.message}</p>}
-        </div>
       </div>
+      
+      {/* Postcode field removed */}
 
       <div>
         <Label htmlFor="category" className="font-medium">Category</Label>
@@ -361,7 +355,7 @@ export default function SuggestLocationForm() {
 
       <div>
         <Label htmlFor="suggesterComment" className="font-medium">Your Comments/Notes (Optional)</Label>
-        <Textarea id="suggesterComment" {...register('suggesterComment')} rows={3} className="mt-1" />
+        <Textarea id="suggesterComment" {...register('suggesterComment')} rows={3} className="mt-1" aria-invalid={errors.suggesterComment ? "true" : "false"} />
         <p className="text-xs text-muted-foreground mt-1">Any additional details or why you're suggesting this place.</p>
         {errors.suggesterComment && <p className="text-sm text-destructive mt-1">{errors.suggesterComment.message}</p>}
       </div>

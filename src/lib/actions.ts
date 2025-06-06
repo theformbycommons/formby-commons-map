@@ -11,24 +11,20 @@ const SuggestionFormSchemaServer = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
   description: z.string().min(10, "Description must be at least 10 characters").max(1000),
   townName: z.string().min(2, "Town name is required").max(50),
-  postcodeOutcode: z.string()
-    .regex(/^[A-Za-z0-9]{2,4}$/, "Postcode outcode must be 2 to 4 alphanumeric characters.")
-    .transform(val => val.toUpperCase())
-    .optional()
-    .or(z.literal('')),
+  // postcodeOutcode removed
   category: z.string().min(1, "Category is required"),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
-  suggesterComment: z.string().max(500).optional(),
+  suggesterComment: z.string().max(500).optional(), // Stays optional
   imageUrl: z.string().url("Invalid image URL.").optional().nullable(),
   uploadedImageSize: z.preprocess(
     (val) => (val ? Number(val) : undefined),
     z.number().int().nonnegative("Image size must be a non-negative number.").optional().nullable()
   ),
-  latitude: z.preprocess( // Ensure latitude is parsed as a number
+  latitude: z.preprocess(
     (val) => Number(val),
     z.number().min(-90, "Invalid latitude. Please select a location on the map.").max(90, "Invalid latitude. Please select a location on the map.")
   ),
-  longitude: z.preprocess( // Ensure longitude is parsed as a number
+  longitude: z.preprocess(
     (val) => Number(val),
     z.number().min(-180, "Invalid longitude. Please select a location on the map.").max(180, "Invalid longitude. Please select a location on the map.")
   ),
@@ -92,16 +88,17 @@ export async function submitSuggestion(
   formData: FormData
 ): Promise<FormState> {
 
+  const suggesterCommentValue = formData.get('suggesterComment');
+
   const rawFormData = {
     name: formData.get('name') as string,
     description: formData.get('description') as string,
     townName: formData.get('townName') as string,
-    postcodeOutcode: (formData.get('postcodeOutcode') as string | null) || '', // Handle null from FormData
+    // postcodeOutcode removed
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    // If suggesterComment is not in formData, get() returns null. `?? undefined` converts null to undefined.
-    suggesterComment: (formData.get('suggesterComment') as string | null) ?? undefined,
-    imageUrl: formData.get('imageUrl') as string | undefined, // .nullable() in Zod handles null
+    suggesterComment: (suggesterCommentValue === null || String(suggesterCommentValue).trim() === '') ? undefined : String(suggesterCommentValue),
+    imageUrl: formData.get('imageUrl') as string | undefined,
     uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
     latitude: formData.get('latitude') as string, 
     longitude: formData.get('longitude') as string, 
@@ -117,13 +114,14 @@ export async function submitSuggestion(
     };
   }
   
+  // Ensure postcodeOutcode is not part of dataToStoreInFirestore
   const { latitude, longitude, ...dataToStoreInFirestore } = validatedFields.data;
   
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
-      postcodeOutcode: dataToStoreInFirestore.postcodeOutcode === '' ? undefined : dataToStoreInFirestore.postcodeOutcode,
+      // postcodeOutcode related logic removed
   };
-  delete (finalDataForFirestore as any).uploadedImageSize;
+  delete (finalDataForFirestore as any).uploadedImageSize; // Still remove this helper field
 
 
   const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
@@ -138,7 +136,7 @@ export async function submitSuggestion(
 
   try {
     const suggestionForDb: NewLocationSuggestion = {
-      ...finalDataForFirestore,
+      ...finalDataForFirestore, // finalDataForFirestore already excludes postcodeOutcode
       status: 'pending',
       submittedAt: Timestamp.now().toDate().toISOString(),
       coordinates: { 
@@ -172,4 +170,3 @@ export async function submitSuggestion(
     };
   }
 }
-

@@ -100,7 +100,7 @@ export default async function AdminSuggestionsPage() {
                           <p>
                             <strong>Submitted:</strong> {suggestion.submittedAt ? format(parseISO(suggestion.submittedAt), 'dd MMM yyyy, HH:mm') : 'N/A'}
                           </p>
-                           {suggestion.postcodeOutcode && <p><strong>Postcode Area:</strong> {suggestion.postcodeOutcode}</p>}
+                           {/* PostcodeOutcode removed from display here */}
                         </div>
                         
                         <div className="pt-2">
