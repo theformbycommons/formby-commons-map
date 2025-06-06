@@ -51,6 +51,6 @@ export interface NewLocationSuggestion {
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string; // ISO date string
   submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
-  coordinates?: Coordinates; // Will be added later, for now can be placeholder
+  coordinates: Coordinates; // Changed from optional to required
   imageUrl?: string; // For uploaded image URL
 }

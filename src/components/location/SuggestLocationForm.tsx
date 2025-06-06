@@ -16,17 +16,24 @@ import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type FormState } from '@/lib/actions';
 import { locationCategories, mockTowns } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Info } from 'lucide-react';
+import { CheckCircle, XCircle, Info, MapPin as MapPinIcon } from 'lucide-react'; // Renamed MapPin to avoid conflict
 import { resizeImage } from '@/lib/imageUtils';
-import { storage } from '@/lib/firebase'; // For client-side upload
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // For client-side upload
+import { storage } from '@/lib/firebase'; 
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[300px] w-full rounded-md bg-muted" />,
+});
 
 const SuggestionFormClientSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
   description: z.string().min(10, "Description must be at least 10 characters long.").max(1000, "Description must be 1000 characters or less."),
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
   postcodeOutcode: z.string()
-    .regex(/^[A-Za-z0-9]{3,4}$/, "Must be 3 or 4 alphanumeric characters.")
+    .regex(/^[A-Za-z0-9]{2,4}$/, "Must be 2 to 4 alphanumeric characters.")
     .transform(val => val.toUpperCase())
     .optional()
     .or(z.literal('')),
@@ -38,6 +45,12 @@ const SuggestionFormClientSchema = z.object({
     .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
       'Only .jpg, .png, .webp formats are supported for original upload.'
     ),
+  latitude: z.number({ required_error: "Please select a location on the map." })
+            .min(-90, "Invalid latitude. Please select a location on the map.")
+            .max(90, "Invalid latitude. Please select a location on the map."),
+  longitude: z.number({ required_error: "Please select a location on the map." })
+             .min(-180, "Invalid longitude. Please select a location on the map.")
+             .max(180, "Invalid longitude. Please select a location on the map."),
 });
 
 type SuggestionFormData = z.infer<typeof SuggestionFormClientSchema>;
@@ -48,7 +61,7 @@ const initialState: FormState = {
 };
 
 function SubmitButton() {
-  const { pending } = useFormStatus(); // This pending is for the server action
+  const { pending } = useFormStatus();
   const [isResizing, setIsResizing] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
@@ -93,8 +106,9 @@ export default function SuggestLocationForm() {
   const [state, formAction] = useActionState(submitSuggestion, initialState);
   const { toast } = useToast();
   const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  const { register, handleSubmit, control, formState: { errors }, reset, setValue } = useForm<SuggestionFormData>({
+  const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormClientSchema),
     defaultValues: {
       name: '',
@@ -105,6 +119,7 @@ export default function SuggestLocationForm() {
       suggesterName: '',
       suggesterComment: '',
       pictureFile: undefined,
+      // latitude and longitude are set by map interaction, so no default needed here
     }
   });
 
@@ -116,8 +131,9 @@ export default function SuggestLocationForm() {
         variant: state.type === 'error' ? 'destructive' : 'default',
       });
       if (state.type === 'success') {
-        reset();
+        reset(); // Resets RHF fields to defaultValues
         setCurrentFile(null);
+        setSelectedMapCoords(null); // This will clear the map pin via prop to LocationPickerMap
         const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
       }
@@ -127,14 +143,34 @@ export default function SuggestLocationForm() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       setCurrentFile(event.target.files[0]);
-      setValue('pictureFile', event.target.files);
+      setValue('pictureFile', event.target.files); // For client-side validation
     } else {
       setCurrentFile(null);
       setValue('pictureFile', null);
     }
   };
 
+  const handleCoordinatesChange = (coords: { lat: number; lng: number } | null) => {
+    setSelectedMapCoords(coords); // Update local state to control LocationPickerMap
+    if (coords) {
+      setValue('latitude', coords.lat, { shouldValidate: true });
+      setValue('longitude', coords.lng, { shouldValidate: true });
+    } else {
+      // RHF will treat undefined as error due to schema if number is expected
+      setValue('latitude', undefined as any, { shouldValidate: true }); 
+      setValue('longitude', undefined as any, { shouldValidate: true });
+    }
+  };
+
   const processSubmit = async (data: SuggestionFormData) => {
+    // Zod validation already ensures lat/lng are numbers if they pass
+    // The `required_error` in Zod schema handles if they are not set initially by map
+    if (!data.latitude || !data.longitude) {
+        toast({ title: "Missing Location", description: "Please select a location on the map by clicking it.", variant: "destructive" });
+        trigger(['latitude', 'longitude']); // Manually trigger validation display
+        return;
+    }
+    
     let imageUrl: string | undefined = undefined;
     let uploadedImageSize: number | undefined = undefined;
     let fileToUpload: File | null = null;
@@ -183,16 +219,25 @@ export default function SuggestLocationForm() {
 
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      if (key !== 'pictureFile' && value !== undefined && value !== null && value !== '') {
+      // pictureFile is handled separately, rest are appended if they have a value
+      if (key !== 'pictureFile' && value !== undefined && value !== null && String(value).trim() !== '') {
         formDataForServerAction.append(key, String(value));
       }
     });
+    // Ensure optional fields that might be empty strings but valid (like postcodeOutcode) are handled if needed
+    // For now, Zod handles their optionality on server.
+    if (data.postcodeOutcode) { // Only append if it has a value, avoids "undefined" string
+        formDataForServerAction.set('postcodeOutcode', data.postcodeOutcode);
+    }
+
+
     if (imageUrl) {
       formDataForServerAction.append('imageUrl', imageUrl);
     }
     if (uploadedImageSize !== undefined) {
       formDataForServerAction.append('uploadedImageSize', String(uploadedImageSize));
     }
+    // Latitude and longitude are already part of 'data' from react-hook-form and will be included.
 
     startTransition(() => {
       formAction(formDataForServerAction);
@@ -228,7 +273,7 @@ export default function SuggestLocationForm() {
           {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
         </div>
         <div>
-          <Label htmlFor="postcodeOutcode" className="font-medium">Postcode (first part)</Label>
+          <Label htmlFor="postcodeOutcode" className="font-medium">Postcode (first part - Optional)</Label>
           <Input
             id="postcodeOutcode"
             {...register('postcodeOutcode')}
@@ -237,7 +282,7 @@ export default function SuggestLocationForm() {
             aria-invalid={errors.postcodeOutcode ? "true" : "false"}
             maxLength={4}
           />
-          <p className="text-xs text-muted-foreground mt-1">Outcode = First 3 or 4 characters.</p>
+          <p className="text-xs text-muted-foreground mt-1">e.g., L37 or M1. Optional if map location is set.</p>
           {errors.postcodeOutcode && <p className="text-sm text-destructive mt-1">{errors.postcodeOutcode.message}</p>}
         </div>
       </div>
@@ -248,7 +293,7 @@ export default function SuggestLocationForm() {
           name="category"
           control={control}
           render={({ field }) => (
-            <Select onValueChange={field.onChange} defaultValue={field.value} aria-invalid={errors.category ? "true" : "false"}>
+            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || ""} aria-invalid={errors.category ? "true" : "false"}>
               <SelectTrigger id="category" className="mt-1">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
@@ -262,6 +307,22 @@ export default function SuggestLocationForm() {
         />
         {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
       </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="locationMap" className="font-medium flex items-center gap-1">
+            <MapPinIcon className="h-5 w-5 text-primary" /> Precise Location (Required)
+        </Label>
+        <p className="text-xs text-muted-foreground mt-1">Click on the map to place a pin for the exact location. You can drag the pin too.</p>
+        <LocationPickerMap value={selectedMapCoords} onValueChange={handleCoordinatesChange} />
+        {/* Hidden inputs for RHF, values set by handleCoordinatesChange & Zod validation */}
+        <input type="hidden" {...register('latitude')} />
+        <input type="hidden" {...register('longitude')} />
+        {(errors.latitude || errors.longitude) && (
+            <p className="text-sm text-destructive mt-1">
+                {errors.latitude?.message || errors.longitude?.message || "Please select a valid location on the map."}
+            </p>
+        )}
+      </div>
 
       <div>
         <Label htmlFor="pictureFile" className="font-medium">Picture (Optional, max 5MB original)</Label>
@@ -269,7 +330,7 @@ export default function SuggestLocationForm() {
           id="pictureFile"
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          {...register('pictureFile')} // Keep register for client-side validation
+          {...register('pictureFile')} 
           onChange={handleFileChange}
           className="mt-1 file:text-sm file:font-medium file:text-primary file:bg-primary-foreground/10 hover:file:bg-primary-foreground/20"
         />

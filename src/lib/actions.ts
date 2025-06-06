@@ -4,16 +4,15 @@
 import { z } from 'zod';
 import type { NewLocationSuggestion } from './types';
 import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { db } from './firebase'; // Removed storage import as it's not used here anymore
+import { db } from './firebase';
 
 // Zod schema for server-side validation
-// pictureFile is removed, imageUrl and uploadedImageSize are added
 const SuggestionFormSchemaServer = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
   description: z.string().min(10, "Description must be at least 10 characters").max(1000),
   townName: z.string().min(2, "Town name is required").max(50),
   postcodeOutcode: z.string()
-    .regex(/^[A-Za-z0-9]{3,4}$/, "Postcode outcode must be 3 or 4 alphanumeric characters.")
+    .regex(/^[A-Za-z0-9]{2,4}$/, "Postcode outcode must be 2 to 4 alphanumeric characters.")
     .transform(val => val.toUpperCase())
     .optional()
     .or(z.literal('')),
@@ -24,6 +23,14 @@ const SuggestionFormSchemaServer = z.object({
   uploadedImageSize: z.preprocess(
     (val) => (val ? Number(val) : undefined),
     z.number().int().nonnegative("Image size must be a non-negative number.").optional().nullable()
+  ),
+  latitude: z.preprocess( // Ensure latitude is parsed as a number
+    (val) => Number(val),
+    z.number().min(-90, "Invalid latitude. Please select a location on the map.").max(90, "Invalid latitude. Please select a location on the map.")
+  ),
+  longitude: z.preprocess( // Ensure longitude is parsed as a number
+    (val) => Number(val),
+    z.number().min(-180, "Invalid longitude. Please select a location on the map.").max(180, "Invalid longitude. Please select a location on the map.")
   ),
 });
 
@@ -93,8 +100,10 @@ export async function submitSuggestion(
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
     suggesterComment: formData.get('suggesterComment') as string | undefined,
-    imageUrl: formData.get('imageUrl') as string | undefined, // Received from client
-    uploadedImageSize: formData.get('uploadedImageSize') as string | undefined, // Received from client
+    imageUrl: formData.get('imageUrl') as string | undefined,
+    uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
+    latitude: formData.get('latitude') as string, // Will be parsed by Zod
+    longitude: formData.get('longitude') as string, // Will be parsed by Zod
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
@@ -107,15 +116,12 @@ export async function submitSuggestion(
     };
   }
   
-  // imageUrl and uploadedImageSize are already part of validatedFields.data
-  const { ...dataToStoreInFirestore } = validatedFields.data;
+  const { latitude, longitude, ...dataToStoreInFirestore } = validatedFields.data;
   
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
       postcodeOutcode: dataToStoreInFirestore.postcodeOutcode === '' ? undefined : dataToStoreInFirestore.postcodeOutcode,
-      // uploadedImageSize is already correctly parsed or undefined by Zod
   };
-  // Remove uploadedImageSize from the object to be stored in Firestore, it's for quota only
   delete (finalDataForFirestore as any).uploadedImageSize;
 
 
@@ -130,12 +136,14 @@ export async function submitSuggestion(
   }
 
   try {
-    // Image URL is now directly from validatedFields.data.imageUrl if present
     const suggestionForDb: NewLocationSuggestion = {
-      ...finalDataForFirestore, // This now includes imageUrl if provided
+      ...finalDataForFirestore,
       status: 'pending',
       submittedAt: Timestamp.now().toDate().toISOString(),
-      coordinates: { lat: 0, lng: 0 }, // Placeholder
+      coordinates: { 
+        lat: latitude,
+        lng: longitude,
+      },
     };
 
     const suggestedLocationsCol = collection(db, 'suggestedLocations');
