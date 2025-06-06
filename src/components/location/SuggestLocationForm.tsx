@@ -3,7 +3,7 @@
 
 import { useActionState, startTransition, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type FieldPath } from 'react-hook-form';
 import { useFormStatus } from 'react-dom';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -108,7 +108,7 @@ export default function SuggestLocationForm() {
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger } = useForm<SuggestionFormData>({
+  const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormClientSchema),
     defaultValues: {
       name: '',
@@ -134,17 +134,31 @@ export default function SuggestLocationForm() {
       if (state.type === 'success') {
         reset();
         setCurrentFile(null);
-        setSelectedMapCoords(null);
+        setSelectedMapCoords(null); 
+        // Also reset map coordinates in react-hook-form state if not covered by reset()
+        setValue('latitude', undefined as any, { shouldValidate: false });
+        setValue('longitude', undefined as any, { shouldValidate: false });
         const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
+      } else if (state.type === 'error' && state.errors) {
+        Object.entries(state.errors).forEach(([fieldName, fieldErrors]) => {
+          if (fieldErrors && fieldErrors.length > 0) {
+            // Ensure fieldName is a valid key of SuggestionFormData before calling setError
+            if (fieldName in SuggestionFormClientSchema.shape) {
+              setError(fieldName as FieldPath<SuggestionFormData>, {
+                type: 'server',
+                message: fieldErrors.join(', '),
+              });
+            }
+          }
+        });
       }
     }
-  }, [state, toast, reset]);
+  }, [state, toast, reset, setError, setValue]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    rhfPictureFileOnChange(event); // Call react-hook-form's onChange handler
+    rhfPictureFileOnChange(event); 
 
-    // Then, update local state for UI feedback
     if (event.target.files && event.target.files.length > 0) {
       setCurrentFile(event.target.files[0]);
     } else {
@@ -164,25 +178,19 @@ export default function SuggestLocationForm() {
   };
 
   const processSubmit = async (data: SuggestionFormData) => {
-    if (!data.latitude || !data.longitude) {
-        toast({ title: "Missing Location", description: "Please select a location on the map by clicking it.", variant: "destructive" });
-        trigger(['latitude', 'longitude']);
-        return;
-    }
+    // Client-side Zod validation will have already run for latitude and longitude being numbers.
+    // The required_error in Zod schema handles cases where they are not selected.
     
     let imageUrl: string | undefined = undefined;
     let uploadedImageSize: number | undefined = undefined;
     let fileToUpload: File | null = null;
 
-    // pictureFile from RHF data (data.pictureFile) is a FileList or undefined.
-    // currentFile is the File object we track locally for UI and processing.
     const actualFileToProcess = data.pictureFile?.[0] || currentFile;
 
 
     if (actualFileToProcess) {
       window.dispatchEvent(new CustomEvent('image-resize-start'));
       try {
-        // Use actualFileToProcess instead of currentFile directly for resize logic
         const resized = await resizeImage(actualFileToProcess, 800, 600, 200, 'image/webp');
         fileToUpload = (resized.size / 1024 > 250 && resized.type === 'image/webp')
           ? await resizeImage(actualFileToProcess, 800, 600, 200, 'image/jpeg')
@@ -231,6 +239,7 @@ export default function SuggestLocationForm() {
     if (data.postcodeOutcode) {
         formDataForServerAction.set('postcodeOutcode', data.postcodeOutcode);
     }
+
 
     if (imageUrl) {
       formDataForServerAction.append('imageUrl', imageUrl);
@@ -329,8 +338,8 @@ export default function SuggestLocationForm() {
           id="pictureFile"
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          {...restPictureFileRegister} // Use the destructured props from register
-          onChange={handleFileChange}   // Use the updated handler
+          {...restPictureFileRegister} 
+          onChange={handleFileChange}   
           className="mt-1 file:text-sm file:font-medium file:text-primary file:bg-primary-foreground/10 hover:file:bg-primary-foreground/20"
         />
         <p className="text-xs text-muted-foreground mt-1">Max 5MB (will be resized to ~200KB). JPG, PNG, or WEBP.</p>
