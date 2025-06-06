@@ -31,10 +31,12 @@ export interface Location {
   imageUrl?: string;
   category: string;
   coordinates: Coordinates;
-  submittedBy: string;
+  submittedBy: string; // From suggesterName
   suggesterComment?: string;
-  postcodeOutcode?: string; // Keep for existing approved locations, but won't be added for new ones
+  // postcodeOutcode is intentionally omitted for new locations
   comments: LocationComment[];
+  createdAt: string; // ISO date string, populated when location is created from suggestion
+  createdAtFirestore?: any; // For Firestore serverTimestamp
 }
 
 // For form validation and submission to 'suggestedLocations'
@@ -43,13 +45,15 @@ export interface NewLocationSuggestion {
   name: string;
   description: string;
   townName: string;
-  // postcodeOutcode removed
   category: string;
   suggesterName: string;
   suggesterComment?: string;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string; // ISO date string
   submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
+  approvedAt?: string; // ISO date string, populated when suggestion is approved
+  approvedAtFirestore?: any; // For Firestore serverTimestamp
+  publishedLocationId?: string; // ID of the document created in 'locations' collection
   coordinates: Coordinates;
   imageUrl?: string; // For uploaded image URL
 }

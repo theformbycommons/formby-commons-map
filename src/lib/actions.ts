@@ -2,11 +2,13 @@
 'use server';
 
 import { z } from 'zod';
-import type { NewLocationSuggestion } from './types';
+import type { NewLocationSuggestion, Location, FormState as SuggestionFormState } from './types';
 import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
+import { getTownByName } from './data'; // Import getTownByName
+import { revalidatePath } from 'next/cache';
 
-// Zod schema for server-side validation
+// Zod schema for server-side validation (SuggestLocationForm)
 const SuggestionFormSchemaServer = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
   description: z.string().min(10, "Description must be at least 10 characters").max(1000),
@@ -29,7 +31,7 @@ const SuggestionFormSchemaServer = z.object({
   ),
 });
 
-export interface FormState {
+export interface SuggestionFormState {
   message: string;
   type: 'success' | 'error' | 'info';
   errors?: Record<string, (string[] | undefined)>;
@@ -83,29 +85,24 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
 }
 
 export async function submitSuggestion(
-  prevState: FormState | undefined,
+  prevState: SuggestionFormState | undefined,
   formData: FormData
-): Promise<FormState> {
+): Promise<SuggestionFormState> {
 
-  const suggesterCommentRaw = formData.get('suggesterComment');
-  const processedSuggesterComment = 
-    (suggesterCommentRaw === null || (typeof suggesterCommentRaw === 'string' && suggesterCommentRaw.trim() === ''))
-    ? undefined
-    : String(suggesterCommentRaw);
-
+  const suggesterCommentValue = formData.get('suggesterComment');
   const rawFormData = {
     name: formData.get('name') as string,
     description: formData.get('description') as string,
     townName: formData.get('townName') as string,
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    suggesterComment: processedSuggesterComment, // Use the processed value
+    suggesterComment: suggesterCommentValue === null || String(suggesterCommentValue).trim() === '' ? undefined : String(suggesterCommentValue),
     imageUrl: formData.get('imageUrl') as string | undefined,
     uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
     latitude: formData.get('latitude') as string, 
     longitude: formData.get('longitude') as string, 
   };
-
+  
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
 
   if (!validatedFields.success) {
@@ -121,6 +118,7 @@ export async function submitSuggestion(
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
   };
+  // uploadedImageSize is not stored in Firestore directly with the suggestion, it's used for quota check.
   delete (finalDataForFirestore as any).uploadedImageSize;
 
 
@@ -135,10 +133,10 @@ export async function submitSuggestion(
   }
 
   try {
-    const suggestionForDb: NewLocationSuggestion = {
+    const suggestionForDb: Omit<NewLocationSuggestion, 'id' | 'submittedAt' | 'status'> & { status: 'pending', submittedAtFirestore: any } = {
       ...finalDataForFirestore, 
       status: 'pending',
-      submittedAt: Timestamp.now().toDate().toISOString(),
+      submittedAtFirestore: serverTimestamp(),
       coordinates: { 
         lat: latitude,
         lng: longitude,
@@ -146,15 +144,19 @@ export async function submitSuggestion(
     };
 
     const suggestedLocationsCol = collection(db, 'suggestedLocations');
-    await addDoc(suggestedLocationsCol, {
-        ...suggestionForDb,
-        submittedAtFirestore: serverTimestamp()
-    });
+    await addDoc(suggestedLocationsCol, suggestionForDb);
+
+    revalidatePath('/admin/suggestions');
 
     return {
       message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received${validatedFields.data.imageUrl ? ' with an image' : ''} and is pending review.`,
       type: 'success',
-      submittedSuggestionData: { ...suggestionForDb, submittedAt: new Date().toISOString() },
+      submittedSuggestionData: { 
+        ...suggestionForDb, 
+        submittedAt: new Date().toISOString(), // Provide a client-side optimistic date
+        // Remove Firestore specific serverTimestamp before sending back to client form state
+        submittedAtFirestore: undefined 
+      } as NewLocationSuggestion,
     };
 
   } catch (error) {
@@ -164,9 +166,102 @@ export async function submitSuggestion(
             errorMessage = error.message;
         }
     }
+    console.error("Error in submitSuggestion action:", error);
     return {
       message: errorMessage,
       type: 'error',
+    };
+  }
+}
+
+
+export interface ApproveSuggestionFormState {
+  message: string;
+  type: 'success' | 'error' | 'info';
+  suggestionId?: string;
+}
+
+export async function approveSuggestion(
+  prevState: ApproveSuggestionFormState | undefined,
+  formData: FormData
+): Promise<ApproveSuggestionFormState> {
+  const suggestionId = formData.get('suggestionId') as string;
+
+  if (!suggestionId) {
+    return { message: "Suggestion ID is missing.", type: 'error' };
+  }
+
+  try {
+    const suggestionRef = doc(db, 'suggestedLocations', suggestionId);
+    const suggestionSnap = await getDoc(suggestionRef);
+
+    if (!suggestionSnap.exists()) {
+      return { message: "Suggestion not found.", type: 'error', suggestionId };
+    }
+
+    const suggestionData = suggestionSnap.data() as NewLocationSuggestion;
+
+    if (suggestionData.status !== 'pending') {
+      return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info', suggestionId };
+    }
+
+    const town = await getTownByName(suggestionData.townName);
+    if (!town) {
+      return { 
+        message: `Town "${suggestionData.townName}" not found. Please create the town in the 'towns' collection first before approving this suggestion.`, 
+        type: 'error', 
+        suggestionId 
+      };
+    }
+
+    const batch = writeBatch(db);
+
+    // 1. Create new location document
+    const newLocationRef = doc(collection(db, 'locations'));
+    const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: any } = {
+      townId: town.id,
+      townName: suggestionData.townName,
+      name: suggestionData.name,
+      description: suggestionData.description,
+      imageUrl: suggestionData.imageUrl,
+      category: suggestionData.category,
+      coordinates: suggestionData.coordinates,
+      submittedBy: suggestionData.suggesterName,
+      suggesterComment: suggestionData.suggesterComment,
+      comments: [],
+      createdAtFirestore: serverTimestamp(),
+    };
+    batch.set(newLocationRef, newLocationData);
+
+    // 2. Update suggestion document
+    batch.update(suggestionRef, {
+      status: 'approved',
+      approvedAtFirestore: serverTimestamp(),
+      publishedLocationId: newLocationRef.id,
+    });
+
+    await batch.commit();
+
+    // Revalidate paths
+    revalidatePath('/admin/suggestions');
+    revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
+    revalidatePath('/'); // For homepage map if town counts change due to new locations
+    // If you have a specific location page, revalidate it too:
+    // revalidatePath(`/location/${newLocationRef.id}`);
+
+
+    return { 
+      message: `Suggestion "${suggestionData.name}" approved and published successfully!`, 
+      type: 'success', 
+      suggestionId 
+    };
+
+  } catch (error) {
+    console.error("Error approving suggestion:", error);
+    return { 
+      message: "Failed to approve suggestion. Please try again.", 
+      type: 'error', 
+      suggestionId 
     };
   }
 }
