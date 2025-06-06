@@ -13,15 +13,7 @@ const SuggestionFormSchemaServer = z.object({
   townName: z.string().min(2, "Town name is required").max(50),
   category: z.string().min(1, "Category is required"),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
-  suggesterComment: z.preprocess(
-    (val) => {
-      if (val === null || typeof val === 'undefined' || (typeof val === 'string' && val.trim() === '')) {
-        return undefined; // Convert null, undefined, or empty/whitespace strings to undefined
-      }
-      return String(val); // Ensure it's a string if it has content
-    },
-    z.string().max(500, "Comment must be 500 characters or less.").optional() // Apply string validation if not undefined
-  ),
+  suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
   imageUrl: z.string().url("Invalid image URL.").optional().nullable(),
   uploadedImageSize: z.preprocess(
     (val) => (val ? Number(val) : undefined),
@@ -95,13 +87,19 @@ export async function submitSuggestion(
   formData: FormData
 ): Promise<FormState> {
 
+  const suggesterCommentRaw = formData.get('suggesterComment');
+  const processedSuggesterComment = 
+    (suggesterCommentRaw === null || (typeof suggesterCommentRaw === 'string' && suggesterCommentRaw.trim() === ''))
+    ? undefined
+    : String(suggesterCommentRaw);
+
   const rawFormData = {
     name: formData.get('name') as string,
     description: formData.get('description') as string,
     townName: formData.get('townName') as string,
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    suggesterComment: formData.get('suggesterComment'), // Pass raw value (string | null)
+    suggesterComment: processedSuggesterComment, // Use the processed value
     imageUrl: formData.get('imageUrl') as string | undefined,
     uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
     latitude: formData.get('latitude') as string, 
@@ -120,8 +118,6 @@ export async function submitSuggestion(
   
   const { latitude, longitude, ...dataToStoreInFirestore } = validatedFields.data;
   
-  // dataToStoreInFirestore.suggesterComment will be undefined if it was empty,
-  // due to the z.preprocess logic. Firestore omits undefined fields.
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
   };
