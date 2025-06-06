@@ -40,6 +40,7 @@ export interface Location {
 
 // For form validation and submission to 'suggestedLocations'
 export interface NewLocationSuggestion {
+  id?: string; // Firestore document ID, added when fetching
   name: string;
   description: string;
   townName: string;
@@ -47,9 +48,9 @@ export interface NewLocationSuggestion {
   category: string;
   suggesterName: string;
   suggesterComment?: string;
-  // pictureFile is handled by FormData, not directly stored in this type for Firestore
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string; // ISO date string
+  submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
   coordinates?: Coordinates; // Will be added later, for now can be placeholder
   imageUrl?: string; // For uploaded image URL
 }
