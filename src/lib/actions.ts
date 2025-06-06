@@ -96,14 +96,15 @@ export async function submitSuggestion(
     name: formData.get('name') as string,
     description: formData.get('description') as string,
     townName: formData.get('townName') as string,
-    postcodeOutcode: formData.get('postcodeOutcode') as string || '',
+    postcodeOutcode: (formData.get('postcodeOutcode') as string | null) || '', // Handle null from FormData
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    suggesterComment: formData.get('suggesterComment') as string | undefined,
-    imageUrl: formData.get('imageUrl') as string | undefined,
+    // If suggesterComment is not in formData, get() returns null. `?? undefined` converts null to undefined.
+    suggesterComment: (formData.get('suggesterComment') as string | null) ?? undefined,
+    imageUrl: formData.get('imageUrl') as string | undefined, // .nullable() in Zod handles null
     uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
-    latitude: formData.get('latitude') as string, // Will be parsed by Zod
-    longitude: formData.get('longitude') as string, // Will be parsed by Zod
+    latitude: formData.get('latitude') as string, 
+    longitude: formData.get('longitude') as string, 
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
@@ -171,3 +172,4 @@ export async function submitSuggestion(
     };
   }
 }
+
