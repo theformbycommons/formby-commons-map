@@ -11,10 +11,17 @@ const SuggestionFormSchemaServer = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
   description: z.string().min(10, "Description must be at least 10 characters").max(1000),
   townName: z.string().min(2, "Town name is required").max(50),
-  // postcodeOutcode removed
   category: z.string().min(1, "Category is required"),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
-  suggesterComment: z.string().max(500).optional(), // Stays optional
+  suggesterComment: z.preprocess(
+    (val) => {
+      if (val === null || typeof val === 'undefined' || (typeof val === 'string' && val.trim() === '')) {
+        return undefined; // Convert null, undefined, or empty/whitespace strings to undefined
+      }
+      return String(val); // Ensure it's a string if it has content
+    },
+    z.string().max(500, "Comment must be 500 characters or less.").optional() // Apply string validation if not undefined
+  ),
   imageUrl: z.string().url("Invalid image URL.").optional().nullable(),
   uploadedImageSize: z.preprocess(
     (val) => (val ? Number(val) : undefined),
@@ -88,16 +95,13 @@ export async function submitSuggestion(
   formData: FormData
 ): Promise<FormState> {
 
-  const suggesterCommentValue = formData.get('suggesterComment');
-
   const rawFormData = {
     name: formData.get('name') as string,
     description: formData.get('description') as string,
     townName: formData.get('townName') as string,
-    // postcodeOutcode removed
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    suggesterComment: (suggesterCommentValue === null || String(suggesterCommentValue).trim() === '') ? undefined : String(suggesterCommentValue),
+    suggesterComment: formData.get('suggesterComment'), // Pass raw value (string | null)
     imageUrl: formData.get('imageUrl') as string | undefined,
     uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
     latitude: formData.get('latitude') as string, 
@@ -114,14 +118,14 @@ export async function submitSuggestion(
     };
   }
   
-  // Ensure postcodeOutcode is not part of dataToStoreInFirestore
   const { latitude, longitude, ...dataToStoreInFirestore } = validatedFields.data;
   
+  // dataToStoreInFirestore.suggesterComment will be undefined if it was empty,
+  // due to the z.preprocess logic. Firestore omits undefined fields.
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
-      // postcodeOutcode related logic removed
   };
-  delete (finalDataForFirestore as any).uploadedImageSize; // Still remove this helper field
+  delete (finalDataForFirestore as any).uploadedImageSize;
 
 
   const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
@@ -136,7 +140,7 @@ export async function submitSuggestion(
 
   try {
     const suggestionForDb: NewLocationSuggestion = {
-      ...finalDataForFirestore, // finalDataForFirestore already excludes postcodeOutcode
+      ...finalDataForFirestore, 
       status: 'pending',
       submittedAt: Timestamp.now().toDate().toISOString(),
       coordinates: { 
