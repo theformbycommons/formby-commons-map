@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ID token is required.' }, { status: 400 });
     }
 
-    // Verify the ID token and create a session cookie.
+    // Verify the ID token
     const decodedIdToken = await adminAuth.verifyIdToken(idToken);
     
-    // TODO: Check for admin custom claim here before creating session cookie
-    // if (!decodedIdToken.admin) {
-    //   return NextResponse.json({ error: 'User is not an administrator.' }, { status: 403 });
-    // }
+    // Check for admin custom claim before creating session cookie
+    if (!decodedIdToken.admin) { // Ensure your custom claim is named 'admin'
+      return NextResponse.json({ error: 'User is not an administrator. Access denied.' }, { status: 403 });
+    }
 
     // Create session cookie
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
@@ -44,7 +44,11 @@ export async function POST(request: NextRequest) {
         errorMessage = 'ID token has expired. Please try logging in again.';
     } else if (error.code === 'auth/argument-error' || error.code === 'auth/id-token-revoked') {
         errorMessage = 'Invalid ID token.';
+    } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This admin account has been disabled.';
     }
+    // If the error was due to our 403 check, it would have already returned.
+    // This catches other errors during token verification or cookie creation.
     return NextResponse.json({ error: errorMessage }, { status: 401 });
   }
 }
