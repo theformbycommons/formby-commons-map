@@ -2,88 +2,62 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const ADMIN_SESSION_COOKIE_NAME = 'admin-session';
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check if the request is for an admin route
-  if (pathname.startsWith('/admin')) {
-    console.log(`Admin route accessed: ${pathname}. Full authentication and authorization checks should be implemented here.`);
+  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+    const sessionCookie = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
 
-    // --- TODO: Implement Actual Authentication & Authorization ---
+    if (!sessionCookie) {
+      // No session cookie, redirect to admin login page
+      const loginUrl = new URL('/admin/login', request.url);
+      loginUrl.searchParams.set('redirectedFrom', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // --- TODO: Implement Full Session Verification & Admin Claim Check ---
+    // At this point, we have a session cookie. The next step is to verify it
+    // using the Firebase Admin SDK and check for an 'admin: true' custom claim.
+    // This typically involves:
+    // 1. Creating an API route (e.g., /api/auth/verify-session) that takes the
+    //    sessionCookie value.
+    // 2. This API route uses `adminAuth.verifySessionCookie(sessionCookie, true)`
+    //    to check its validity and decode it.
+    // 3. It then checks if `decodedClaims.admin === true`.
+    // 4. The API route returns a JSON response indicating if the user is
+    //    a_ A) authenticated and b) an admin.
+    // 5. The middleware calls this API route. Based on the response:
+    //    - If verified admin: return NextResponse.next();
+    //    - If not verified or not admin: redirect to login or an unauthorized page.
     //
-    // The following is a conceptual outline. Actual implementation will require
-    // setting up Firebase Admin SDK (ideally in a backend or API route callable
-    // by the middleware due to Edge runtime constraints) and a secure way to
-    // handle admin login and ID token retrieval (e.g., HttpOnly cookies).
-
-    // 1. Get the Firebase ID token:
-    //    - This token would typically be stored in an HttpOnly cookie after
-    //      an admin successfully logs in via a dedicated admin login page.
-    //    const token = request.cookies.get('firebaseIdToken')?.value;
-    //
-    //    if (!token) {
-    //      // No token found, redirect to admin login page
-    //      const loginUrl = new URL('/admin-login', request.url); // Replace with your actual admin login page
-    //      loginUrl.searchParams.set('redirectedFrom', pathname);
-    //      return NextResponse.redirect(loginUrl);
-    //    }
-
-    // 2. Verify the ID token and check for admin custom claims:
-    //    - This step usually involves the Firebase Admin SDK. Due to middleware
-    //      Edge runtime limitations, you might call an internal API route
-    //      that uses the Admin SDK for verification, or use a library compatible
-    //      with Edge for JWT verification if you can get Firebase's public keys.
-    //
-    //    try {
-    //      // Conceptual: verifyIdTokenAndCheckAdminClaim would be your function
-    //      // that verifies the token and checks for { admin: true } claim.
-    //      // const { isAdmin } = await verifyIdTokenAndCheckAdminClaim(token);
-    //      //
-    //      // if (!isAdmin) {
-    //      //   // User is authenticated but not an admin
-    //      //   const unauthorizedUrl = new URL('/unauthorized', request.url); // Replace with your unauthorized page
-    //      //   return NextResponse.redirect(unauthorizedUrl);
-    //      // }
-    //      // If isAdmin is true, proceed to the admin route by returning NextResponse.next() below.
-    //    } catch (error) {
-    //      // Token verification failed (e.g., expired, invalid)
-    //      // console.error('Admin auth error:', error);
-    //      // const loginUrl = new URL('/admin-login', request.url);
-    //      // loginUrl.searchParams.set('error', 'auth_failed');
-    //      // return NextResponse.redirect(loginUrl);
-    //    }
-
-    // For now, allowing access as actual auth is not implemented.
-    // In a real implementation, this NextResponse.next() would only be called
-    // if the user is authenticated and authorized as an admin.
+    // For now, for this iteration, if a cookie exists, we are TEMPORARILY allowing access.
+    // This is NOT secure for production and needs to be completed.
+    console.log(`Admin route accessed: ${pathname}. Session cookie found. TODO: Implement full verification.`);
     return NextResponse.next();
   }
 
-  // For all other routes, proceed as normal
+  if (pathname === '/admin/login') {
+    // If user is already logged in (has a session cookie) and tries to access login page,
+    // redirect them to the admin dashboard.
+    // This also needs the verification step to be fully robust.
+    const sessionCookie = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
+    if (sessionCookie) {
+        // TODO: Verify session cookie here as well before redirecting.
+        // For now, if cookie exists, assume logged in.
+        console.log('User already has session, redirecting from /admin/login to /admin/suggestions');
+        return NextResponse.redirect(new URL('/admin/suggestions', request.url));
+    }
+  }
+
+  // For all other routes, or if already on /admin/login without a cookie, proceed as normal
   return NextResponse.next();
 }
 
-// Configure the middleware to run only on specific paths
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - Other static assets in /public like images, fonts, etc.
-     *
-     * This ensures middleware primarily targets page routes.
-     * You MUST include /admin paths here if you want them processed by middleware.
-     */
     '/admin/:path*', // Protects all routes under /admin
-    // Example for protecting multiple top-level paths:
-    // '/dashboard/:path*',
-    // '/settings/:path*',
-
-    // To run middleware on almost all paths while excluding assets,
-    // a more complex regex like the one below might be used, but start simple.
-    // '/((?!api|_next/static|_next/image|favicon.ico|images/).*)',
+    // Ensure /admin/login is handled correctly (either by allowing or redirecting if already logged in)
   ],
 };

@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2, LogOut } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import type { NewLocationSuggestion } from '@/lib/types';
@@ -48,14 +49,10 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
     const formData = new FormData();
     formData.append('suggestionId', suggestionId);
     
-    // Using startTransition is good practice if the action might trigger UI updates
-    // that could benefit from React's concurrent rendering.
     startTransition(async () => {
         const result = await approveSuggestion(undefined, formData);
         if (result.type === 'success') {
         toast({ title: 'Success!', description: result.message, variant: 'default' });
-        // Revalidation should handle UI updates, so no explicit state change needed here to hide button
-        // The page will re-render with the new status.
         } else {
         toast({ title: 'Error', description: result.message, variant: 'destructive' });
         }
@@ -64,7 +61,7 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
   };
 
   if (currentStatus !== 'pending') {
-    return null; // Don't show button if not pending
+    return null; 
   }
 
   return (
@@ -85,7 +82,8 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
 export default function AdminSuggestionsPage() {
   const [suggestions, setSuggestions] = useState<NewLocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast(); // For general page-level toasts if needed
+  const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchData() {
@@ -100,9 +98,22 @@ export default function AdminSuggestionsPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [toast]); // Re-fetch if toast changes (e.g. after an action that calls toast) - or better, rely on revalidation.
-             // For simplicity, this effect runs once. Successful actions should revalidate and Next.js router will refresh data.
+  }, [toast]); 
 
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/session-logout', { method: 'POST' });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Logout failed');
+      }
+      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      router.push('/admin/login');
+    } catch (err: any) {
+      toast({ title: 'Logout Error', description: err.message, variant: 'destructive' });
+    }
+  };
 
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const firestoreConsoleBaseUrl = projectId
@@ -122,7 +133,12 @@ export default function AdminSuggestionsPage() {
     <div className="max-w-5xl mx-auto space-y-8">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="font-headline text-3xl text-primary">Manage Location Suggestions</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="font-headline text-3xl text-primary">Manage Location Suggestions</CardTitle>
+            <Button onClick={handleLogout} variant="outline" size="sm">
+              <LogOut className="mr-2 h-4 w-4" /> Logout
+            </Button>
+          </div>
           <CardDescription>
             Review new submissions. Use 'Approve & Publish' to make them live. 
             Use 'Manage in Firebase Console' for direct edits or to reject.
