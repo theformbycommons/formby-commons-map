@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, startTransition } from 'react'; // Added startTransition
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form'; // useFormStatus is NOT imported from here
 import { useFormStatus } from 'react-dom'; // CORRECT: useFormStatus is imported from react-dom
@@ -154,7 +154,9 @@ export default function SuggestLocationForm() {
         formData.append(key, String(value));
       }
     });
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
 
