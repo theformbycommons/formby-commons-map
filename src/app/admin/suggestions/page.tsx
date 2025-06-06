@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import type { NewLocationSuggestion } from '@/lib/types';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export const metadata = {
   title: 'Pending Suggestions - Local Glow Admin',
@@ -29,10 +30,11 @@ function StatusBadge({ status }: { status: NewLocationSuggestion['status'] }) {
 
 export default async function AdminSuggestionsPage() {
   const suggestions = await getSuggestedLocations();
-
-  // Construct the Firebase Console URL for your project's Firestore `suggestedLocations` collection
-  // Replace YOUR_PROJECT_ID with your actual Firebase Project ID
-  const firestoreConsoleBaseUrl = `https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/firestore/data/suggestedLocations`;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  
+  const firestoreConsoleBaseUrl = projectId
+    ? `https://console.firebase.google.com/project/${projectId}/firestore/data/suggestedLocations`
+    : null;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -40,8 +42,21 @@ export default async function AdminSuggestionsPage() {
         <CardHeader>
           <CardTitle className="font-headline text-3xl text-primary">Manage Location Suggestions</CardTitle>
           <CardDescription>
-            Review new submissions. To edit, approve, or reject, you'll need to go to the Firebase console for now.
+            Review new submissions. 
+            {firestoreConsoleBaseUrl ? 
+              " To edit, approve, or reject, click the 'Manage in Firebase Console' button for a specific suggestion."
+              : " Firebase Project ID not configured, so direct links to the console are disabled."
+            }
           </CardDescription>
+          {!firestoreConsoleBaseUrl && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                The <strong>NEXT_PUBLIC_FIREBASE_PROJECT_ID</strong> environment variable is not set. 
+                Please set it in your .env file to enable direct links to manage suggestions in the Firebase Console.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
           {suggestions.length === 0 ? (
@@ -89,11 +104,17 @@ export default async function AdminSuggestionsPage() {
                         </div>
                         
                         <div className="pt-2">
-                           <Button asChild variant="outline" size="sm">
-                            <Link href={`${firestoreConsoleBaseUrl}/${suggestion.id}`} target="_blank" rel="noopener noreferrer">
-                              <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console
-                            </Link>
-                          </Button>
+                          {firestoreConsoleBaseUrl ? (
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={`${firestoreConsoleBaseUrl}/${suggestion.id}`} target="_blank" rel="noopener noreferrer">
+                                <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console
+                              </Link>
+                            </Button>
+                          ) : (
+                             <Button variant="outline" size="sm" disabled>
+                                <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console (disabled)
+                              </Button>
+                          )}
                         </div>
                       </div>
                     </div>
