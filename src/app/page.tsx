@@ -19,7 +19,7 @@ export default async function HomePage() {
           layout="fill"
           objectFit="cover"
           className="absolute inset-0 w-full h-full z-0 opacity-10"
-          data-ai-hint="UK town landscape"
+          data-ai-hint="watercolor park canal"
           priority // Preload image as it's LCP candidate
         />
         <div className="relative z-10"> {/* Content wrapper to ensure it's above the image */}
@@ -50,3 +50,4 @@ export default async function HomePage() {
     </div>
   );
 }
+
