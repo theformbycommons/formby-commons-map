@@ -47,7 +47,7 @@ export default function AdminLoginPage() {
         title: 'Login Successful',
         description: 'Redirecting to admin dashboard...',
       });
-      router.push('/admin/suggestions'); // Or your desired admin dashboard route
+      router.push('/admin/suggestions'); // Redirect to admin dashboard
     } catch (err: any) {
       console.error('Login failed:', err);
       setError(err.message || 'An unknown error occurred during login.');
@@ -72,7 +72,7 @@ export default function AdminLoginPage() {
           <CardDescription>Access the Local Glow administration panel.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6" suppressHydrationWarning={true}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
