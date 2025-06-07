@@ -16,10 +16,11 @@ import { approveSuggestion, type ApproveSuggestionFormState } from '@/lib/action
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useActionState, startTransition } from 'react';
 
-export const metadata = {
-  title: 'Pending Suggestions - Local Glow Admin',
-  description: 'Review and manage new location suggestions.',
-};
+// Removed metadata export as this is a Client Component
+// export const metadata = {
+//   title: 'Pending Suggestions - Local Glow Admin',
+//   description: 'Review and manage new location suggestions.',
+// };
 
 function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['status'], approvedAt?: string }) {
   switch (status) {
@@ -86,6 +87,10 @@ export default function AdminSuggestionsPage() {
   const router = useRouter();
 
   useEffect(() => {
+    document.title = 'Pending Suggestions - Local Glow Admin';
+  }, []);
+
+  useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
       try {
@@ -103,6 +108,11 @@ export default function AdminSuggestionsPage() {
 
   const handleLogout = async () => {
     try {
+      // Call client-side signOut first
+      if (auth) { // auth is imported from '@/lib/firebase'
+        await auth.signOut(); // Firebase client-side signOut
+      }
+      
       const response = await fetch('/api/auth/session-logout', { method: 'POST' });
       if (!response.ok) {
         const data = await response.json();
