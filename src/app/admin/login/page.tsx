@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, startTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Keep for potential future use, but we'll use window.location for now
 import { signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase'; // Client-side Firebase auth
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const router = useRouter(); // Keep for potential future use
   const { toast } = useToast();
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -56,10 +56,16 @@ export default function AdminLoginPage() {
         title: 'Login Successful',
         description: 'Redirecting to admin dashboard...',
       });
-      console.log('Admin login: Session cookie set, redirecting to /admin/suggestions.'); // Client-side log
+      console.log('Admin login: Session cookie set, redirecting to /admin/suggestions using window.location.href.'); // Client-side log
+      
+      // Use window.location.href for a more forceful redirect
+      // Wrap in startTransition if you want to ensure React state updates related to navigation are batched,
+      // but for window.location.href, it's a full page load, so transition might be less critical here.
+      // However, to be safe and consistent with previous attempts:
       startTransition(() => {
-        router.push('/admin/suggestions'); 
+        window.location.href = '/admin/suggestions';
       });
+
     } catch (err: any) {
       console.error('Admin login: Error during login process:', err); // Client-side log
       setError(err.message || 'An unknown error occurred during login.');
