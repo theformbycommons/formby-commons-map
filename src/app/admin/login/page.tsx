@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, startTransition } from 'react';
-import { useRouter } from 'next/navigation'; // Keep for potential future use, but we'll use window.location for now
+import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase'; // Client-side Firebase auth
 import { Button } from '@/components/ui/button';
@@ -18,25 +18,25 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter(); // Keep for potential future use
+  const router = useRouter();
   const { toast } = useToast();
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
-    console.log('Admin login: handleLogin initiated.'); // Client-side log
+    // console.log('Admin login: handleLogin initiated.'); // Client-side log
 
     try {
-      console.log('Admin login: Attempting signInWithEmailAndPassword...'); // Client-side log
+      // console.log('Admin login: Attempting signInWithEmailAndPassword...'); // Client-side log
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log('Admin login: signInWithEmailAndPassword successful.', userCredential.user); // Client-side log
+      // console.log('Admin login: signInWithEmailAndPassword successful.', userCredential.user); // Client-side log
 
-      console.log('Admin login: Attempting getIdToken...'); // Client-side log
+      // console.log('Admin login: Attempting getIdToken...'); // Client-side log
       const idToken = await getIdToken(userCredential.user);
-      console.log('Admin login: getIdToken successful. Token length:', idToken.length); // Client-side log (don't log the full token)
+      // console.log('Admin login: getIdToken successful. Token length:', idToken.length); // Client-side log (don't log the full token)
 
-      console.log('Admin login: Attempting fetch to /api/auth/session-login...'); // Client-side log
+      // console.log('Admin login: Attempting fetch to /api/auth/session-login...'); // Client-side log
       const response = await fetch('/api/auth/session-login', {
         method: 'POST',
         headers: {
@@ -44,11 +44,11 @@ export default function AdminLoginPage() {
         },
         body: JSON.stringify({ idToken }),
       });
-      console.log('Admin login: Fetch response status:', response.status); // Client-side log
+      // console.log('Admin login: Fetch response status:', response.status); // Client-side log
 
       if (!response.ok) {
         const data = await response.json();
-        console.error('Admin login: Session login API error response data:', data); // Client-side log
+        // console.error('Admin login: Session login API error response data:', data); // Client-side log
         throw new Error(data.error || 'Failed to set session cookie.');
       }
       
@@ -56,18 +56,14 @@ export default function AdminLoginPage() {
         title: 'Login Successful',
         description: 'Redirecting to admin dashboard...',
       });
-      console.log('Admin login: Session cookie set, redirecting to /admin/suggestions using window.location.href.'); // Client-side log
+      // console.log('Admin login: Session cookie set, redirecting to /admin/suggestions using window.location.href.'); // Client-side log
       
-      // Use window.location.href for a more forceful redirect
-      // Wrap in startTransition if you want to ensure React state updates related to navigation are batched,
-      // but for window.location.href, it's a full page load, so transition might be less critical here.
-      // However, to be safe and consistent with previous attempts:
       startTransition(() => {
         window.location.href = '/admin/suggestions';
       });
 
     } catch (err: any) {
-      console.error('Admin login: Error during login process:', err); // Client-side log
+      // console.error('Admin login: Error during login process:', err); // Client-side log
       setError(err.message || 'An unknown error occurred during login.');
       toast({
         title: 'Login Failed',
@@ -76,7 +72,7 @@ export default function AdminLoginPage() {
       });
     } finally {
       setIsLoading(false);
-      console.log('Admin login: handleLogin finished.'); // Client-side log
+      // console.log('Admin login: handleLogin finished.'); // Client-side log
     }
   };
 
