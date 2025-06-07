@@ -14,12 +14,12 @@ export default async function HomePage() {
     <div className="space-y-8">
       <section className="relative text-center py-8 bg-card rounded-lg shadow-md overflow-hidden">
         <Image
-          src="https://placehold.co/1200x500.png"
+          src="https://firebasestorage.googleapis.com/v0/b/community-80928.firebasestorage.app/o/background-images%2Fformby1.jpg?alt=media"
           alt="Evocative background image of a charming local town scene"
           layout="fill"
           objectFit="cover"
           className="absolute inset-0 w-full h-full z-0 opacity-10"
-          data-ai-hint="watercolor park canal"
+          data-ai-hint="Formby beach woodland"
           priority // Preload image as it's LCP candidate
         />
         <div className="relative z-10"> {/* Content wrapper to ensure it's above the image */}
