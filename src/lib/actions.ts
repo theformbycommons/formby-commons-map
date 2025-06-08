@@ -3,10 +3,10 @@
 
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, FormState as SuggestionFormState } from './types';
-import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch, deleteDoc } from 'firebase/firestore';
+import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'; // Removed deleteDoc from client SDK
 import { db } from './firebase';
-import { adminDb, adminStorage } from './firebase-admin'; // Import adminStorage
-import { getTownByName } from './data'; 
+import { adminDb, adminStorage } from './firebase-admin'; // Import adminStorage and adminDb
+import { getTownByName } from './data';
 import { revalidatePath } from 'next/cache';
 
 // Zod schema for server-side validation (SuggestLocationForm)
@@ -60,7 +60,7 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
 
       let { maxBytesAllowed = DEFAULT_MAX_GLOBAL_BYTES, totalBytesUsed = 0 } = globalQuotaDoc.data() || {};
       let { maxBytesPerDay = DEFAULT_MAX_DAILY_BYTES, bytesUploadedToday = 0, lastResetDate } = dailyQuotaDoc.data() || {};
-      
+
       if (lastResetDate !== todayDateString) {
         bytesUploadedToday = 0;
         transaction.update(dailyQuotaRef, { bytesUploadedToday: 0, lastResetDate: todayDateString });
@@ -73,11 +73,11 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
       if (bytesUploadedToday + dataSizeBytes > maxBytesPerDay) {
         throw new Error('Daily upload limit reached. We are sorry, but at the moment, the site can\'t accept any new location submissions. Please try again tomorrow.');
       }
-      
+
       transaction.update(globalQuotaRef, { totalBytesUsed: totalBytesUsed + dataSizeBytes });
       transaction.update(dailyQuotaRef, { bytesUploadedToday: bytesUploadedToday + dataSizeBytes });
     });
-    
+
     return { allowed: true };
 
   } catch (error: any) {
@@ -100,10 +100,10 @@ export async function submitSuggestion(
     suggesterComment: suggesterCommentValue === null || String(suggesterCommentValue).trim() === '' ? undefined : String(suggesterCommentValue),
     imageUrl: formData.get('imageUrl') as string | undefined,
     uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
-    latitude: formData.get('latitude') as string, 
-    longitude: formData.get('longitude') as string, 
+    latitude: formData.get('latitude') as string,
+    longitude: formData.get('longitude') as string,
   };
-  
+
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
 
   if (!validatedFields.success) {
@@ -113,9 +113,9 @@ export async function submitSuggestion(
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  
+
   const { latitude, longitude, ...dataToStoreInFirestore } = validatedFields.data;
-  
+
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
   };
@@ -135,10 +135,10 @@ export async function submitSuggestion(
 
   try {
     const suggestionForDb: Omit<NewLocationSuggestion, 'id' | 'submittedAt' | 'status'> & { status: 'pending', submittedAtFirestore: any } = {
-      ...finalDataForFirestore, 
+      ...finalDataForFirestore,
       status: 'pending',
       submittedAtFirestore: serverTimestamp(),
-      coordinates: { 
+      coordinates: {
         lat: latitude,
         lng: longitude,
       },
@@ -152,10 +152,10 @@ export async function submitSuggestion(
     return {
       message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received${validatedFields.data.imageUrl ? ' with an image' : ''} and is pending review.`,
       type: 'success',
-      submittedSuggestionData: { 
-        ...suggestionForDb, 
-        submittedAt: new Date().toISOString(), 
-        submittedAtFirestore: undefined 
+      submittedSuggestionData: {
+        ...suggestionForDb,
+        submittedAt: new Date().toISOString(),
+        submittedAtFirestore: undefined
       } as NewLocationSuggestion,
     };
 
@@ -207,10 +207,10 @@ export async function approveSuggestion(
 
     const town = await getTownByName(suggestionData.townName);
     if (!town) {
-      return { 
-        message: `Town "${suggestionData.townName}" not found. Please create the town in the 'towns' collection first before approving this suggestion.`, 
-        type: 'error', 
-        suggestionId 
+      return {
+        message: `Town "${suggestionData.townName}" not found. Please create the town in the 'towns' collection first before approving this suggestion.`,
+        type: 'error',
+        suggestionId
       };
     }
 
@@ -244,22 +244,22 @@ export async function approveSuggestion(
 
     revalidatePath('/admin/suggestions');
     revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
-    revalidatePath('/'); 
+    revalidatePath('/');
     // revalidatePath(`/location/${newLocationRef.id}`);
 
 
-    return { 
-      message: `Suggestion "${suggestionData.name}" approved and published successfully!`, 
-      type: 'success', 
-      suggestionId 
+    return {
+      message: `Suggestion "${suggestionData.name}" approved and published successfully!`,
+      type: 'success',
+      suggestionId
     };
 
   } catch (error) {
     console.error("Error approving suggestion:", error);
-    return { 
-      message: "Failed to approve suggestion. Please try again.", 
-      type: 'error', 
-      suggestionId 
+    return {
+      message: "Failed to approve suggestion. Please try again.",
+      type: 'error',
+      suggestionId
     };
   }
 }
@@ -299,8 +299,6 @@ export async function deleteSuggestion(
   }
 
   try {
-    const suggestionRef = doc(adminDb, 'suggestedLocations', suggestionId); // Use adminDb for consistency if available
-    
     // Delete image from Firebase Storage if imageUrl exists
     if (imageUrl) {
       const filePath = getPathFromStorageUrl(imageUrl);
@@ -322,17 +320,15 @@ export async function deleteSuggestion(
       }
     }
 
-    // Delete Firestore document
-    // Use the client SDK's `db` instance for Firestore operations as used in approveSuggestion for consistency
-    const clientSuggestionRef = doc(db, 'suggestedLocations', suggestionId);
-    await deleteDoc(clientSuggestionRef);
+    // Delete Firestore document using Admin SDK
+    await adminDb.collection('suggestedLocations').doc(suggestionId).delete();
 
     revalidatePath('/admin/suggestions');
 
-    return { 
-      message: `Suggestion and associated image (if any) deleted successfully.`, 
-      type: 'success', 
-      suggestionId 
+    return {
+      message: `Suggestion and associated image (if any) deleted successfully.`,
+      type: 'success',
+      suggestionId
     };
 
   } catch (error: any) {
@@ -344,10 +340,10 @@ export async function deleteSuggestion(
       revalidatePath('/admin/suggestions');
       return { message: userMessage, type: 'info', suggestionId };
     }
-    return { 
-      message: userMessage + " Please try again.", 
-      type: 'error', 
-      suggestionId 
+    return {
+      message: userMessage + " Please try again.",
+      type: 'error',
+      suggestionId
     };
   }
 }
