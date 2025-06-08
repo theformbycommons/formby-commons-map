@@ -3,9 +3,9 @@
 
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, FormState as SuggestionFormState } from './types';
-import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'; // Removed deleteDoc from client SDK
+import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
-import { adminDb, adminStorage } from './firebase-admin'; // Import adminStorage and adminDb
+import { adminDb, adminStorage } from './firebase-admin';
 import { getTownByName } from './data';
 import { revalidatePath } from 'next/cache';
 
@@ -119,7 +119,6 @@ export async function submitSuggestion(
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
   };
-  // uploadedImageSize is not stored in Firestore directly with the suggestion, it's used for quota check.
   delete (finalDataForFirestore as any).uploadedImageSize;
 
 
@@ -216,7 +215,6 @@ export async function approveSuggestion(
 
     const batch = writeBatch(db);
 
-    // 1. Create new location document
     const newLocationRef = doc(collection(db, 'locations'));
     const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: any } = {
       townId: town.id,
@@ -233,7 +231,6 @@ export async function approveSuggestion(
     };
     batch.set(newLocationRef, newLocationData);
 
-    // 2. Update suggestion document
     batch.update(suggestionRef, {
       status: 'approved',
       approvedAtFirestore: serverTimestamp(),
@@ -245,8 +242,6 @@ export async function approveSuggestion(
     revalidatePath('/admin/suggestions');
     revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
     revalidatePath('/');
-    // revalidatePath(`/location/${newLocationRef.id}`);
-
 
     return {
       message: `Suggestion "${suggestionData.name}" approved and published successfully!`,
@@ -273,8 +268,6 @@ export interface DeleteSuggestionFormState {
 function getPathFromStorageUrl(url: string): string | null {
   try {
     const urlObj = new URL(url);
-    // Pathname looks like /v0/b/YOUR_BUCKET_NAME/o/path%2Fto%2Ffile.jpg
-    // We need to extract the part after '/o/' and before '?'
     const pathSegments = urlObj.pathname.split('/o/');
     if (pathSegments.length > 1) {
       const encodedPath = pathSegments[1].split('?')[0];
@@ -282,7 +275,7 @@ function getPathFromStorageUrl(url: string): string | null {
     }
     return null;
   } catch (e) {
-    console.error("Error parsing storage URL:", e, "URL was:", url);
+    console.error("Error parsing storage URL for deletion:", e, "URL was:", url);
     return null;
   }
 }
@@ -294,56 +287,71 @@ export async function deleteSuggestion(
   const suggestionId = formData.get('suggestionId') as string;
   const imageUrl = formData.get('imageUrl') as string | undefined;
 
+  let imageDeletedSuccessfully = !imageUrl; // True if no image, otherwise assume false until confirmed
+  let imageDeletionErrorDetails = "";
+
   if (!suggestionId) {
-    return { message: "Suggestion ID is missing.", type: 'error' };
+    return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
-  try {
-    // Delete image from Firebase Storage if imageUrl exists
-    if (imageUrl) {
-      const filePath = getPathFromStorageUrl(imageUrl);
-      if (filePath) {
-        const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  // Attempt to delete image first if it exists
+  if (imageUrl) {
+    const filePath = getPathFromStorageUrl(imageUrl);
+    if (filePath) {
+      const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+      try {
         if (!bucketName) {
-            console.warn("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET env variable not set. Cannot delete image from specific bucket, using default.");
-             await adminStorage.bucket().file(filePath).delete().catch(err => {
-                // Log error but don't fail the whole operation if image deletion fails
-                console.error(`Failed to delete image ${filePath} from default bucket:`, err.message);
-             });
+          console.warn(`[Admin Action] NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET env variable not set. Attempting to delete image '${filePath}' from default bucket.`);
+          await adminStorage.bucket().file(filePath).delete();
         } else {
-            await adminStorage.bucket(bucketName).file(filePath).delete().catch(err => {
-                console.error(`Failed to delete image ${filePath} from bucket ${bucketName}:`, err.message);
-            });
+          console.log(`[Admin Action] Attempting to delete image '${filePath}' from bucket '${bucketName}'.`);
+          await adminStorage.bucket(bucketName).file(filePath).delete();
         }
-      } else {
-        console.warn(`Could not parse file path from imageUrl: ${imageUrl}`);
+        imageDeletedSuccessfully = true;
+        console.log(`[Admin Action] Successfully deleted image '${filePath}' from storage.`);
+      } catch (imgErr: any) {
+        // Check if the error is "object not found"
+        // GCS error for "Not Found" is typically code 404.
+        if (imgErr.code === 404 || (imgErr.message && imgErr.message.toLowerCase().includes("no such object"))) {
+          imageDeletionErrorDetails = `Image '${filePath}' not found in storage (may have been already deleted or path is incorrect).`;
+          console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
+          imageDeletedSuccessfully = true; // Treat as "not an error preventing doc deletion"
+        } else {
+          imageDeletionErrorDetails = `Failed to delete image '${filePath}': ${imgErr.message}.`;
+          console.error(`[Admin Action] ${imageDeletionErrorDetails}`, imgErr);
+        }
       }
+    } else {
+      imageDeletionErrorDetails = `Could not parse file path from imageUrl: ${imageUrl}. Image not deleted.`;
+      console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
     }
+  }
 
-    // Delete Firestore document using Admin SDK
+  // Attempt to delete Firestore document
+  try {
     await adminDb.collection('suggestedLocations').doc(suggestionId).delete();
-
+    console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
 
+    if (!imageUrl) {
+      return { message: "Suggestion document deleted successfully. No image was associated.", type: 'success', suggestionId };
+    }
+    if (imageDeletedSuccessfully) {
+      return { message: "Suggestion and associated image (if any) deleted successfully.", type: 'success', suggestionId };
+    }
+    // Firestore doc deleted, but image deletion had issues (but not "not found" type errors that we treat as okay)
     return {
-      message: `Suggestion and associated image (if any) deleted successfully.`,
-      type: 'success',
+      message: `Suggestion document deleted. However, image deletion failed: ${imageDeletionErrorDetails || 'Unknown image error.'}`,
+      type: 'info', // Use 'info' as the main operation (doc deletion) succeeded
       suggestionId
     };
 
-  } catch (error: any) {
-    console.error("Error deleting suggestion:", error);
-    let userMessage = "Failed to delete suggestion.";
-    if (error.message && error.message.includes("storage/object-not-found")) {
-      userMessage = "Suggestion document deleted, but the image was not found in storage (it might have been already deleted).";
-      // Still revalidate and inform success for the document part if only image deletion failed like this.
-      revalidatePath('/admin/suggestions');
-      return { message: userMessage, type: 'info', suggestionId };
+  } catch (firestoreError: any) {
+    console.error(`[Admin Action] Failed to delete Firestore document '${suggestionId}':`, firestoreError);
+    let message = `Failed to delete suggestion document: ${firestoreError.message}.`;
+    if (imageUrl && !imageDeletedSuccessfully && imageDeletionErrorDetails) {
+      message += ` Additionally, image deletion failed: ${imageDeletionErrorDetails}`;
     }
-    return {
-      message: userMessage + " Please try again.",
-      type: 'error',
-      suggestionId
-    };
+    return { message, type: 'error', suggestionId };
   }
 }
