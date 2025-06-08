@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import type { NewLocationSuggestion, Location, FormState as SuggestionFormState } from './types';
+import type { NewLocationSuggestion, Location } from './types';
 import { adminDb, adminStorage } from './firebase-admin'; 
 import { getTownByName } from './data'; 
 import { revalidatePath } from 'next/cache';
@@ -30,7 +30,7 @@ const SuggestionFormSchemaServer = z.object({
     (val) => Number(val),
     z.number().min(-180, "Invalid longitude. Please select a location on the map.").max(180, "Invalid longitude. Please select a location on the map.")
   ),
-  suggesterUid: z.string().min(1, "User ID is missing.").optional(), // For anonymous user daily limit
+  suggesterUid: z.string().min(1, "User ID is missing.").optional(),
 });
 
 export interface SuggestionFormState {
@@ -145,26 +145,38 @@ export async function submitSuggestion(
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
     suggesterComment: suggesterCommentValue === null || String(suggesterCommentValue).trim() === '' ? undefined : String(suggesterCommentValue),
-    imageUrl: imageUrlValue === null ? null : String(imageUrlValue),
-    uploadedImageSize: uploadedImageSizeValue === null ? null : String(uploadedImageSizeValue),
+    imageUrl: imageUrlValue === null ? undefined : String(imageUrlValue), // map null to undefined for optional URL
+    uploadedImageSize: uploadedImageSizeValue === null ? undefined : String(uploadedImageSizeValue), // map null to undefined
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
-    suggesterUid: suggesterUidValue === null ? undefined : String(suggesterUidValue),
+    suggesterUid: suggesterUidValue === null ? undefined : String(suggesterUidValue), // map null to undefined for optional UID
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
 
   if (!validatedFields.success) {
-    console.error("Server-side validation errors:", validatedFields.error.flatten().fieldErrors);
+    const flatErrors = validatedFields.error.flatten();
+    let detailedErrorMessage = "Validation failed. Details: ";
+    // Append field errors
+    for (const [field, messages] of Object.entries(flatErrors.fieldErrors)) {
+        if (messages) detailedErrorMessage += `${field}: ${messages.join(', ')}; `;
+    }
+    // Append form errors (if any)
+    if (flatErrors.formErrors.length > 0) {
+        detailedErrorMessage += `Form errors: ${flatErrors.formErrors.join(', ')}; `;
+    }
+    
+    // This console.error is for server-side logs if available/checked
+    console.error("Server-side validation errors:", flatErrors); 
+    
     return {
-      message: "Validation failed. Please check the errors below.",
+      message: detailedErrorMessage.length > "Validation failed. Details: ".length ? detailedErrorMessage : "Validation failed. Please check form fields.",
       type: 'error',
-      errors: validatedFields.error.flatten().fieldErrors,
+      errors: flatErrors.fieldErrors,
     };
   }
 
   const { latitude, longitude, suggesterUid, ...dataToStoreInFirestore } = validatedFields.data;
-
 
   if (suggesterUid) {
     const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid);
@@ -176,11 +188,15 @@ export async function submitSuggestion(
     }
   }
   
-
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
   };
+  // uploadedImageSize is only used for quota calculation, not stored in Firestore
   delete (finalDataForFirestore as any).uploadedImageSize; 
+  // Ensure imageUrl is null if it was undefined (Zod optional turns undefined into actual undefined)
+  if (finalDataForFirestore.imageUrl === undefined) {
+    (finalDataForFirestore as any).imageUrl = null;
+  }
 
 
   const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
@@ -333,14 +349,17 @@ export interface DeleteSuggestionFormState {
 function getPathFromStorageUrl(url: string): string | null {
   try {
     const urlObj = new URL(url);
+    // Pathname for GCS URLs typically looks like: /v0/b/your-bucket-name.appspot.com/o/path%2Fto%2Fyour%2Ffile.jpg
     const pathSegments = urlObj.pathname.split('/o/');
     if (pathSegments.length > 1) {
-      const encodedPath = pathSegments[1].split('?')[0];
+      // The actual file path within the bucket is after '/o/' and needs to be URL-decoded
+      const encodedPath = pathSegments[1].split('?')[0]; // Remove query params like alt=media&token=...
       return decodeURIComponent(encodedPath);
     }
+    console.warn(`[Admin Action] Could not parse file path from URL: ${url}. Expected '/o/' separator not found.`);
     return null;
   } catch (e) {
-    console.error("Error parsing storage URL for deletion:", e, "URL was:", url);
+    console.error("[Admin Action] Error parsing storage URL for deletion:", e, "URL was:", url);
     return null;
   }
 }
@@ -350,20 +369,23 @@ export async function deleteSuggestion(
   formData: FormData
 ): Promise<DeleteSuggestionFormState> {
   const suggestionId = formData.get('suggestionId') as string;
-  const imageUrl = formData.get('imageUrl') as string | undefined;
+  const imageUrl = formData.get('imageUrl') as string | undefined | null; // Can be null from form
 
   let imageDeletedSuccessfully = !imageUrl; 
   let imageDeletionErrorDetails = "";
+  let finalMessage = "";
+  let finalType: 'success' | 'error' | 'info' = 'info';
+
 
   if (!suggestionId) {
     return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
-  if (imageUrl) {
+  if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '') {
     const filePath = getPathFromStorageUrl(imageUrl);
     if (filePath) {
-      const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-      const bucket = bucketName ? adminStorage.bucket(bucketName) : adminStorage.bucket();
+      const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET; // Ensure this is set
+      const bucket = bucketName ? adminStorage.bucket(bucketName) : adminStorage.bucket(); // Default bucket if not specified
       const file = bucket.file(filePath);
       
       try {
@@ -375,7 +397,7 @@ export async function deleteSuggestion(
         if (imgErr.code === 404 || (imgErr.errors && imgErr.errors.some((e: any) => e.reason === 'notFound'))) {
           imageDeletionErrorDetails = `Image '${filePath}' not found in storage (may have been already deleted or path is incorrect).`;
           console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
-          imageDeletedSuccessfully = true; 
+          imageDeletedSuccessfully = true; // Treat as success if file not found, as desired state is "not there"
         } else {
           imageDeletionErrorDetails = `Failed to delete image '${filePath}': ${imgErr.message}.`;
           console.error(`[Admin Action] ${imageDeletionErrorDetails}`, imgErr);
@@ -387,6 +409,9 @@ export async function deleteSuggestion(
       console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
       imageDeletedSuccessfully = false; 
     }
+  } else {
+     // No image URL provided or it's empty, so image deletion is trivially successful or not applicable
+    imageDeletedSuccessfully = true;
   }
 
   try {
@@ -394,33 +419,33 @@ export async function deleteSuggestion(
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
 
-    if (!imageUrl) {
-      return { message: "Suggestion document deleted successfully. No image was associated.", type: 'success', suggestionId };
-    }
-    if (imageDeletedSuccessfully && !imageDeletionErrorDetails.includes("Failed to delete image")) { 
-      let successMessage = "Suggestion and associated image (if it existed) handled successfully.";
-      if (imageDeletionErrorDetails.includes("not found")) {
-        successMessage = `Suggestion document deleted. ${imageDeletionErrorDetails}`;
-        return { message: successMessage, type: 'info', suggestionId };
+    if (!imageUrl || imageUrl.trim() === '') { // No image was associated
+      finalMessage = "Suggestion document deleted successfully. No image was associated.";
+      finalType = 'success';
+    } else if (imageDeletedSuccessfully) {
+      if (imageDeletionErrorDetails.includes("not found")) { // Image was specified but not found
+        finalMessage = `Suggestion document deleted. Associated image was not found in storage (may have been deleted previously).`;
+        finalType = 'info';
+      } else { // Image was specified and successfully deleted
+        finalMessage = "Suggestion and associated image deleted successfully.";
+        finalType = 'success';
       }
-      return { message: "Suggestion and associated image deleted successfully.", type: 'success', suggestionId };
+    } else { // Image was specified but deletion failed
+      finalMessage = `Suggestion document deleted. However, the associated image deletion failed: ${imageDeletionErrorDetails || 'Unknown image error.'}`;
+      finalType = 'error'; // More accurately an error or partial success
     }
-    return {
-      message: `Suggestion document deleted. However, image deletion failed: ${imageDeletionErrorDetails || 'Unknown image error.'}`,
-      type: 'info', 
-      suggestionId
-    };
+    return { message: finalMessage, type: finalType, suggestionId };
 
   } catch (firestoreError: any) {
     console.error(`[Admin Action] Failed to delete Firestore document '${suggestionId}':`, firestoreError);
     let message = `Failed to delete suggestion document: ${firestoreError.message}.`;
-    if (imageUrl && !imageDeletedSuccessfully && imageDeletionErrorDetails) {
-      message += ` Additionally, image deletion failed: ${imageDeletionErrorDetails}`;
-    } else if (imageUrl && imageDeletedSuccessfully && imageDeletionErrorDetails.includes("not found")) {
-       message += ` Note: ${imageDeletionErrorDetails}`;
+    if (imageUrl && imageUrl.trim() !== '') { // If there was an attempt to delete an image
+      if (!imageDeletedSuccessfully && imageDeletionErrorDetails) {
+        message += ` Additionally, image deletion failed: ${imageDeletionErrorDetails}`;
+      } else if (imageDeletedSuccessfully && imageDeletionErrorDetails.includes("not found")) {
+         message += ` Note: Associated image was not found in storage.`;
+      }
     }
     return { message, type: 'error', suggestionId };
   }
 }
-
-    
