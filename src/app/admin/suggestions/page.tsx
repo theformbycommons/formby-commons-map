@@ -111,10 +111,10 @@ function DeleteSuggestionButton({ suggestionId, suggestionName, imageUrl }: { su
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); // Prevent default form submission
-    // Confirmation dialog will trigger the formAction via its own mechanism if user confirms
-    // If not using explicit form submission inside dialog, call formAction directly
     const formData = new FormData(event.currentTarget);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
@@ -156,9 +156,6 @@ export default function AdminSuggestionsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // This is a generic state from useActionState hook, used here to trigger re-fetch.
-  // It could be from either approve or delete. We just need a trigger.
-  // Moved this line up to be initialized before its use in useEffect.
   const [state] = useActionState(() => Promise.resolve(initialApproveState), initialApproveState);
 
   useEffect(() => {
