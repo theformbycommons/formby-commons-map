@@ -156,6 +156,11 @@ export default function AdminSuggestionsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  // This is a generic state from useActionState hook, used here to trigger re-fetch.
+  // It could be from either approve or delete. We just need a trigger.
+  // Moved this line up to be initialized before its use in useEffect.
+  const [state] = useActionState(() => Promise.resolve(initialApproveState), initialApproveState);
+
   useEffect(() => {
     document.title = 'Pending Suggestions - Local Glow Admin';
   }, []);
@@ -198,10 +203,6 @@ export default function AdminSuggestionsPage() {
   const firestoreConsoleBaseUrl = projectId
     ? `https://console.firebase.google.com/project/${projectId}/firestore/data/suggestedLocations`
     : null;
-
-  // This is a generic state from useActionState hook, used here to trigger re-fetch.
-  // It could be from either approve or delete. We just need a trigger.
-  const [state] = useActionState(() => Promise.resolve(initialApproveState), initialApproveState);
 
 
   if (isLoading) {
@@ -329,3 +330,4 @@ export default function AdminSuggestionsPage() {
 
 // Ensure Image layout prop is correctly used
 const ImageLayoutFix = () => <Image src="https://placehold.co/100x100.png" alt="fix" layout="fill" objectFit="cover" />;
+
