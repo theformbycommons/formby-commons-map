@@ -46,7 +46,7 @@ env:
     availability:
       - BUILD
       - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_APP_ID # Note: In your package.json, this was YOUR_NEXT_PUBLIC_FIREBASE_APP_ID. Ensure consistency or use the correct one.
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: "YOUR_NEXT_PUBLIC_FIREBASE_APP_ID" # Replace with your actual App ID
     availability:
       - BUILD
