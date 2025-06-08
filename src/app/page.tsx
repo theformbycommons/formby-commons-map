@@ -27,9 +27,11 @@ export default async function HomePage() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto drop-shadow-sm">
             Celebrating the Heart and Soul of Our Hometowns
           </p>
-          <p className="text-sm font-semibold text-foreground max-w-xl mx-auto mt-3 mb-6 drop-shadow-sm">
-            A vibrant collection of what makes our towns uniquely lovable, seen through the eyes of those who call them home. Discover the everyday magic and cherished corners that define our communities, celebrating their spirit.
-          </p>
+          <div className="bg-background/80 p-4 rounded-lg max-w-xl mx-auto my-3 shadow-sm">
+            <p className="text-sm font-semibold text-foreground drop-shadow-sm">
+              A vibrant collection of what makes our towns uniquely lovable, seen through the eyes of those who call them home. Discover the everyday magic and cherished corners that define our communities, celebrating their spirit.
+            </p>
+          </div>
           <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
             <Link href="/about">
               <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind Local Glow
