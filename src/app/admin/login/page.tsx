@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, startTransition } from 'react';
+import { useState } from 'react'; // Removed startTransition
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase'; // Client-side Firebase auth
@@ -58,9 +58,11 @@ export default function AdminLoginPage() {
       });
       // console.log('Admin login: Session cookie set, redirecting to /admin/suggestions using window.location.href.'); // Client-side log
       
-      startTransition(() => {
-        window.location.href = '/admin/suggestions';
-      });
+      // Simpler redirect:
+      window.location.href = '/admin/suggestions';
+      // Alternatively, if you want to use Next.js router for potential benefits (though window.location.href is fine for hard redirect after login):
+      // router.push('/admin/suggestions');
+
 
     } catch (err: any) {
       // console.error('Admin login: Error during login process:', err); // Client-side log

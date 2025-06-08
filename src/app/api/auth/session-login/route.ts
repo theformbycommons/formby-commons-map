@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
     
     // Check for admin custom claim before creating session cookie
     if (!decodedIdToken.admin) { // Ensure your custom claim is named 'admin'
-      return NextResponse.json({ error: 'User is not an administrator. Access denied.' }, { status: 403 });
+      console.warn(`Admin access denied for UID: ${decodedIdToken.uid}. Missing 'admin' custom claim. Token claims:`, decodedIdToken);
+      return NextResponse.json({ error: 'User is not an administrator. Access denied. Please ensure the admin custom claim (admin: true) is set for this user in Firebase Authentication.' }, { status: 403 });
     }
 
     // Create session cookie
