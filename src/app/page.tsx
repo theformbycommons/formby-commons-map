@@ -12,13 +12,13 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8">
-      <section className="relative text-center pt-8 pb-12 md:pt-12 md:pb-16 bg-card rounded-lg shadow-md overflow-hidden">
+      <section className="relative text-center pt-4 pb-12 md:pt-6 md:pb-16 bg-card rounded-lg shadow-md overflow-hidden">
         <Image
           src="https://firebasestorage.googleapis.com/v0/b/community-80928.firebasestorage.app/o/background-images%2Fformby1.jpg?alt=media"
           alt="Evocative background image of a charming local town scene"
           layout="fill"
           objectFit="cover"
-          className="absolute inset-0 w-full h-full z-0"
+          className="absolute inset-0 w-full h-full z-0 opacity-40"
           data-ai-hint="Formby beach woodland"
           priority
         />
@@ -31,7 +31,7 @@ export default async function HomePage() {
             <p className="text-foreground font-semibold mx-auto drop-shadow-sm">
               A vibrant collection of what makes our towns uniquely lovable, seen through the eyes of those who call them home. Discover the everyday magic and cherished corners that define our communities, celebrating their spirit.
             </p>
-            <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-3">
+            <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8">
               <Link href="/about">
                 <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind Local Glow
               </Link>
@@ -52,3 +52,4 @@ export default async function HomePage() {
     </div>
   );
 }
+
