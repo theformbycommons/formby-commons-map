@@ -3,9 +3,10 @@
 
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, FormState as SuggestionFormState } from './types';
-import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { getTownByName } from './data'; // Import getTownByName
+import { adminDb, adminStorage } from './firebase-admin'; // Import adminStorage
+import { getTownByName } from './data'; 
 import { revalidatePath } from 'next/cache';
 
 // Zod schema for server-side validation (SuggestLocationForm)
@@ -51,7 +52,7 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
 
     await runTransaction(db, async (transaction) => {
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
-      const dailyQuotaDoc = await transaction.get(dailyQuotaRef);
+      const dailyQuotaDoc = await transaction.get(dailyQuotaDoc);
 
       if (!globalQuotaDoc.exists() || !dailyQuotaDoc.exists()) {
         throw new Error("Quota configuration documents not found in Firestore. Please set them up in 'quotaManagement' collection.");
@@ -153,8 +154,7 @@ export async function submitSuggestion(
       type: 'success',
       submittedSuggestionData: { 
         ...suggestionForDb, 
-        submittedAt: new Date().toISOString(), // Provide a client-side optimistic date
-        // Remove Firestore specific serverTimestamp before sending back to client form state
+        submittedAt: new Date().toISOString(), 
         submittedAtFirestore: undefined 
       } as NewLocationSuggestion,
     };
@@ -242,11 +242,9 @@ export async function approveSuggestion(
 
     await batch.commit();
 
-    // Revalidate paths
     revalidatePath('/admin/suggestions');
     revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
-    revalidatePath('/'); // For homepage map if town counts change due to new locations
-    // If you have a specific location page, revalidate it too:
+    revalidatePath('/'); 
     // revalidatePath(`/location/${newLocationRef.id}`);
 
 
@@ -260,6 +258,94 @@ export async function approveSuggestion(
     console.error("Error approving suggestion:", error);
     return { 
       message: "Failed to approve suggestion. Please try again.", 
+      type: 'error', 
+      suggestionId 
+    };
+  }
+}
+
+export interface DeleteSuggestionFormState {
+  message: string;
+  type: 'success' | 'error' | 'info';
+  suggestionId?: string;
+}
+
+function getPathFromStorageUrl(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    // Pathname looks like /v0/b/YOUR_BUCKET_NAME/o/path%2Fto%2Ffile.jpg
+    // We need to extract the part after '/o/' and before '?'
+    const pathSegments = urlObj.pathname.split('/o/');
+    if (pathSegments.length > 1) {
+      const encodedPath = pathSegments[1].split('?')[0];
+      return decodeURIComponent(encodedPath);
+    }
+    return null;
+  } catch (e) {
+    console.error("Error parsing storage URL:", e, "URL was:", url);
+    return null;
+  }
+}
+
+export async function deleteSuggestion(
+  prevState: DeleteSuggestionFormState | undefined,
+  formData: FormData
+): Promise<DeleteSuggestionFormState> {
+  const suggestionId = formData.get('suggestionId') as string;
+  const imageUrl = formData.get('imageUrl') as string | undefined;
+
+  if (!suggestionId) {
+    return { message: "Suggestion ID is missing.", type: 'error' };
+  }
+
+  try {
+    const suggestionRef = doc(adminDb, 'suggestedLocations', suggestionId); // Use adminDb for consistency if available
+    
+    // Delete image from Firebase Storage if imageUrl exists
+    if (imageUrl) {
+      const filePath = getPathFromStorageUrl(imageUrl);
+      if (filePath) {
+        const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+        if (!bucketName) {
+            console.warn("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET env variable not set. Cannot delete image from specific bucket, using default.");
+             await adminStorage.bucket().file(filePath).delete().catch(err => {
+                // Log error but don't fail the whole operation if image deletion fails
+                console.error(`Failed to delete image ${filePath} from default bucket:`, err.message);
+             });
+        } else {
+            await adminStorage.bucket(bucketName).file(filePath).delete().catch(err => {
+                console.error(`Failed to delete image ${filePath} from bucket ${bucketName}:`, err.message);
+            });
+        }
+      } else {
+        console.warn(`Could not parse file path from imageUrl: ${imageUrl}`);
+      }
+    }
+
+    // Delete Firestore document
+    // Use the client SDK's `db` instance for Firestore operations as used in approveSuggestion for consistency
+    const clientSuggestionRef = doc(db, 'suggestedLocations', suggestionId);
+    await deleteDoc(clientSuggestionRef);
+
+    revalidatePath('/admin/suggestions');
+
+    return { 
+      message: `Suggestion and associated image (if any) deleted successfully.`, 
+      type: 'success', 
+      suggestionId 
+    };
+
+  } catch (error: any) {
+    console.error("Error deleting suggestion:", error);
+    let userMessage = "Failed to delete suggestion.";
+    if (error.message && error.message.includes("storage/object-not-found")) {
+      userMessage = "Suggestion document deleted, but the image was not found in storage (it might have been already deleted).";
+      // Still revalidate and inform success for the document part if only image deletion failed like this.
+      revalidatePath('/admin/suggestions');
+      return { message: userMessage, type: 'info', suggestionId };
+    }
+    return { 
+      message: userMessage + " Please try again.", 
       type: 'error', 
       suggestionId 
     };

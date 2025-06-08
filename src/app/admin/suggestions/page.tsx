@@ -1,5 +1,5 @@
 
-'use client'; // Required for useActionState and event handlers
+'use client'; 
 
 import { getSuggestedLocations } from '@/lib/admin-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -7,20 +7,30 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2, LogOut } from 'lucide-react';
+import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2, LogOut, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import type { NewLocationSuggestion } from '@/lib/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { approveSuggestion, type ApproveSuggestionFormState } from '@/lib/actions';
+import { 
+  approveSuggestion, type ApproveSuggestionFormState,
+  deleteSuggestion, type DeleteSuggestionFormState 
+} from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useActionState, startTransition } from 'react';
+import { auth } from '@/lib/firebase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-// Removed metadata export as this is a Client Component
-// export const metadata = {
-//   title: 'Pending Suggestions - Local Glow Admin',
-//   description: 'Review and manage new location suggestions.',
-// };
 
 function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['status'], approvedAt?: string }) {
   switch (status) {
@@ -41,41 +51,101 @@ function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['st
   }
 }
 
+const initialApproveState: ApproveSuggestionFormState = { message: '', type: 'info' };
+const initialDeleteState: DeleteSuggestionFormState = { message: '', type: 'info' };
+
 function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, currentStatus: NewLocationSuggestion['status'] }) {
   const { toast } = useToast();
-  const [isPending, setIsPending] = useState(false);
+  const [state, formAction, isPending] = useActionState(approveSuggestion, initialApproveState);
 
-  const handleApprove = async () => {
-    setIsPending(true);
-    const formData = new FormData();
-    formData.append('suggestionId', suggestionId);
-    
-    startTransition(async () => {
-        const result = await approveSuggestion(undefined, formData);
-        if (result.type === 'success') {
-        toast({ title: 'Success!', description: result.message, variant: 'default' });
-        } else {
-        toast({ title: 'Error', description: result.message, variant: 'destructive' });
-        }
-        setIsPending(false);
-    });
-  };
+  useEffect(() => {
+    if (state.message && state.suggestionId === suggestionId) {
+      toast({
+        title: state.type === 'success' ? 'Success!' : state.type === 'error' ? 'Error' : 'Info',
+        description: state.message,
+        variant: state.type === 'error' ? 'destructive' : state.type === 'info' ? 'default' : 'default',
+      });
+    }
+  }, [state, toast, suggestionId]);
+
 
   if (currentStatus !== 'pending') {
     return null; 
   }
 
   return (
-    <Button 
-        onClick={handleApprove} 
-        variant="outline" 
-        size="sm" 
-        className="border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
-        disabled={isPending}
-    >
-      {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-      Approve & Publish
-    </Button>
+    <form action={formAction}>
+        <input type="hidden" name="suggestionId" value={suggestionId} />
+        <Button 
+            type="submit"
+            variant="outline" 
+            size="sm" 
+            className="border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
+            disabled={isPending}
+            aria-disabled={isPending}
+        >
+        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+        Approve & Publish
+        </Button>
+    </form>
+  );
+}
+
+function DeleteSuggestionButton({ suggestionId, suggestionName, imageUrl }: { suggestionId: string, suggestionName: string, imageUrl?: string | null }) {
+  const { toast } = useToast();
+  const [state, formAction, isPending] = useActionState(deleteSuggestion, initialDeleteState);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+
+  useEffect(() => {
+    if (state.message && state.suggestionId === suggestionId) {
+      toast({
+        title: state.type === 'success' ? 'Success!' : state.type === 'error' ? 'Error' : 'Info',
+        description: state.message,
+        variant: state.type === 'error' ? 'destructive' : state.type === 'info' ? 'default' : 'default',
+      });
+      if (state.type === 'success' || state.type === 'info') { // Close dialog on success or info (e.g. image not found but doc deleted)
+        setIsAlertOpen(false);
+      }
+    }
+  }, [state, toast, suggestionId]);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); // Prevent default form submission
+    // Confirmation dialog will trigger the formAction via its own mechanism if user confirms
+    // If not using explicit form submission inside dialog, call formAction directly
+    const formData = new FormData(event.currentTarget);
+    formAction(formData);
+  };
+
+  return (
+    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="destructive" size="sm" disabled={isPending} aria-disabled={isPending}>
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+          Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <form onSubmit={handleSubmit}> {/* Wrap AlertDialogContent in a form */}
+          <input type="hidden" name="suggestionId" value={suggestionId} />
+          {imageUrl && <input type="hidden" name="imageUrl" value={imageUrl} />}
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete the suggestion for <strong className="text-foreground">{suggestionName}</strong>.
+              {imageUrl && " The associated image will also be deleted."} This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction type="submit" disabled={isPending} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+              {isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -103,14 +173,13 @@ export default function AdminSuggestionsPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [toast]); 
+  }, [toast, state]); // Re-fetch when state changes (e.g., after delete/approve)
 
 
   const handleLogout = async () => {
     try {
-      // Call client-side signOut first
-      if (auth) { // auth is imported from '@/lib/firebase'
-        await auth.signOut(); // Firebase client-side signOut
+      if (auth) { 
+        await auth.signOut(); 
       }
       
       const response = await fetch('/api/auth/session-logout', { method: 'POST' });
@@ -129,6 +198,11 @@ export default function AdminSuggestionsPage() {
   const firestoreConsoleBaseUrl = projectId
     ? `https://console.firebase.google.com/project/${projectId}/firestore/data/suggestedLocations`
     : null;
+
+  // This is a generic state from useActionState hook, used here to trigger re-fetch.
+  // It could be from either approve or delete. We just need a trigger.
+  const [state] = useActionState(() => Promise.resolve(initialApproveState), initialApproveState);
+
 
   if (isLoading) {
     return (
@@ -151,7 +225,7 @@ export default function AdminSuggestionsPage() {
           </div>
           <CardDescription>
             Review new submissions. Use 'Approve & Publish' to make them live. 
-            Use 'Manage in Firebase Console' for direct edits or to reject.
+            Use 'Manage in Firebase Console' for direct edits or to reject. Use 'Delete' to remove a suggestion permanently.
           </CardDescription>
           {!firestoreConsoleBaseUrl && (
             <Alert variant="destructive" className="mt-4">
@@ -177,8 +251,8 @@ export default function AdminSuggestionsPage() {
                           <Image
                             src={suggestion.imageUrl}
                             alt={`Image for ${suggestion.name}`}
-                            layout="fill"
-                            objectFit="cover"
+                            fill
+                            style={{objectFit: "cover"}}
                             data-ai-hint="user submitted photo"
                           />
                         </div>
@@ -225,6 +299,13 @@ export default function AdminSuggestionsPage() {
                                 <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console (disabled)
                               </Button>
                           )}
+                           {suggestion.id && (
+                            <DeleteSuggestionButton 
+                                suggestionId={suggestion.id} 
+                                suggestionName={suggestion.name}
+                                imageUrl={suggestion.imageUrl} 
+                            />
+                           )}
                         </div>
                       </div>
                     </div>
@@ -245,3 +326,6 @@ export default function AdminSuggestionsPage() {
     </div>
   );
 }
+
+// Ensure Image layout prop is correctly used
+const ImageLayoutFix = () => <Image src="https://placehold.co/100x100.png" alt="fix" layout="fill" objectFit="cover" />;
