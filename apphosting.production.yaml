@@ -9,12 +9,12 @@ env:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_CLIENT_EMAIL
-    value: "YOUR_SERVICE_ACCOUNT_CLIENT_EMAIL" # Replace with the client_email from your Firebase service account JSON key
+    value: "firebase-adminsdk-fbsvc@community-80928.iam.gserviceaccount.com" # Updated from your JSON
     availability:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_PRIVATE_KEY
-    secret: firebase-admin-private-key # This should be the ID/name of the secret you created in Google Secret Manager (e.g., "firebase-admin-private-key")
+    secret: firebase-admin-private-key # This should be the ID/name of the secret you created in Google Secret Manager
     availability:
       - BUILD
       - RUNTIME
@@ -37,7 +37,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: "community-80928.firebasestorage.app"
+    value: "community-80928.firebasestorage.app" # Corrected from "community-80928.appspot.com" based on typical Firebase config
     availability:
       - BUILD
       - RUNTIME
