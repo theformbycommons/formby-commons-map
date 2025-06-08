@@ -9,7 +9,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_CLIENT_EMAIL
-    value: "YOUR_SERVICE_ACCOUNT_CLIENT_EMAIL" # Replace with the client_email from your Firebase service account JSON key
+    value: "firebase-adminsdk-fbsvc@community-80928.iam.gserviceaccount.com" # Replace with the client_email from your Firebase service account JSON key
     availability:
       - BUILD
       - RUNTIME
@@ -22,7 +22,7 @@ env:
   # NEXT_PUBLIC_ variables are safe to be here as their values are meant to be public.
   # Ensure these match your Firebase project configuration.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: "YOUR_NEXT_PUBLIC_FIREBASE_API_KEY" # Replace with your actual API key
+    value: "AIzaSyCA5vfVssd70Zx9lBPwp3fvTEo8iIeWI6o" # Replace with your actual API key
     availability:
       - BUILD
       - RUNTIME
@@ -37,17 +37,17 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: "community-80928.appspot.com" # Replace with your actual storage bucket if different
+    value: "community-80928.firebasestorage.app" # Replace with your actual storage bucket if different
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "YOUR_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" # Replace with your actual Messaging Sender ID
+    value: "334048805094" # Replace with your actual Messaging Sender ID
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: "YOUR_NEXT_PUBLIC_FIREBASE_APP_ID" # Replace with your actual App ID
+    value: "1:334048805094:web:47283320973e3b635c3b27" # Replace with your actual App ID
     availability:
       - BUILD
       - RUNTIME
