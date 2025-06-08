@@ -1,0 +1,63 @@
+# /apphosting.production.yaml
+# IMPORTANT: Replace ALL placeholder values (YOUR_...) with your actual configuration.
+# This file should be named to match the environment name you set in the Firebase Console
+# (e.g., if you named it "prod", this file should be "apphosting.prod.yaml").
+
+env:
+  - variable: FIREBASE_ADMIN_PROJECT_ID
+    value: "community-80928" # CONFIRM THIS IS YOUR CORRECT FIREBASE PROJECT ID
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: FIREBASE_ADMIN_CLIENT_EMAIL
+    value: "YOUR_SERVICE_ACCOUNT_CLIENT_EMAIL" # Replace with the client_email from your Firebase service account JSON key
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: FIREBASE_ADMIN_PRIVATE_KEY
+    secret: firebase-admin-private-key # This is the ID of the secret you created in Google Secret Manager
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # NEXT_PUBLIC_ variables are safe to be here as they are meant to be public.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "YOUR_NEXT_PUBLIC_FIREBASE_API_KEY" # Replace with your actual API key
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "community-80928.firebaseapp.com" # CONFIRM THIS
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "community-80928" # CONFIRM THIS
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "community-80928.appspot.com" # Replace with your actual storage bucket if different (e.g., community-80928.firebasestorage.app)
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "YOUR_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" # Replace with your actual Messaging Sender ID
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "YOUR_NEXT_PUBLIC_FIREBASE_APP_ID" # Replace with your actual App ID
+    availability:
+      - BUILD
+      - RUNTIME
+  # - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID # Uncomment and replace if you use Measurement ID
+  #   value: "YOUR_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID"
+  #   availability:
+  #     - BUILD
+  #     - RUNTIME
+
+# You can also include other settings from your main apphosting.yaml if they need to be
+# overridden for this specific environment. For example:
+# runConfig:
+#   maxInstances: 2
