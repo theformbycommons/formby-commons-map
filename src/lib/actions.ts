@@ -4,8 +4,8 @@
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, FormState as SuggestionFormState } from './types';
 import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { db } from './firebase';
-import { adminDb, adminStorage } from './firebase-admin';
+import { db } from './firebase'; // Client SDK (db)
+import { adminDb, adminStorage } from './firebase-admin'; // Admin SDK (adminDb, adminStorage)
 import { getTownByName } from './data';
 import { revalidatePath } from 'next/cache';
 
@@ -47,12 +47,12 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
   const todayDateString = new Date().toISOString().split('T')[0];
 
   try {
-    const globalQuotaRef = doc(db, 'quotaManagement', 'globalStorage');
-    const dailyQuotaRef = doc(db, 'quotaManagement', 'dailyUploads');
+    const globalQuotaRef = adminDb.collection('quotaManagement').doc('globalStorage');
+    const dailyQuotaRef = adminDb.collection('quotaManagement').doc('dailyUploads');
 
-    await runTransaction(db, async (transaction) => {
+    await adminDb.runTransaction(async (transaction) => {
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
-      const dailyQuotaDoc = await transaction.get(dailyQuotaDoc);
+      const dailyQuotaDoc = await transaction.get(dailyQuotaRef);
 
       if (!globalQuotaDoc.exists() || !dailyQuotaDoc.exists()) {
         throw new Error("Quota configuration documents not found in Firestore. Please set them up in 'quotaManagement' collection.");
@@ -81,6 +81,7 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
     return { allowed: true };
 
   } catch (error: any) {
+    console.error("Error in checkAndIncrementQuotas (using adminDb):", error);
     return { allowed: false, message: error.message || "Failed to verify storage quotas." };
   }
 }
@@ -136,15 +137,15 @@ export async function submitSuggestion(
     const suggestionForDb: Omit<NewLocationSuggestion, 'id' | 'submittedAt' | 'status'> & { status: 'pending', submittedAtFirestore: any } = {
       ...finalDataForFirestore,
       status: 'pending',
-      submittedAtFirestore: serverTimestamp(),
+      submittedAtFirestore: adminDb.FieldValue.serverTimestamp(), // Use Admin SDK serverTimestamp
       coordinates: {
         lat: latitude,
         lng: longitude,
       },
     };
 
-    const suggestedLocationsCol = collection(db, 'suggestedLocations');
-    await addDoc(suggestedLocationsCol, suggestionForDb);
+    const suggestedLocationsCol = adminDb.collection('suggestedLocations'); // Use adminDb
+    const newDocRef = await suggestedLocationsCol.add(suggestionForDb);
 
     revalidatePath('/admin/suggestions');
 
@@ -152,9 +153,10 @@ export async function submitSuggestion(
       message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received${validatedFields.data.imageUrl ? ' with an image' : ''} and is pending review.`,
       type: 'success',
       submittedSuggestionData: {
+        id: newDocRef.id, // Include the new document ID
         ...suggestionForDb,
-        submittedAt: new Date().toISOString(),
-        submittedAtFirestore: undefined
+        submittedAt: new Date().toISOString(), // For client-side display if needed immediately
+        submittedAtFirestore: undefined // Remove Firestore specific field for client
       } as NewLocationSuggestion,
     };
 
@@ -165,7 +167,7 @@ export async function submitSuggestion(
             errorMessage = error.message;
         }
     }
-    console.error("Error in submitSuggestion action:", error);
+    console.error("Error in submitSuggestion action (using adminDb):", error);
     return {
       message: errorMessage,
       type: 'error',
@@ -191,10 +193,10 @@ export async function approveSuggestion(
   }
 
   try {
-    const suggestionRef = doc(db, 'suggestedLocations', suggestionId);
-    const suggestionSnap = await getDoc(suggestionRef);
+    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId); // Use adminDb
+    const suggestionSnap = await suggestionRef.get();
 
-    if (!suggestionSnap.exists()) {
+    if (!suggestionSnap.exists) {
       return { message: "Suggestion not found.", type: 'error', suggestionId };
     }
 
@@ -204,7 +206,7 @@ export async function approveSuggestion(
       return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info', suggestionId };
     }
 
-    const town = await getTownByName(suggestionData.townName);
+    const town = await getTownByName(suggestionData.townName); // getTownByName uses client 'db', might need adjustment if rules are strict. For reads, usually fine.
     if (!town) {
       return {
         message: `Town "${suggestionData.townName}" not found. Please create the town in the 'towns' collection first before approving this suggestion.`,
@@ -213,9 +215,9 @@ export async function approveSuggestion(
       };
     }
 
-    const batch = writeBatch(db);
+    const batch = adminDb.batch(); // Use adminDb batch
 
-    const newLocationRef = doc(collection(db, 'locations'));
+    const newLocationRef = adminDb.collection('locations').doc(); // Use adminDb
     const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: any } = {
       townId: town.id,
       townName: suggestionData.townName,
@@ -227,13 +229,13 @@ export async function approveSuggestion(
       submittedBy: suggestionData.suggesterName,
       suggesterComment: suggestionData.suggesterComment,
       comments: [],
-      createdAtFirestore: serverTimestamp(),
+      createdAtFirestore: adminDb.FieldValue.serverTimestamp(), // Use Admin SDK serverTimestamp
     };
     batch.set(newLocationRef, newLocationData);
 
     batch.update(suggestionRef, {
       status: 'approved',
-      approvedAtFirestore: serverTimestamp(),
+      approvedAtFirestore: adminDb.FieldValue.serverTimestamp(), // Use Admin SDK serverTimestamp
       publishedLocationId: newLocationRef.id,
     });
 
@@ -250,7 +252,7 @@ export async function approveSuggestion(
     };
 
   } catch (error) {
-    console.error("Error approving suggestion:", error);
+    console.error("Error approving suggestion (using adminDb):", error);
     return {
       message: "Failed to approve suggestion. Please try again.",
       type: 'error',
@@ -287,35 +289,30 @@ export async function deleteSuggestion(
   const suggestionId = formData.get('suggestionId') as string;
   const imageUrl = formData.get('imageUrl') as string | undefined;
 
-  let imageDeletedSuccessfully = !imageUrl; // True if no image, otherwise assume false until confirmed
+  let imageDeletedSuccessfully = !imageUrl; 
   let imageDeletionErrorDetails = "";
 
   if (!suggestionId) {
     return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
-  // Attempt to delete image first if it exists
   if (imageUrl) {
     const filePath = getPathFromStorageUrl(imageUrl);
     if (filePath) {
       const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+      const bucket = bucketName ? adminStorage.bucket(bucketName) : adminStorage.bucket();
+      const file = bucket.file(filePath);
+      
       try {
-        if (!bucketName) {
-          console.warn(`[Admin Action] NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET env variable not set. Attempting to delete image '${filePath}' from default bucket.`);
-          await adminStorage.bucket().file(filePath).delete();
-        } else {
-          console.log(`[Admin Action] Attempting to delete image '${filePath}' from bucket '${bucketName}'.`);
-          await adminStorage.bucket(bucketName).file(filePath).delete();
-        }
+        console.log(`[Admin Action] Attempting to delete image '${filePath}' from bucket '${bucket.name}'.`);
+        await file.delete();
         imageDeletedSuccessfully = true;
         console.log(`[Admin Action] Successfully deleted image '${filePath}' from storage.`);
       } catch (imgErr: any) {
-        // Check if the error is "object not found"
-        // GCS error for "Not Found" is typically code 404.
-        if (imgErr.code === 404 || (imgErr.message && imgErr.message.toLowerCase().includes("no such object"))) {
+        if (imgErr.code === 404 || (imgErr.errors && imgErr.errors.some((e: any) => e.reason === 'notFound'))) {
           imageDeletionErrorDetails = `Image '${filePath}' not found in storage (may have been already deleted or path is incorrect).`;
           console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
-          imageDeletedSuccessfully = true; // Treat as "not an error preventing doc deletion"
+          imageDeletedSuccessfully = true; 
         } else {
           imageDeletionErrorDetails = `Failed to delete image '${filePath}': ${imgErr.message}.`;
           console.error(`[Admin Action] ${imageDeletionErrorDetails}`, imgErr);
@@ -327,7 +324,6 @@ export async function deleteSuggestion(
     }
   }
 
-  // Attempt to delete Firestore document
   try {
     await adminDb.collection('suggestedLocations').doc(suggestionId).delete();
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
@@ -336,13 +332,15 @@ export async function deleteSuggestion(
     if (!imageUrl) {
       return { message: "Suggestion document deleted successfully. No image was associated.", type: 'success', suggestionId };
     }
-    if (imageDeletedSuccessfully) {
-      return { message: "Suggestion and associated image (if any) deleted successfully.", type: 'success', suggestionId };
+    if (imageDeletedSuccessfully && !imageDeletionErrorDetails) { // Ensure no misleading message if "not found" was the case
+      return { message: "Suggestion and associated image deleted successfully.", type: 'success', suggestionId };
     }
-    // Firestore doc deleted, but image deletion had issues (but not "not found" type errors that we treat as okay)
+     if (imageDeletedSuccessfully && imageDeletionErrorDetails.includes("not found")) {
+      return { message: `Suggestion document deleted. ${imageDeletionErrorDetails}`, type: 'info', suggestionId };
+    }
     return {
       message: `Suggestion document deleted. However, image deletion failed: ${imageDeletionErrorDetails || 'Unknown image error.'}`,
-      type: 'info', // Use 'info' as the main operation (doc deletion) succeeded
+      type: 'info',
       suggestionId
     };
 
@@ -351,7 +349,10 @@ export async function deleteSuggestion(
     let message = `Failed to delete suggestion document: ${firestoreError.message}.`;
     if (imageUrl && !imageDeletedSuccessfully && imageDeletionErrorDetails) {
       message += ` Additionally, image deletion failed: ${imageDeletionErrorDetails}`;
+    } else if (imageUrl && imageDeletedSuccessfully && imageDeletionErrorDetails.includes("not found")) {
+       message += ` Note: ${imageDeletionErrorDetails}`;
     }
     return { message, type: 'error', suggestionId };
   }
 }
+
