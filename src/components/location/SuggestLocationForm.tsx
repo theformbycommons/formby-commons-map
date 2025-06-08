@@ -18,10 +18,11 @@ import { locationCategories, mockTowns } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
 import { resizeImage } from '@/lib/imageUtils';
-import { storage } from '@/lib/firebase';
+import { storage } from '@/lib/firebase'; // Client-side storage
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
   ssr: false,
@@ -32,7 +33,6 @@ const SuggestionFormClientSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
   description: z.string().min(10, "Description must be at least 10 characters long.").max(1000, "Description must be 1000 characters or less."),
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
-  // postcodeOutcode removed
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
@@ -103,6 +103,7 @@ export default function SuggestLocationForm() {
   const { toast } = useToast();
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const { user, loading: authLoading } = useAuth(); // Get user from AuthContext
 
   const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormClientSchema),
@@ -110,7 +111,6 @@ export default function SuggestLocationForm() {
       name: '',
       description: '',
       townName: '',
-      // postcodeOutcode removed
       category: '',
       suggesterName: '',
       suggesterComment: '',
@@ -166,12 +166,17 @@ export default function SuggestLocationForm() {
       setValue('latitude', coords.lat, { shouldValidate: true });
       setValue('longitude', coords.lng, { shouldValidate: true });
     } else {
-      setValue('latitude', undefined as any, { shouldValidate: true }); // Explicitly set to undefined for validation
-      setValue('longitude', undefined as any, { shouldValidate: true }); // Explicitly set to undefined for validation
+      setValue('latitude', undefined as any, { shouldValidate: true }); 
+      setValue('longitude', undefined as any, { shouldValidate: true }); 
     }
   };
 
   const processSubmit = async (data: SuggestionFormData) => {
+    if (authLoading) {
+      toast({ title: "Authenticating", description: "Please wait, checking user status.", variant: "default" });
+      return;
+    }
+
     let imageUrl: string | undefined = undefined;
     let uploadedImageSize: number | undefined = undefined;
     let fileToUpload: File | null = null;
@@ -208,7 +213,7 @@ export default function SuggestLocationForm() {
           console.error("Error uploading image:", uploadError);
           let errorDesc = "Could not upload image. Please try again.";
           if (uploadError.code === 'storage/unauthorized') {
-            errorDesc = "Upload failed: You are not authorized. Please check storage rules or ensure you are signed in (anonymously).";
+            errorDesc = "Upload failed: You are not authorized. Please check storage rules.";
           } else if (uploadError.code === 'storage/canceled') {
             errorDesc = "Upload canceled.";
           }
@@ -222,30 +227,25 @@ export default function SuggestLocationForm() {
 
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      // Ensure postcodeOutcode is not appended
-      if (key === 'postcodeOutcode') return;
-
-      // Handle suggesterComment: only append if it has content after trimming
       if (key === 'suggesterComment') {
         if (value !== undefined && value !== null && String(value).trim() !== '') {
           formDataForServerAction.append(key, String(value));
         }
-        return; // Continue to next entry
+        return; 
       }
 
-      // General handling for other fields
       if (key !== 'pictureFile' && value !== undefined && value !== null) {
-         // For most fields, append even if empty string, server will handle optionality.
-         // Exception for latitude/longitude which are numbers and required.
-         // Exception for suggesterComment handled above.
         if (String(value).trim() !== '' || typeof value === 'number' ) {
              formDataForServerAction.append(key, String(value));
         } else if ( (key === 'suggesterName' || key === 'name' || key === 'description' || key === 'townName' || key === 'category') && String(value).trim() === '' ) {
-            // For required string fields, send empty string to trigger server validation if Zod client validation somehow missed it.
              formDataForServerAction.append(key, "");
         }
       }
     });
+
+    if (user && user.isAnonymous && user.uid) {
+      formDataForServerAction.append('suggesterUid', user.uid);
+    }
 
     if (imageUrl) {
       formDataForServerAction.append('imageUrl', imageUrl);
@@ -278,7 +278,6 @@ export default function SuggestLocationForm() {
         {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
       </div>
 
-      {/* Town Name - Kept as is */}
       <div>
           <Label htmlFor="townName" className="font-medium">Town Name</Label>
           <Input id="townName" {...register('townName')} className="mt-1" placeholder="e.g., Formby" list="town-suggestions" aria-invalid={errors.townName ? "true" : "false"} />
@@ -288,8 +287,6 @@ export default function SuggestLocationForm() {
           {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
       </div>
       
-      {/* Postcode field removed */}
-
       <div>
         <Label htmlFor="category" className="font-medium">Category</Label>
         <Controller

@@ -3,11 +3,12 @@
 
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, FormState as SuggestionFormState } from './types';
-import { addDoc, collection, Timestamp, doc, getDoc, runTransaction, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { db } from './firebase'; // Client SDK (db)
-import { adminDb, adminStorage } from './firebase-admin'; // Admin SDK (adminDb, adminStorage)
-import { getTownByName } from './data';
+// Removed client 'db' import as all Firestore ops will use adminDb
+import { adminDb, adminStorage } from './firebase-admin'; 
+import { getTownByName } from './data'; // Keep this as it might use client 'db' for reads which is usually fine
 import { revalidatePath } from 'next/cache';
+import { FieldValue } from 'firebase-admin/firestore'; // Import FieldValue from admin SDK
+
 
 // Zod schema for server-side validation (SuggestLocationForm)
 const SuggestionFormSchemaServer = z.object({
@@ -30,6 +31,7 @@ const SuggestionFormSchemaServer = z.object({
     (val) => Number(val),
     z.number().min(-180, "Invalid longitude. Please select a location on the map.").max(180, "Invalid longitude. Please select a location on the map.")
   ),
+  suggesterUid: z.string().min(1, "User ID is missing.").optional(), // For anonymous user daily limit
 });
 
 export interface SuggestionFormState {
@@ -74,8 +76,8 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
         throw new Error('Daily upload limit reached. We are sorry, but at the moment, the site can\'t accept any new location submissions. Please try again tomorrow.');
       }
 
-      transaction.update(globalQuotaRef, { totalBytesUsed: totalBytesUsed + dataSizeBytes });
-      transaction.update(dailyQuotaRef, { bytesUploadedToday: bytesUploadedToday + dataSizeBytes });
+      transaction.update(globalQuotaRef, { totalBytesUsed: FieldValue.increment(dataSizeBytes) });
+      transaction.update(dailyQuotaRef, { bytesUploadedToday: FieldValue.increment(dataSizeBytes) });
     });
 
     return { allowed: true };
@@ -85,6 +87,51 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
     return { allowed: false, message: error.message || "Failed to verify storage quotas." };
   }
 }
+
+const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
+
+async function checkAndIncrementAnonymousUserDailyLimit(uid: string): Promise<{ allowed: boolean; message?: string }> {
+  const todayDateString = new Date().toISOString().split('T')[0];
+  const userLimitRef = adminDb.collection('userDailySuggestionLimits').doc(uid);
+
+  try {
+    await adminDb.runTransaction(async (transaction) => {
+      const userLimitDoc = await transaction.get(userLimitRef);
+
+      if (!userLimitDoc.exists) {
+        // First submission for this user today (or ever)
+        transaction.set(userLimitRef, {
+          count: 1,
+          lastSubmissionDate: todayDateString,
+        });
+        return; // Allowed
+      }
+
+      const data = userLimitDoc.data()!;
+      if (data.lastSubmissionDate !== todayDateString) {
+        // First submission for this user today, reset count
+        transaction.update(userLimitRef, {
+          count: 1,
+          lastSubmissionDate: todayDateString,
+        });
+        return; // Allowed
+      }
+
+      // Submission on the same day
+      if (data.count >= ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT) {
+        throw new Error(`You have reached the daily limit of ${ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT} suggestions. Please try again tomorrow.`);
+      }
+
+      // Increment count for today
+      transaction.update(userLimitRef, { count: FieldValue.increment(1) });
+    });
+    return { allowed: true };
+  } catch (error: any) {
+    console.error(`Error checking/incrementing daily limit for UID ${uid}:`, error);
+    return { allowed: false, message: error.message || "Failed to verify daily submission limit." };
+  }
+}
+
 
 export async function submitSuggestion(
   prevState: SuggestionFormState | undefined,
@@ -103,6 +150,7 @@ export async function submitSuggestion(
     uploadedImageSize: formData.get('uploadedImageSize') as string | undefined,
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
+    suggesterUid: formData.get('suggesterUid') as string | undefined, // Get the UID if sent by client
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
@@ -115,12 +163,26 @@ export async function submitSuggestion(
     };
   }
 
-  const { latitude, longitude, ...dataToStoreInFirestore } = validatedFields.data;
+  const { latitude, longitude, suggesterUid, ...dataToStoreInFirestore } = validatedFields.data;
+
+
+  // Check daily limit for anonymous user if UID is provided
+  if (suggesterUid) {
+    const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid);
+    if (!dailyLimitCheck.allowed) {
+      return {
+        message: dailyLimitCheck.message || "Daily submission limit reached.",
+        type: 'error',
+      };
+    }
+  }
+  
 
   const finalDataForFirestore = {
       ...dataToStoreInFirestore,
   };
-  delete (finalDataForFirestore as any).uploadedImageSize;
+  // uploadedImageSize is used for quota check, not stored in suggestedLocations
+  delete (finalDataForFirestore as any).uploadedImageSize; 
 
 
   const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
@@ -137,14 +199,14 @@ export async function submitSuggestion(
     const suggestionForDb: Omit<NewLocationSuggestion, 'id' | 'submittedAt' | 'status'> & { status: 'pending', submittedAtFirestore: any } = {
       ...finalDataForFirestore,
       status: 'pending',
-      submittedAtFirestore: adminDb.FieldValue.serverTimestamp(), // Use Admin SDK serverTimestamp
+      submittedAtFirestore: FieldValue.serverTimestamp(), 
       coordinates: {
         lat: latitude,
         lng: longitude,
       },
     };
 
-    const suggestedLocationsCol = adminDb.collection('suggestedLocations'); // Use adminDb
+    const suggestedLocationsCol = adminDb.collection('suggestedLocations');
     const newDocRef = await suggestedLocationsCol.add(suggestionForDb);
 
     revalidatePath('/admin/suggestions');
@@ -153,17 +215,20 @@ export async function submitSuggestion(
       message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received${validatedFields.data.imageUrl ? ' with an image' : ''} and is pending review.`,
       type: 'success',
       submittedSuggestionData: {
-        id: newDocRef.id, // Include the new document ID
+        id: newDocRef.id, 
         ...suggestionForDb,
-        submittedAt: new Date().toISOString(), // For client-side display if needed immediately
-        submittedAtFirestore: undefined // Remove Firestore specific field for client
+        submittedAt: new Date().toISOString(), 
+        submittedAtFirestore: undefined 
       } as NewLocationSuggestion,
     };
 
   } catch (error) {
     let errorMessage = "There was an error submitting your suggestion. Please try again.";
     if (error instanceof Error) {
-        if(error.message.includes("Overall storage limit reached") || error.message.includes("Daily upload limit reached") || error.message.includes("Quota configuration documents not found")) {
+        if(error.message.includes("Overall storage limit reached") || 
+           error.message.includes("Daily upload limit reached") || 
+           error.message.includes("Quota configuration documents not found") ||
+           error.message.includes("daily limit of")) { // Catch our custom daily limit message
             errorMessage = error.message;
         }
     }
@@ -193,7 +258,7 @@ export async function approveSuggestion(
   }
 
   try {
-    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId); // Use adminDb
+    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId); 
     const suggestionSnap = await suggestionRef.get();
 
     if (!suggestionSnap.exists) {
@@ -206,7 +271,7 @@ export async function approveSuggestion(
       return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info', suggestionId };
     }
 
-    const town = await getTownByName(suggestionData.townName); // getTownByName uses client 'db', might need adjustment if rules are strict. For reads, usually fine.
+    const town = await getTownByName(suggestionData.townName); 
     if (!town) {
       return {
         message: `Town "${suggestionData.townName}" not found. Please create the town in the 'towns' collection first before approving this suggestion.`,
@@ -215,9 +280,9 @@ export async function approveSuggestion(
       };
     }
 
-    const batch = adminDb.batch(); // Use adminDb batch
+    const batch = adminDb.batch(); 
 
-    const newLocationRef = adminDb.collection('locations').doc(); // Use adminDb
+    const newLocationRef = adminDb.collection('locations').doc(); 
     const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: any } = {
       townId: town.id,
       townName: suggestionData.townName,
@@ -229,13 +294,13 @@ export async function approveSuggestion(
       submittedBy: suggestionData.suggesterName,
       suggesterComment: suggestionData.suggesterComment,
       comments: [],
-      createdAtFirestore: adminDb.FieldValue.serverTimestamp(), // Use Admin SDK serverTimestamp
+      createdAtFirestore: FieldValue.serverTimestamp(), 
     };
     batch.set(newLocationRef, newLocationData);
 
     batch.update(suggestionRef, {
       status: 'approved',
-      approvedAtFirestore: adminDb.FieldValue.serverTimestamp(), // Use Admin SDK serverTimestamp
+      approvedAtFirestore: FieldValue.serverTimestamp(), 
       publishedLocationId: newLocationRef.id,
     });
 
@@ -316,11 +381,13 @@ export async function deleteSuggestion(
         } else {
           imageDeletionErrorDetails = `Failed to delete image '${filePath}': ${imgErr.message}.`;
           console.error(`[Admin Action] ${imageDeletionErrorDetails}`, imgErr);
+          imageDeletedSuccessfully = false; // Explicitly set to false on actual error
         }
       }
     } else {
       imageDeletionErrorDetails = `Could not parse file path from imageUrl: ${imageUrl}. Image not deleted.`;
       console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
+      imageDeletedSuccessfully = false; // Image path parsing failed
     }
   }
 
@@ -332,15 +399,19 @@ export async function deleteSuggestion(
     if (!imageUrl) {
       return { message: "Suggestion document deleted successfully. No image was associated.", type: 'success', suggestionId };
     }
-    if (imageDeletedSuccessfully && !imageDeletionErrorDetails) { // Ensure no misleading message if "not found" was the case
+    if (imageDeletedSuccessfully && !imageDeletionErrorDetails.includes("Failed to delete image")) { 
+      // This now covers "successfully deleted" and "not found" (which is also a success for the overall operation)
+      let successMessage = "Suggestion and associated image (if it existed) handled successfully.";
+      if (imageDeletionErrorDetails.includes("not found")) {
+        successMessage = `Suggestion document deleted. ${imageDeletionErrorDetails}`;
+        return { message: successMessage, type: 'info', suggestionId };
+      }
       return { message: "Suggestion and associated image deleted successfully.", type: 'success', suggestionId };
     }
-     if (imageDeletedSuccessfully && imageDeletionErrorDetails.includes("not found")) {
-      return { message: `Suggestion document deleted. ${imageDeletionErrorDetails}`, type: 'info', suggestionId };
-    }
+    // If we reach here, it means image deletion explicitly failed with an error other than "not found"
     return {
       message: `Suggestion document deleted. However, image deletion failed: ${imageDeletionErrorDetails || 'Unknown image error.'}`,
-      type: 'info',
+      type: 'info', // 'info' because doc deletion succeeded, but image part had an issue
       suggestionId
     };
 
@@ -355,4 +426,3 @@ export async function deleteSuggestion(
     return { message, type: 'error', suggestionId };
   }
 }
-
