@@ -103,14 +103,14 @@ function DeleteSuggestionButton({ suggestionId, suggestionName, imageUrl }: { su
         description: state.message,
         variant: state.type === 'error' ? 'destructive' : state.type === 'info' ? 'default' : 'default',
       });
-      if (state.type === 'success' || state.type === 'info') { // Close dialog on success or info (e.g. image not found but doc deleted)
+      if (state.type === 'success' || state.type === 'info') { 
         setIsAlertOpen(false);
       }
     }
   }, [state, toast, suggestionId]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault(); 
     const formData = new FormData(event.currentTarget);
     startTransition(() => {
       formAction(formData);
@@ -126,7 +126,7 @@ function DeleteSuggestionButton({ suggestionId, suggestionName, imageUrl }: { su
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
-        <form onSubmit={handleSubmit}> {/* Wrap AlertDialogContent in a form */}
+        <form onSubmit={handleSubmit}> 
           <input type="hidden" name="suggestionId" value={suggestionId} />
           {imageUrl && <input type="hidden" name="imageUrl" value={imageUrl} />}
           <AlertDialogHeader>
@@ -156,7 +156,9 @@ export default function AdminSuggestionsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const [state] = useActionState(() => Promise.resolve(initialApproveState), initialApproveState);
+  // state is now only used for approve/delete which re-fetches data
+  const [actionState] = useActionState(() => Promise.resolve({ message: '', type: 'info' }), { message: '', type: 'info' });
+
 
   useEffect(() => {
     document.title = 'Pending Suggestions - Local Glow Admin';
@@ -175,7 +177,7 @@ export default function AdminSuggestionsPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [toast, state]); // Re-fetch when state changes (e.g., after delete/approve)
+  }, [toast, actionState]); // Re-fetch when actionState changes (e.g., after delete/approve)
 
 
   const handleLogout = async () => {
@@ -266,11 +268,7 @@ export default function AdminSuggestionsPage() {
                         
                         <p className="text-sm text-foreground/80 line-clamp-3">{suggestion.description}</p>
                         
-                        {suggestion.suggesterComment && (
-                           <p className="text-xs italic text-muted-foreground border-l-2 border-accent pl-2 py-1">
-                             Comment: "{suggestion.suggesterComment}"
-                           </p>
-                        )}
+                        {/* suggesterComment display removed */}
 
                         <div className="text-xs text-muted-foreground space-y-1 pt-2">
                           <p><strong>Suggester:</strong> {suggestion.suggesterName}</p>
@@ -327,4 +325,3 @@ export default function AdminSuggestionsPage() {
 
 // Ensure Image layout prop is correctly used
 const ImageLayoutFix = () => <Image src="https://placehold.co/100x100.png" alt="fix" layout="fill" objectFit="cover" />;
-

@@ -16,7 +16,7 @@ const SuggestionFormSchemaServer = z.object({
   townName: z.string().min(2, "Town name is required").max(50),
   category: z.string().min(1, "Category is required"),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
-  suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
+  // suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(), // Removed
   imageUrl: z.string().url("Invalid image URL.").optional().nullable(),
   uploadedImageSize: z.preprocess(
     (val) => (val ? Number(val) : undefined),
@@ -37,12 +37,12 @@ export interface SuggestionFormState {
   message: string;
   type: 'success' | 'error' | 'info';
   errors?: Record<string, (string[] | undefined)>;
-  submittedSuggestionData?: NewLocationSuggestion;
+  submittedSuggestionData?: Omit<NewLocationSuggestion, 'suggesterComment'>; // Reflect removal
 }
 
 const DEFAULT_MAX_GLOBAL_BYTES = 1 * 1024 * 1024 * 1024; // 1GB
 const DEFAULT_MAX_DAILY_BYTES = 50 * 1024 * 1024; // 50MB
-const APPROX_NON_IMAGE_DATA_SIZE = 2 * 1024; // Approx 2KB for text data per submission
+const APPROX_NON_IMAGE_DATA_SIZE = 1.5 * 1024; // Approx 1.5KB for text data per submission (reduced slightly)
 
 async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
@@ -55,7 +55,7 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
       const dailyQuotaDoc = await transaction.get(dailyQuotaRef);
 
-      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) {
+      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) { // Corrected: .exists is a property
         throw new Error("Quota configuration documents not found in Firestore. Please set them up in 'quotaManagement' collection.");
       }
 
@@ -133,7 +133,7 @@ export async function submitSuggestion(
   formData: FormData
 ): Promise<SuggestionFormState> {
 
-  const suggesterCommentValue = formData.get('suggesterComment');
+  // const suggesterCommentValue = formData.get('suggesterComment'); // Removed
   const imageUrlValue = formData.get('imageUrl');
   const uploadedImageSizeValue = formData.get('uploadedImageSize');
   const suggesterUidValue = formData.get('suggesterUid');
@@ -144,7 +144,7 @@ export async function submitSuggestion(
     townName: formData.get('townName') as string,
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    suggesterComment: suggesterCommentValue === null || String(suggesterCommentValue).trim() === '' ? undefined : String(suggesterCommentValue),
+    // suggesterComment: suggesterCommentValue === null || String(suggesterCommentValue).trim() === '' ? undefined : String(suggesterCommentValue), // Removed
     imageUrl: imageUrlValue === null || String(imageUrlValue).trim() === '' ? undefined : String(imageUrlValue),
     uploadedImageSize: uploadedImageSizeValue === null || String(uploadedImageSizeValue).trim() === '' ? undefined : String(uploadedImageSizeValue),
     latitude: formData.get('latitude') as string,
@@ -163,7 +163,7 @@ export async function submitSuggestion(
     if (flatErrors.formErrors.length > 0) {
         detailedErrorMessage += `Form errors: ${flatErrors.formErrors.join(', ')}; `;
     }
-    console.error("Server-side validation errors:", flatErrors.fieldErrors);
+    // console.error("Server-side validation errors:", flatErrors.fieldErrors); // Keep for server logs
     return {
       message: detailedErrorMessage.length > "Validation failed. Details: ".length ? detailedErrorMessage : "Validation failed. Please check form fields.",
       type: 'error',
@@ -173,20 +173,13 @@ export async function submitSuggestion(
 
   const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
   
-  // Create a mutable copy for Firestore preparation
   const dataForFirestore: Record<string, any> = { ...dataFromValidation };
+  delete dataForFirestore.uploadedImageSize; // Not stored in Firestore
 
-  // Remove uploadedImageSize as it's not stored in Firestore
-  delete dataForFirestore.uploadedImageSize;
-
-  // Convert undefined optional fields to null for Firestore
   if (dataForFirestore.imageUrl === undefined) {
     dataForFirestore.imageUrl = null;
   }
-  if (dataForFirestore.suggesterComment === undefined) {
-    dataForFirestore.suggesterComment = null;
-  }
-
+  // suggesterComment is removed, so no need to handle its conversion to null.
 
   try {
     if (suggesterUid) {
@@ -210,19 +203,18 @@ export async function submitSuggestion(
     }
 
     const suggestionForDb = {
-      ...dataForFirestore, // This now has nulls instead of undefined for imageUrl and suggesterComment
+      name: dataForFirestore.name as string,
+      description: dataForFirestore.description as string,
+      townName: dataForFirestore.townName as string,
+      category: dataForFirestore.category as string,
+      suggesterName: dataForFirestore.suggesterName as string,
+      imageUrl: dataForFirestore.imageUrl as string | null, // Explicitly use null if undefined
       status: 'pending' as const,
       submittedAtFirestore: FieldValue.serverTimestamp(),
       coordinates: {
         lat: latitude,
         lng: longitude,
       },
-      // Ensure all required fields are correctly typed and present
-      name: dataForFirestore.name as string,
-      description: dataForFirestore.description as string,
-      townName: dataForFirestore.townName as string,
-      category: dataForFirestore.category as string,
-      suggesterName: dataForFirestore.suggesterName as string,
     };
 
 
@@ -236,11 +228,9 @@ export async function submitSuggestion(
       type: 'success',
       submittedSuggestionData: {
         id: newDocRef.id,
-        ...suggestionForDb,
+        ...suggestionForDb, // suggesterComment is already removed from here
         submittedAt: new Date().toISOString(),
-        // Remove Firestore specific timestamp field for client object
-        // submittedAtFirestore will not be part of NewLocationSuggestion type sent to client
-      } as unknown as NewLocationSuggestion, // Cast because submittedAtFirestore is removed
+      } as unknown as NewLocationSuggestion, 
     };
 
   } catch (error: any) {
@@ -301,16 +291,17 @@ export async function approveSuggestion(
     const batch = adminDb.batch();
 
     const newLocationRef = adminDb.collection('locations').doc();
-    const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: any } = {
+    // Ensure Omit type reflects removal of suggesterComment
+    const newLocationData: Omit<Location, 'id' | 'createdAt' | 'suggesterComment'> & { createdAtFirestore: any } = {
       townId: town.id,
       townName: suggestionData.townName,
       name: suggestionData.name,
       description: suggestionData.description,
-      imageUrl: suggestionData.imageUrl || null, // Ensure null if undefined
+      imageUrl: suggestionData.imageUrl || null, 
       category: suggestionData.category,
       coordinates: suggestionData.coordinates,
       submittedBy: suggestionData.suggesterName,
-      suggesterComment: suggestionData.suggesterComment || null, // Ensure null if undefined
+      // suggesterComment is removed from Location type, so not included here
       comments: [],
       createdAtFirestore: FieldValue.serverTimestamp(),
     };
@@ -334,7 +325,8 @@ export async function approveSuggestion(
       suggestionId
     };
 
-  } catch (error) {
+  } catch (error)
+ {
     console.error("Error approving suggestion (using adminDb):", error);
     return {
       message: "Failed to approve suggestion. Please try again.",
@@ -412,7 +404,7 @@ export async function deleteSuggestion(
       imageDeletedSuccessfully = false;
     }
   } else {
-    imageDeletedSuccessfully = true; // No image URL provided, so consider image "deletion" successful
+    imageDeletedSuccessfully = true; 
   }
 
   try {

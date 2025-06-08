@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, MapPin, Tag, UserCircle, MessageSquare, CalendarDays, Copy } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react'; // Added for potential future use, not strictly needed for current copy button
+import { useState } from 'react'; 
 
 interface LocationDetailsDisplayProps {
   location: Location;
@@ -74,14 +74,14 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
       
       <CardContent className="p-6 space-y-6">
         <div className="space-y-4 text-sm">
-          {/* Category */}
+          
           <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-md">
             {getCategoryIcon(location.category)}
             <span className="font-medium text-secondary-foreground">Category:</span>
             <span>{location.category}</span>
           </div>
           
-          {/* Coordinates Section */}
+          
           <div className="p-3 bg-secondary/50 rounded-md space-y-1">
             <div className="flex items-center gap-2">
               <MapPin className="w-5 h-5 text-accent" />
@@ -97,7 +97,7 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground pl-7"> {/* Indent to align with coordinates text after icon */}
+            <p className="text-xs text-muted-foreground pl-7"> 
               These values can be copy and pasted into e.g. Google Maps.
             </p>
           </div>
@@ -108,6 +108,7 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
           <p className="text-foreground/90 leading-relaxed whitespace-pre-wrap">{location.description}</p>
         </div>
 
+        {/* Removed suggesterComment display section
         {location.suggesterComment && (
           <div>
             <h3 className="font-headline text-lg text-primary mb-2">Note from {location.submittedBy || 'Suggester'}</h3>
@@ -116,6 +117,7 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
             </blockquote>
           </div>
         )}
+        */}
 
         {location.comments && location.comments.length > 0 && (
           <div>

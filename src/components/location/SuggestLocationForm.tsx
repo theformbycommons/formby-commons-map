@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
-import { submitSuggestion, type FormState } from '@/lib/actions';
+import { submitSuggestion, type SuggestionFormState } from '@/lib/actions'; // Updated FormState type if needed
 import { locationCategories, mockTowns } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
@@ -35,7 +35,7 @@ const SuggestionFormClientSchema = z.object({
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
-  suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(),
+  // suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(), // Removed
   pictureFile: z.any().optional()
     .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max original file size is 5MB.`)
     .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
@@ -51,7 +51,7 @@ const SuggestionFormClientSchema = z.object({
 
 type SuggestionFormData = z.infer<typeof SuggestionFormClientSchema>;
 
-const initialState: FormState = {
+const initialState: SuggestionFormState = {
   message: '',
   type: 'info',
 };
@@ -103,7 +103,7 @@ export default function SuggestLocationForm() {
   const { toast } = useToast();
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const { user, loading: authLoading } = useAuth(); // Get user from AuthContext
+  const { user, loading: authLoading } = useAuth(); 
 
   const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormClientSchema),
@@ -113,7 +113,7 @@ export default function SuggestLocationForm() {
       townName: '',
       category: '',
       suggesterName: '',
-      suggesterComment: '',
+      // suggesterComment: '', // Removed
       pictureFile: undefined,
     }
   });
@@ -227,12 +227,12 @@ export default function SuggestLocationForm() {
 
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      if (key === 'suggesterComment') {
-        if (value !== undefined && value !== null && String(value).trim() !== '') {
-          formDataForServerAction.append(key, String(value));
-        }
-        return; 
-      }
+      // if (key === 'suggesterComment') { // Removed
+      //   if (value !== undefined && value !== null && String(value).trim() !== '') {
+      //     formDataForServerAction.append(key, String(value));
+      //   }
+      //   return; 
+      // }
 
       if (key !== 'pictureFile' && value !== undefined && value !== null) {
         if (String(value).trim() !== '' || typeof value === 'number' ) {
@@ -350,12 +350,14 @@ export default function SuggestLocationForm() {
         {errors.suggesterName && <p className="text-sm text-destructive mt-1">{errors.suggesterName.message}</p>}
       </div>
 
+      {/* Removed suggesterComment field
       <div>
         <Label htmlFor="suggesterComment" className="font-medium">Your Comments/Notes (Optional)</Label>
         <Textarea id="suggesterComment" {...register('suggesterComment')} rows={3} className="mt-1" aria-invalid={errors.suggesterComment ? "true" : "false"} />
         <p className="text-xs text-muted-foreground mt-1">Any additional details or why you're suggesting this place.</p>
         {errors.suggesterComment && <p className="text-sm text-destructive mt-1">{errors.suggesterComment.message}</p>}
       </div>
+      */}
 
       {state?.message && !state.errors && (
          <Alert variant={state.type === 'error' ? 'destructive' : 'default'} className={
