@@ -145,11 +145,11 @@ export async function submitSuggestion(
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
     suggesterComment: suggesterCommentValue === null || String(suggesterCommentValue).trim() === '' ? undefined : String(suggesterCommentValue),
-    imageUrl: imageUrlValue === null ? undefined : String(imageUrlValue), // map null to undefined for optional URL
-    uploadedImageSize: uploadedImageSizeValue === null ? undefined : String(uploadedImageSizeValue), // map null to undefined
+    imageUrl: imageUrlValue === null ? undefined : String(imageUrlValue),
+    uploadedImageSize: uploadedImageSizeValue === null ? undefined : String(uploadedImageSizeValue),
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
-    suggesterUid: suggesterUidValue === null ? undefined : String(suggesterUidValue), // map null to undefined for optional UID
+    suggesterUid: suggesterUidValue === null ? undefined : String(suggesterUidValue),
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
@@ -157,17 +157,16 @@ export async function submitSuggestion(
   if (!validatedFields.success) {
     const flatErrors = validatedFields.error.flatten();
     let detailedErrorMessage = "Validation failed. Details: ";
-    // Append field errors
     for (const [field, messages] of Object.entries(flatErrors.fieldErrors)) {
         if (messages) detailedErrorMessage += `${field}: ${messages.join(', ')}; `;
     }
-    // Append form errors (if any)
     if (flatErrors.formErrors.length > 0) {
         detailedErrorMessage += `Form errors: ${flatErrors.formErrors.join(', ')}; `;
     }
     
     // This console.error is for server-side logs if available/checked
-    console.error("Server-side validation errors:", flatErrors); 
+    // In Firebase Studio, these logs might be available in a "Logs" panel or similar.
+    console.error("Server-side validation errors:", flatErrors.fieldErrors); 
     
     return {
       message: detailedErrorMessage.length > "Validation failed. Details: ".length ? detailedErrorMessage : "Validation failed. Please check form fields.",
@@ -177,39 +176,36 @@ export async function submitSuggestion(
   }
 
   const { latitude, longitude, suggesterUid, ...dataToStoreInFirestore } = validatedFields.data;
+  
+  try {
+    if (suggesterUid) {
+      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid);
+      if (!dailyLimitCheck.allowed) {
+        return {
+          message: dailyLimitCheck.message || "Daily submission limit reached.",
+          type: 'error',
+        };
+      }
+    }
+    
+    const finalDataForFirestore = {
+        ...dataToStoreInFirestore,
+    };
+    delete (finalDataForFirestore as any).uploadedImageSize; 
+    if (finalDataForFirestore.imageUrl === undefined) {
+      (finalDataForFirestore as any).imageUrl = null;
+    }
 
-  if (suggesterUid) {
-    const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid);
-    if (!dailyLimitCheck.allowed) {
+    const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
+    const quotaCheckResult = await checkAndIncrementQuotas(dataSizeForQuota);
+
+    if (!quotaCheckResult.allowed) {
       return {
-        message: dailyLimitCheck.message || "Daily submission limit reached.",
+        message: quotaCheckResult.message || "Submission blocked due to storage quota limits.",
         type: 'error',
       };
     }
-  }
-  
-  const finalDataForFirestore = {
-      ...dataToStoreInFirestore,
-  };
-  // uploadedImageSize is only used for quota calculation, not stored in Firestore
-  delete (finalDataForFirestore as any).uploadedImageSize; 
-  // Ensure imageUrl is null if it was undefined (Zod optional turns undefined into actual undefined)
-  if (finalDataForFirestore.imageUrl === undefined) {
-    (finalDataForFirestore as any).imageUrl = null;
-  }
 
-
-  const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
-  const quotaCheckResult = await checkAndIncrementQuotas(dataSizeForQuota);
-
-  if (!quotaCheckResult.allowed) {
-    return {
-      message: quotaCheckResult.message || "Submission blocked due to storage quota limits.",
-      type: 'error',
-    };
-  }
-
-  try {
     const suggestionForDb: Omit<NewLocationSuggestion, 'id' | 'submittedAt' | 'status'> & { status: 'pending', submittedAtFirestore: any } = {
       ...finalDataForFirestore,
       status: 'pending',
@@ -236,16 +232,25 @@ export async function submitSuggestion(
       } as NewLocationSuggestion,
     };
 
-  } catch (error) {
+  } catch (error: any) { // Catch any error from the try block
     let errorMessage = "There was an error submitting your suggestion. Please try again.";
+    
+    // Try to provide a more specific message if possible
     if (error instanceof Error) {
-        if(error.message.includes("Overall storage limit reached") || 
-           error.message.includes("Daily upload limit reached") || 
-           error.message.includes("Quota configuration documents not found") ||
-           error.message.includes("daily limit of")) { 
-            errorMessage = error.message;
-        }
+      // Check for known custom error messages first
+      if (error.message.includes("Overall storage limit reached") || 
+          error.message.includes("Daily upload limit reached") || 
+          error.message.includes("Quota configuration documents not found") ||
+          error.message.includes("daily limit of")) { 
+        errorMessage = error.message;
+      } else {
+        // For other errors, use their message
+        errorMessage = `Error: ${error.message}`;
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = `Error: ${error}`;
     }
+
     console.error("Error in submitSuggestion action (using adminDb):", error);
     return {
       message: errorMessage,
@@ -349,11 +354,9 @@ export interface DeleteSuggestionFormState {
 function getPathFromStorageUrl(url: string): string | null {
   try {
     const urlObj = new URL(url);
-    // Pathname for GCS URLs typically looks like: /v0/b/your-bucket-name.appspot.com/o/path%2Fto%2Fyour%2Ffile.jpg
     const pathSegments = urlObj.pathname.split('/o/');
     if (pathSegments.length > 1) {
-      // The actual file path within the bucket is after '/o/' and needs to be URL-decoded
-      const encodedPath = pathSegments[1].split('?')[0]; // Remove query params like alt=media&token=...
+      const encodedPath = pathSegments[1].split('?')[0]; 
       return decodeURIComponent(encodedPath);
     }
     console.warn(`[Admin Action] Could not parse file path from URL: ${url}. Expected '/o/' separator not found.`);
@@ -369,7 +372,7 @@ export async function deleteSuggestion(
   formData: FormData
 ): Promise<DeleteSuggestionFormState> {
   const suggestionId = formData.get('suggestionId') as string;
-  const imageUrl = formData.get('imageUrl') as string | undefined | null; // Can be null from form
+  const imageUrl = formData.get('imageUrl') as string | undefined | null; 
 
   let imageDeletedSuccessfully = !imageUrl; 
   let imageDeletionErrorDetails = "";
@@ -384,8 +387,8 @@ export async function deleteSuggestion(
   if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '') {
     const filePath = getPathFromStorageUrl(imageUrl);
     if (filePath) {
-      const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET; // Ensure this is set
-      const bucket = bucketName ? adminStorage.bucket(bucketName) : adminStorage.bucket(); // Default bucket if not specified
+      const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET; 
+      const bucket = bucketName ? adminStorage.bucket(bucketName) : adminStorage.bucket(); 
       const file = bucket.file(filePath);
       
       try {
@@ -397,7 +400,7 @@ export async function deleteSuggestion(
         if (imgErr.code === 404 || (imgErr.errors && imgErr.errors.some((e: any) => e.reason === 'notFound'))) {
           imageDeletionErrorDetails = `Image '${filePath}' not found in storage (may have been already deleted or path is incorrect).`;
           console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
-          imageDeletedSuccessfully = true; // Treat as success if file not found, as desired state is "not there"
+          imageDeletedSuccessfully = true; 
         } else {
           imageDeletionErrorDetails = `Failed to delete image '${filePath}': ${imgErr.message}.`;
           console.error(`[Admin Action] ${imageDeletionErrorDetails}`, imgErr);
@@ -410,7 +413,6 @@ export async function deleteSuggestion(
       imageDeletedSuccessfully = false; 
     }
   } else {
-     // No image URL provided or it's empty, so image deletion is trivially successful or not applicable
     imageDeletedSuccessfully = true;
   }
 
@@ -419,27 +421,27 @@ export async function deleteSuggestion(
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
 
-    if (!imageUrl || imageUrl.trim() === '') { // No image was associated
+    if (!imageUrl || imageUrl.trim() === '') { 
       finalMessage = "Suggestion document deleted successfully. No image was associated.";
       finalType = 'success';
     } else if (imageDeletedSuccessfully) {
-      if (imageDeletionErrorDetails.includes("not found")) { // Image was specified but not found
+      if (imageDeletionErrorDetails.includes("not found")) { 
         finalMessage = `Suggestion document deleted. Associated image was not found in storage (may have been deleted previously).`;
         finalType = 'info';
-      } else { // Image was specified and successfully deleted
+      } else { 
         finalMessage = "Suggestion and associated image deleted successfully.";
         finalType = 'success';
       }
-    } else { // Image was specified but deletion failed
+    } else { 
       finalMessage = `Suggestion document deleted. However, the associated image deletion failed: ${imageDeletionErrorDetails || 'Unknown image error.'}`;
-      finalType = 'error'; // More accurately an error or partial success
+      finalType = 'error'; 
     }
     return { message: finalMessage, type: finalType, suggestionId };
 
   } catch (firestoreError: any) {
     console.error(`[Admin Action] Failed to delete Firestore document '${suggestionId}':`, firestoreError);
     let message = `Failed to delete suggestion document: ${firestoreError.message}.`;
-    if (imageUrl && imageUrl.trim() !== '') { // If there was an attempt to delete an image
+    if (imageUrl && imageUrl.trim() !== '') { 
       if (!imageDeletedSuccessfully && imageDeletionErrorDetails) {
         message += ` Additionally, image deletion failed: ${imageDeletionErrorDetails}`;
       } else if (imageDeletedSuccessfully && imageDeletionErrorDetails.includes("not found")) {
@@ -449,3 +451,4 @@ export async function deleteSuggestion(
     return { message, type: 'error', suggestionId };
   }
 }
+
