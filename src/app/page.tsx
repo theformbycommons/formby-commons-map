@@ -18,11 +18,11 @@ export default async function HomePage() {
           alt="Evocative background image of a charming local town scene"
           layout="fill"
           objectFit="cover"
-          className="absolute inset-0 w-full h-full z-0" // Removed opacity-40
+          className="absolute inset-0 w-full h-full z-0"
           data-ai-hint="Formby beach woodland"
           priority 
         />
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-[300px] md:min-h-[350px]"> {/* Ensures content is centered and has some min height */}
+        <div className="relative z-10 flex flex-col items-center justify-start min-h-[300px] md:min-h-[350px]"> {/* Changed justify-center to justify-start */}
           <div className="bg-background/20 p-6 rounded-lg max-w-2xl w-full mx-auto shadow-xl backdrop-blur-sm space-y-4">
             <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to Local Glow</h1>
             <p className="text-lg text-muted-foreground mx-auto drop-shadow-sm">
