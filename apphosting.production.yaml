@@ -1,7 +1,6 @@
 # /apphosting.production.yaml
-# IMPORTANT: Replace ALL placeholder values (YOUR_...) with your actual configuration.
 # This file should be named to match the environment name you set in the Firebase Console
-# (e.g., if you named it "prod", this file should be "apphosting.prod.yaml").
+# (e.g., if you named it "production", this file should be "apphosting.production.yaml").
 
 env:
   - variable: FIREBASE_ADMIN_PROJECT_ID
@@ -15,7 +14,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_PRIVATE_KEY
-    secret: firebase-admin-private-key # This is the ID of the secret you created in Google Secret Manager
+    secret: firebase-admin-private-key # This is the ID of the secret you will create in Google Secret Manager for your private key
     availability:
       - BUILD
       - RUNTIME
@@ -37,7 +36,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: "community-80928.appspot.com" # Replace with your actual storage bucket if different (e.g., community-80928.firebasestorage.app)
+    value: "community-80928.appspot.com" # Replace with your actual storage bucket if different
     availability:
       - BUILD
       - RUNTIME
