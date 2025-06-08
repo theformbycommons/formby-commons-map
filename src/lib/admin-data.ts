@@ -11,15 +11,23 @@ import {
   Timestamp
 } from 'firebase/firestore';
 
-// Helper to convert Firestore timestamp to ISO string or return existing string
+// Helper to convert Firestore timestamp to ISO string or return existing string/undefined
 const formatDateField = (dateField: any): string | undefined => {
   if (dateField instanceof Timestamp) {
     return dateField.toDate().toISOString();
   }
   if (typeof dateField === 'string') {
-    return dateField;
+    // Check if it's already an ISO string, otherwise, it might be an invalid date string
+    // For simplicity, we'll assume valid strings are already ISO or can be handled by new Date()
+    // A more robust check might be needed if various string date formats are possible
+    try {
+      new Date(dateField).toISOString(); // Check if it's a valid date string
+      return dateField;
+    } catch (e) {
+      return undefined; // Invalid date string
+    }
   }
-  // If field is undefined or null, return undefined.
+  // If field is undefined or null, or any other type, return undefined.
   return undefined; 
 };
 
@@ -27,48 +35,44 @@ const formatDateField = (dateField: any): string | undefined => {
 export async function getSuggestedLocations(): Promise<NewLocationSuggestion[]> {
   try {
     const suggestionsCol = collection(db, 'suggestedLocations');
-    // Order by 'submittedAtFirestore' for consistent ordering.
-    // If 'submittedAtFirestore' might not exist on all documents, consider ordering by 'submittedAt' (string)
-    // or ensure 'submittedAtFirestore' is always present for new suggestions.
-    // For now, assuming 'submittedAtFirestore' is generally available for ordering.
+    // Order by 'submittedAtFirestore' if it exists, otherwise by 'submittedAt' (string)
+    // This assumes 'submittedAtFirestore' is the primary timestamp for sorting.
+    // If 'submittedAtFirestore' might not always exist, a more complex query or client-side sort might be needed.
+    // For now, let's assume 'submittedAtFirestore' is generally reliable for ordering.
     const q = query(suggestionsCol, orderBy('submittedAtFirestore', 'desc'));
     const suggestionSnapshot = await getDocs(q);
 
     return suggestionSnapshot.docs.map(docSnap => {
-      const rawData = docSnap.data();
-      
-      // Destructure to separate potential Timestamp objects
-      const { submittedAtFirestore, approvedAtFirestore, ...restData } = rawData;
+      const data = docSnap.data();
 
-      // Use the processed string versions
-      const submittedAtString = formatDateField(submittedAtFirestore || rawData.submittedAt);
-      const approvedAtString = formatDateField(approvedAtFirestore || rawData.approvedAt);
+      // Process dates: prefer ...Firestore fields if they are Timestamps, otherwise fallback to string fields
+      const submittedAtString = formatDateField(data.submittedAtFirestore) || formatDateField(data.submittedAt) || new Date(0).toISOString();
+      const approvedAtString = formatDateField(data.approvedAtFirestore) || formatDateField(data.approvedAt);
 
-      // Construct the object for the client, ensuring no raw Timestamp objects are passed
-      const clientSafeSuggestion: Omit<NewLocationSuggestion, 'submittedAtFirestore' | 'approvedAtFirestore'> & { id: string } = {
+      // Construct the object for the client, ensuring no raw Timestamp objects are passed.
+      // Explicitly list all properties expected by NewLocationSuggestion type for client-side.
+      const clientSuggestion: NewLocationSuggestion = {
         id: docSnap.id,
-        ...restData, // Spread remaining data which should not contain the raw timestamps
-        submittedAt: submittedAtString || new Date(0).toISOString(), // Fallback for safety
-        approvedAt: approvedAtString, // This can be undefined
-        // Ensure all other fields from NewLocationSuggestion are present in restData or explicitly set
-        name: restData.name,
-        description: restData.description,
-        townName: restData.townName,
-        category: restData.category,
-        suggesterName: restData.suggesterName,
-        status: restData.status,
-        coordinates: restData.coordinates,
-        // Optional fields from restData
-        suggesterComment: restData.suggesterComment,
-        imageUrl: restData.imageUrl,
-        publishedLocationId: restData.publishedLocationId,
+        name: data.name,
+        description: data.description,
+        townName: data.townName,
+        category: data.category,
+        suggesterName: data.suggesterName,
+        suggesterComment: data.suggesterComment, // Will be undefined if not present in data
+        status: data.status,
+        submittedAt: submittedAtString,
+        // approvedAt can be undefined if not approved yet
+        ...(approvedAtString && { approvedAt: approvedAtString }), 
+        publishedLocationId: data.publishedLocationId, // Will be undefined if not present
+        coordinates: data.coordinates, // Assuming this is already a plain {lat, lng} object
+        imageUrl: data.imageUrl, // Will be undefined if not present
+        // Ensure `submittedAtFirestore` and `approvedAtFirestore` are NOT included
       };
       
-      return clientSafeSuggestion as NewLocationSuggestion & { id: string };
+      return clientSuggestion;
     });
   } catch (error) {
     console.error("Error fetching suggested locations:", error);
     return [];
   }
 }
-
