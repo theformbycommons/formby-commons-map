@@ -14,7 +14,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_PRIVATE_KEY
-    secret: firebase-admin-private-key # This is the ID of the secret you will create in Google Secret Manager for your private key
+    secret: firebase-admin-private-key # This is the ID of the secret you created in Google Secret Manager (e.g., firebase-admin-private-key)
     availability:
       - BUILD
       - RUNTIME
