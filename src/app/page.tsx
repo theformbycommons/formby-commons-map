@@ -18,7 +18,7 @@ export default async function HomePage() {
           alt="Evocative background image of a charming local town scene"
           layout="fill"
           objectFit="cover"
-          className="absolute inset-0 w-full h-full z-0 opacity-40"
+          className="absolute inset-0 w-full h-full z-0"
           data-ai-hint="Formby beach woodland"
           priority
         />
