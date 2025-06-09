@@ -38,9 +38,10 @@ export default async function TownPage({ params }: TownPageProps) {
   const greenPlaceholder = "https://placehold.co/800x400/90EE90.png"; // Light green for placeholder
 
   let useSpecificImage = false;
+  // Check if town.imageUrl is a valid, specific, non-placeholder URL
   if (
-    town.imageUrl &&
-    typeof town.imageUrl === 'string' &&
+    town.imageUrl && 
+    typeof town.imageUrl === 'string' && 
     town.imageUrl.trim() !== '' &&
     (town.imageUrl.startsWith('http://') || town.imageUrl.startsWith('https://')) &&
     town.imageUrl !== oldDefaultPlaceholder
@@ -53,8 +54,8 @@ export default async function TownPage({ params }: TownPageProps) {
     ? `Banner image for ${town.name}`
     : `Placeholder light green banner for ${town.name}`;
   const currentBannerImageAiHint = useSpecificImage
-    ? `${town.name} landscape` // More specific hint if possible
-    : "green background"; // Generic hint for placeholder
+    ? `${town.name} landscape` 
+    : "green background";
   const isPlaceholderImage = !useSpecificImage;
 
 
@@ -66,7 +67,7 @@ export default async function TownPage({ params }: TownPageProps) {
           alt={currentBannerImageAlt}
           layout="fill"
           objectFit="cover"
-          className="opacity-20 z-0"
+          className={isPlaceholderImage ? "z-0" : "opacity-20 z-0"} // Conditional opacity
           data-ai-hint={currentBannerImageAiHint}
           {...(isPlaceholderImage ? {} : { priority: true })} 
         />
