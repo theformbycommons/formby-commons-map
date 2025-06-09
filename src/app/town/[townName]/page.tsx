@@ -34,19 +34,22 @@ export default async function TownPage({ params }: TownPageProps) {
 
   const locations = await getLocationsByTownId(town.id);
 
+  const bannerImageSrc = town.imageUrl || `https://placehold.co/800x400.png`;
+  const bannerImageAlt = town.imageUrl ? `Banner image for ${town.name}` : `Placeholder banner image for ${town.name}`;
+  const bannerImageAiHint = town.imageUrl ? `${town.name} landscape` : "townscape landscape";
+
   return (
     <div className="space-y-8">
       <section className="relative bg-card rounded-lg shadow-md overflow-hidden p-6 md:p-8">
-        {town.imageUrl && (
-          <Image
-            src={town.imageUrl}
-            alt={`Banner image for ${town.name}`}
-            layout="fill"
-            objectFit="cover"
-            className="opacity-20 z-0"
-            data-ai-hint={`${town.name} landscape`}
-          />
-        )}
+        <Image
+          src={bannerImageSrc}
+          alt={bannerImageAlt}
+          layout="fill"
+          objectFit="cover"
+          className="opacity-20 z-0"
+          data-ai-hint={bannerImageAiHint}
+          priority // Consider adding priority if this image is LCP for the town page
+        />
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
