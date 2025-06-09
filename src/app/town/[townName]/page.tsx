@@ -4,9 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
-import Image from 'next/image';
-import ClientTownMap from '@/components/map/ClientTownMap'; // Import the new client component
+// Removed direct Image import, will be handled by TownBannerImage
+import ClientTownMap from '@/components/map/ClientTownMap'; 
 import type { Town } from '@/lib/types'; 
+import TownBannerImage from '@/components/town/TownBannerImage'; // Import the new component
+import { Suspense } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface TownPageProps {
   params: {
@@ -33,59 +36,30 @@ export default async function TownPage({ params }: TownPageProps) {
   }
 
   const locations = await getLocationsByTownId(town.id);
-
-  const oldDefaultPlaceholder = "https://placehold.co/800x400.png";
-  const greenPlaceholder = "https://placehold.co/800x400/90EE90.png"; // Light green
-
-  // Initialize with fallback values
-  let currentBannerImageSrc = greenPlaceholder;
-  let isPlaceholderImage = true;
-  let currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
-  let currentBannerImageAiHint = "green background";
-
-  // Check if town.imageUrl is a valid, specific, non-placeholder URL
-  if (
-    town.imageUrl &&
-    typeof town.imageUrl === 'string' &&
-    town.imageUrl.trim() !== '' &&
-    (town.imageUrl.startsWith('http://') || town.imageUrl.startsWith('https://')) &&
-    town.imageUrl !== oldDefaultPlaceholder
-  ) {
-    // If valid and specific, override the defaults
-    currentBannerImageSrc = town.imageUrl;
-    isPlaceholderImage = false;
-    currentBannerImageAlt = `Banner image for ${town.name}`;
-    currentBannerImageAiHint = `${town.name} landscape`;
-  }
-  // If the conditions above are not met, the initial fallback values (greenPlaceholder, etc.) will be used.
+  const storageBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
   return (
     <div className="space-y-8">
-      <section className="relative bg-card rounded-lg shadow-md overflow-hidden p-6 md:p-8">
-        <Image
-          src={currentBannerImageSrc} // This should always be a valid URL now
-          alt={currentBannerImageAlt}
-          layout="fill"
-          objectFit="cover"
-          className={isPlaceholderImage ? "z-0" : "opacity-20 z-0"} // Conditional opacity
-          data-ai-hint={currentBannerImageAiHint}
-          {...(isPlaceholderImage ? {} : { priority: true })} 
-        />
+      <section className="relative bg-card rounded-lg shadow-md overflow-hidden p-6 md:p-8 min-h-[250px] md:min-h-[300px]">
+        {/* Use Suspense for the client component loading the image */}
+        <Suspense fallback={<Skeleton className="absolute inset-0 w-full h-full" />}>
+          <TownBannerImage townName={town.name} storageBucketName={storageBucketName} />
+        </Suspense>
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
-              <h1 className="text-4xl font-headline font-bold text-primary mb-1">{town.name}</h1>
-              <p className="text-lg text-muted-foreground">{town.county}, {town.country}</p>
+              <h1 className="text-4xl font-headline font-bold text-primary mb-1 drop-shadow-lg">{town.name}</h1>
+              <p className="text-lg text-muted-foreground drop-shadow-md">{town.county}, {town.country}</p>
             </div>
-            <Button asChild variant="outline" className="mt-4 md:mt-0 border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+            <Button asChild variant="outline" className="mt-4 md:mt-0 border-accent text-accent hover:bg-accent hover:text-accent-foreground bg-background/70 hover:bg-accent/90 backdrop-blur-sm">
               <Link href="/suggest-location">
                 <PlusCircle className="mr-2 h-4 w-4" /> Suggest a Location
               </Link>
             </Button>
           </div>
-          <p className="text-md text-foreground max-w-3xl mb-4">{town.description}</p>
+          <p className="text-md text-foreground max-w-3xl mb-4 bg-background/70 p-3 rounded-md shadow backdrop-blur-sm">{town.description}</p>
           
-          <Button asChild variant="link" className="px-0 text-accent">
+          <Button asChild variant="link" className="px-0 text-accent bg-background/70 hover:bg-accent/10 rounded-md p-2 backdrop-blur-sm">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Towns
             </Link>
