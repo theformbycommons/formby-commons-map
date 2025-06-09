@@ -22,7 +22,7 @@ env:
   # NEXT_PUBLIC_ variables are safe to be here as their values are meant to be public.
   # Ensure these match your Firebase project configuration.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: "AlzaSyCA5vfVssd70Zx9lBPwp3fvTEo8ileWI60"
+    value: "AIzaSyCA5vfVssd70Zx9lBPwp3fvTEo8iIeWI6o"
     availability:
       - BUILD
       - RUNTIME
