@@ -34,9 +34,10 @@ export default async function TownPage({ params }: TownPageProps) {
 
   const locations = await getLocationsByTownId(town.id);
 
-  const bannerImageSrc = town.imageUrl || `https://placehold.co/800x400.png`;
-  const bannerImageAlt = town.imageUrl ? `Banner image for ${town.name}` : `Placeholder banner image for ${town.name}`;
-  const bannerImageAiHint = town.imageUrl ? `${town.name} landscape` : "townscape landscape";
+  const placeholderImageSrc = `https://placehold.co/800x400/90EE90.png`; // Light green
+  const bannerImageSrc = town.imageUrl || placeholderImageSrc;
+  const bannerImageAlt = town.imageUrl ? `Banner image for ${town.name}` : `Placeholder light green banner for ${town.name}`;
+  const bannerImageAiHint = town.imageUrl ? `${town.name} landscape` : "green background";
 
   return (
     <div className="space-y-8">
