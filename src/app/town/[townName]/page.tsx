@@ -53,9 +53,10 @@ export default async function TownPage({ params }: TownPageProps) {
     ? `Banner image for ${town.name}`
     : `Placeholder light green banner for ${town.name}`;
   const currentBannerImageAiHint = useSpecificImage
-    ? `${town.name} landscape`
-    : "green background";
+    ? `${town.name} landscape` // More specific hint if possible
+    : "green background"; // Generic hint for placeholder
   const isPlaceholderImage = !useSpecificImage;
+
 
   return (
     <div className="space-y-8">
