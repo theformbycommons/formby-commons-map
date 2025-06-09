@@ -34,22 +34,37 @@ export default async function TownPage({ params }: TownPageProps) {
 
   const locations = await getLocationsByTownId(town.id);
 
-  const placeholderImageSrc = `https://placehold.co/800x400/90EE90.png`; // Light green
-  const bannerImageSrc = town.imageUrl || placeholderImageSrc;
-  const bannerImageAlt = town.imageUrl ? `Banner image for ${town.name}` : `Placeholder light green banner for ${town.name}`;
-  const bannerImageAiHint = town.imageUrl ? `${town.name} landscape` : "green background";
+  const oldDefaultPlaceholder = "https://placehold.co/800x400.png";
+  const greenPlaceholder = "https://placehold.co/800x400/90EE90.png"; // Light green
+
+  let currentBannerImageSrc: string;
+  let currentBannerImageAlt: string;
+  let currentBannerImageAiHint: string;
+
+  if (town.imageUrl && town.imageUrl !== oldDefaultPlaceholder) {
+    currentBannerImageSrc = town.imageUrl;
+    currentBannerImageAlt = `Banner image for ${town.name}`;
+    currentBannerImageAiHint = `${town.name} landscape`;
+  } else {
+    // This case handles:
+    // 1. town.imageUrl is falsy (null, undefined, empty string)
+    // 2. town.imageUrl is exactly the oldDefaultPlaceholder
+    currentBannerImageSrc = greenPlaceholder;
+    currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
+    currentBannerImageAiHint = "green background";
+  }
 
   return (
     <div className="space-y-8">
       <section className="relative bg-card rounded-lg shadow-md overflow-hidden p-6 md:p-8">
         <Image
-          src={bannerImageSrc}
-          alt={bannerImageAlt}
+          src={currentBannerImageSrc}
+          alt={currentBannerImageAlt}
           layout="fill"
           objectFit="cover"
           className="opacity-20 z-0"
-          data-ai-hint={bannerImageAiHint}
-          priority // Consider adding priority if this image is LCP for the town page
+          data-ai-hint={currentBannerImageAiHint}
+          priority 
         />
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
