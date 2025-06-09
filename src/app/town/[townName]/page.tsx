@@ -35,38 +35,27 @@ export default async function TownPage({ params }: TownPageProps) {
   const locations = await getLocationsByTownId(town.id);
 
   const oldDefaultPlaceholder = "https://placehold.co/800x400.png";
-  const greenPlaceholder = "https://placehold.co/800x400/90EE90.png"; // Light green
+  const greenPlaceholder = "https://placehold.co/800x400/90EE90.png"; // Light green for placeholder
 
-  let currentBannerImageSrc: string;
-  let currentBannerImageAlt: string;
-  let currentBannerImageAiHint: string;
-  let isPlaceholderImage = true; // Assume placeholder by default
-
-  if (town.imageUrl && typeof town.imageUrl === 'string' && town.imageUrl.trim() !== '') {
-    if (town.imageUrl !== oldDefaultPlaceholder) {
-      if (town.imageUrl.startsWith('http://') || town.imageUrl.startsWith('https://')) {
-        currentBannerImageSrc = town.imageUrl;
-        currentBannerImageAlt = `Banner image for ${town.name}`;
-        currentBannerImageAiHint = `${town.name} landscape`;
-        isPlaceholderImage = false;
-      } else {
-        // town.imageUrl is a non-empty string, not old placeholder, but not a valid http/https URL
-        currentBannerImageSrc = greenPlaceholder;
-        currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
-        currentBannerImageAiHint = "green background";
-      }
-    } else {
-      // town.imageUrl is the oldDefaultPlaceholder
-      currentBannerImageSrc = greenPlaceholder;
-      currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
-      currentBannerImageAiHint = "green background";
-    }
-  } else {
-    // town.imageUrl is falsy (null, undefined, empty string)
-    currentBannerImageSrc = greenPlaceholder;
-    currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
-    currentBannerImageAiHint = "green background";
+  let useSpecificImage = false;
+  if (
+    town.imageUrl &&
+    typeof town.imageUrl === 'string' &&
+    town.imageUrl.trim() !== '' &&
+    (town.imageUrl.startsWith('http://') || town.imageUrl.startsWith('https://')) &&
+    town.imageUrl !== oldDefaultPlaceholder
+  ) {
+    useSpecificImage = true;
   }
+
+  const currentBannerImageSrc = useSpecificImage ? town.imageUrl! : greenPlaceholder;
+  const currentBannerImageAlt = useSpecificImage
+    ? `Banner image for ${town.name}`
+    : `Placeholder light green banner for ${town.name}`;
+  const currentBannerImageAiHint = useSpecificImage
+    ? `${town.name} landscape`
+    : "green background";
+  const isPlaceholderImage = !useSpecificImage;
 
   return (
     <div className="space-y-8">
