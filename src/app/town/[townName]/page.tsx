@@ -40,15 +40,29 @@ export default async function TownPage({ params }: TownPageProps) {
   let currentBannerImageSrc: string;
   let currentBannerImageAlt: string;
   let currentBannerImageAiHint: string;
+  let isPlaceholderImage = true; // Assume placeholder by default
 
-  if (town.imageUrl && town.imageUrl !== oldDefaultPlaceholder) {
-    currentBannerImageSrc = town.imageUrl;
-    currentBannerImageAlt = `Banner image for ${town.name}`;
-    currentBannerImageAiHint = `${town.name} landscape`;
+  if (town.imageUrl && typeof town.imageUrl === 'string' && town.imageUrl.trim() !== '') {
+    if (town.imageUrl !== oldDefaultPlaceholder) {
+      if (town.imageUrl.startsWith('http://') || town.imageUrl.startsWith('https://')) {
+        currentBannerImageSrc = town.imageUrl;
+        currentBannerImageAlt = `Banner image for ${town.name}`;
+        currentBannerImageAiHint = `${town.name} landscape`;
+        isPlaceholderImage = false;
+      } else {
+        // town.imageUrl is a non-empty string, not old placeholder, but not a valid http/https URL
+        currentBannerImageSrc = greenPlaceholder;
+        currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
+        currentBannerImageAiHint = "green background";
+      }
+    } else {
+      // town.imageUrl is the oldDefaultPlaceholder
+      currentBannerImageSrc = greenPlaceholder;
+      currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
+      currentBannerImageAiHint = "green background";
+    }
   } else {
-    // This case handles:
-    // 1. town.imageUrl is falsy (null, undefined, empty string)
-    // 2. town.imageUrl is exactly the oldDefaultPlaceholder
+    // town.imageUrl is falsy (null, undefined, empty string)
     currentBannerImageSrc = greenPlaceholder;
     currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
     currentBannerImageAiHint = "green background";
@@ -64,7 +78,7 @@ export default async function TownPage({ params }: TownPageProps) {
           objectFit="cover"
           className="opacity-20 z-0"
           data-ai-hint={currentBannerImageAiHint}
-          priority 
+          {...(isPlaceholderImage ? {} : { priority: true })} 
         />
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
