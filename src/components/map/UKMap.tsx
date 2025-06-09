@@ -7,8 +7,9 @@ import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapPin, Eye } from 'lucide-react';
-import Image from 'next/image';
+// Removed direct Image import, will be handled by TownPreviewImage
 import React, { useEffect, useRef } from 'react';
+import TownPreviewImage from '@/components/town/TownPreviewImage'; // Import the new component
 
 interface UKMapProps {
   towns: Town[];
@@ -17,6 +18,7 @@ interface UKMapProps {
 export default function UKMap({ towns }: UKMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMapClass | null>(null);
+  const storageBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
   useEffect(() => {
     if (mapContainerRef.current && !mapRef.current) {
@@ -80,26 +82,26 @@ export default function UKMap({ towns }: UKMapProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {towns.map((town) => (
             <Card key={town.id} className="flex flex-col hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <div className="relative w-full h-48 rounded-t-md overflow-hidden mb-4">
-                  <Image
-                    src={town.imageUrl || `https://placehold.co/400x250.png`}
-                    alt={`Image of ${town.name}`}
-                    layout="fill"
-                    objectFit="cover"
-                    data-ai-hint={`${town.name} landmark`}
+              <CardHeader className="p-0"> {/* Changed padding to p-0 to let image fill */}
+                <div className="relative w-full h-48 rounded-t-md overflow-hidden">
+                  <TownPreviewImage 
+                    townName={town.name} 
+                    storageBucketName={storageBucketName} 
                   />
                 </div>
+              </CardHeader>
+              {/* Rest of the card content remains below the image container in CardHeader */}
+              <div className="p-4"> {/* Add padding back for content below header */}
                 <CardTitle className="font-headline text-xl text-primary flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-accent" />
                   {town.name}
                 </CardTitle>
                 <CardDescription>{town.county}, {town.country}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
+              </div>
+              <CardContent className="p-4 pt-0 flex-grow"> {/* Adjusted padding */}
                 <p className="text-sm text-muted-foreground line-clamp-3">{town.description}</p>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="p-4"> {/* Ensure padding for footer */}
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
                   <a href={`/town/${encodeURIComponent(town.name)}`} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
