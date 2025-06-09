@@ -35,35 +35,35 @@ export default async function TownPage({ params }: TownPageProps) {
   const locations = await getLocationsByTownId(town.id);
 
   const oldDefaultPlaceholder = "https://placehold.co/800x400.png";
-  const greenPlaceholder = "https://placehold.co/800x400/90EE90.png"; // Light green for placeholder
+  const greenPlaceholder = "https://placehold.co/800x400/90EE90.png"; // Light green
 
-  let useSpecificImage = false;
+  // Initialize with fallback values
+  let currentBannerImageSrc = greenPlaceholder;
+  let isPlaceholderImage = true;
+  let currentBannerImageAlt = `Placeholder light green banner for ${town.name}`;
+  let currentBannerImageAiHint = "green background";
+
   // Check if town.imageUrl is a valid, specific, non-placeholder URL
   if (
-    town.imageUrl && 
-    typeof town.imageUrl === 'string' && 
+    town.imageUrl &&
+    typeof town.imageUrl === 'string' &&
     town.imageUrl.trim() !== '' &&
     (town.imageUrl.startsWith('http://') || town.imageUrl.startsWith('https://')) &&
     town.imageUrl !== oldDefaultPlaceholder
   ) {
-    useSpecificImage = true;
+    // If valid and specific, override the defaults
+    currentBannerImageSrc = town.imageUrl;
+    isPlaceholderImage = false;
+    currentBannerImageAlt = `Banner image for ${town.name}`;
+    currentBannerImageAiHint = `${town.name} landscape`;
   }
-
-  const currentBannerImageSrc = useSpecificImage ? town.imageUrl! : greenPlaceholder;
-  const currentBannerImageAlt = useSpecificImage
-    ? `Banner image for ${town.name}`
-    : `Placeholder light green banner for ${town.name}`;
-  const currentBannerImageAiHint = useSpecificImage
-    ? `${town.name} landscape` 
-    : "green background";
-  const isPlaceholderImage = !useSpecificImage;
-
+  // If the conditions above are not met, the initial fallback values (greenPlaceholder, etc.) will be used.
 
   return (
     <div className="space-y-8">
       <section className="relative bg-card rounded-lg shadow-md overflow-hidden p-6 md:p-8">
         <Image
-          src={currentBannerImageSrc}
+          src={currentBannerImageSrc} // This should always be a valid URL now
           alt={currentBannerImageAlt}
           layout="fill"
           objectFit="cover"
