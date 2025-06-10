@@ -1,5 +1,5 @@
 
-import type { Town, Location, LocationComment, NewLocationSuggestion } from './types';
+import type { Town, Location, LocationComment, SuggestedComment } from './types';
 import { db } from './firebase';
 import {
   collection,
@@ -9,7 +9,7 @@ import {
   query,
   where,
   Timestamp,
-  // addDoc // We'll use addDoc in actions.ts for suggestions
+  orderBy // Added orderBy
 } from 'firebase/firestore';
 import { randomUUID } from 'crypto'; // For comment IDs if necessary
 
@@ -19,20 +19,14 @@ const formatDateField = (dateField: any): string => {
     return dateField.toDate().toISOString();
   }
   if (typeof dateField === 'string') {
-    // Attempt to parse and re-format to ensure it's a valid ISO string,
-    // or return as is if it's already a valid ISO string.
     try {
       return new Date(dateField).toISOString();
     } catch (e) {
-      // If parsing fails, it might not be a date string, or an invalid one.
-      // Fallback or handle as an error. For now, returning a default.
       console.warn(`Invalid date string encountered: ${dateField}`);
-      return new Date(0).toISOString(); // Default to epoch for invalid strings
+      return new Date(0).toISOString();
     }
   }
-  // If undefined, null, or other type, return a default or handle as error.
-  // console.warn(`formatDateField received an unexpected type or undefined value:`, dateField);
-  return new Date(0).toISOString(); // Default to epoch for undefined/null or unexpected types
+  return new Date(0).toISOString();
 };
 
 
@@ -42,19 +36,17 @@ export async function getTowns(): Promise<Town[]> {
     const townSnapshot = await getDocs(townsCol);
     const townsList = townSnapshot.docs.map(docSnap => {
       const data = docSnap.data();
-      // Ensure we construct the Town object explicitly to avoid passing unwanted fields
       return {
         id: docSnap.id,
         name: data.name,
         county: data.county,
         country: data.country,
-        coordinates: data.coordinates, // Assuming this is already a plain object
+        coordinates: data.coordinates,
         description: data.description,
         imageUrl: data.imageUrl,
       } as Omit<Town, 'locationCount'>;
     });
 
-    // For each town, calculate locationCount
     const townsWithCounts: Town[] = [];
     for (const town of townsList) {
       const locationsCol = collection(db, 'locations');
@@ -108,9 +100,42 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
     const locationsCol = collection(db, 'locations');
     const q = query(locationsCol, where('townId', '==', townId));
     const locationSnapshot = await getDocs(q);
-    return locationSnapshot.docs.map(docSnap => {
+    
+    const locationsPromises = locationSnapshot.docs.map(async docSnap => {
       const data = docSnap.data();
-      // Explicitly construct the Location object to ensure plain objects for client components
+      
+      // Fetch approved suggested comments for this location
+      const suggestedCommentsCol = collection(db, 'suggestedComments');
+      const sq = query(suggestedCommentsCol, 
+        where('locationId', '==', docSnap.id), 
+        where('status', '==', 'approved'),
+        orderBy('submittedAtFirestore', 'desc') // Or 'submittedAt' if that's the string version
+      );
+      const suggestedCommentsSnap = await getDocs(sq);
+      const approvedSuggestedComments: LocationComment[] = suggestedCommentsSnap.docs.map(sDoc => {
+        const sData = sDoc.data() as SuggestedComment;
+        return {
+          id: sDoc.id, // Use suggestedComment doc ID
+          user: sData.userName,
+          comment: sData.commentText,
+          date: formatDateField(sData.submittedAtFirestore || sData.submittedAt),
+        };
+      });
+
+      // Merge and sort comments
+      const existingComments: LocationComment[] = (data.comments || []).map((comment: any) => ({
+        id: comment.id || randomUUID(),
+        user: comment.user,
+        comment: comment.comment,
+        date: formatDateField(comment.date),
+      }));
+      
+      let allComments = [...existingComments, ...approvedSuggestedComments];
+      // Deduplicate comments based on ID, preferring original ones if IDs might clash (unlikely here)
+      const uniqueComments = Array.from(new Map(allComments.map(c => [c.id, c])).values());
+      uniqueComments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+
       const location: Location = {
         id: docSnap.id,
         townId: data.townId,
@@ -119,18 +144,14 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         description: data.description,
         imageUrl: data.imageUrl || null,
         category: data.category,
-        coordinates: data.coordinates, // Assuming this is already a plain {lat, lng} object
+        coordinates: data.coordinates,
         submittedBy: data.submittedBy,
-        comments: (data.comments || []).map((comment: any) => ({
-          id: comment.id || randomUUID(), // Ensure comment has an ID
-          user: comment.user,
-          comment: comment.comment,
-          date: formatDateField(comment.date), // Ensure comment date is a string
-        })),
-        createdAt: formatDateField(data.createdAtFirestore || data.createdAt), // Ensure createdAt is a string
+        comments: uniqueComments,
+        createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
       };
       return location;
     });
+    return Promise.all(locationsPromises);
   } catch (error) {
     console.error(`Error fetching locations for town ID ${townId}:`, error);
     return [];
@@ -147,7 +168,40 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       return undefined;
     }
     const data = docSnap.data();
-    // Explicitly construct the Location object
+
+    // Fetch approved suggested comments for this location
+    const suggestedCommentsCol = collection(db, 'suggestedComments');
+    const sq = query(suggestedCommentsCol, 
+      where('locationId', '==', id), 
+      where('status', '==', 'approved'),
+      orderBy('submittedAtFirestore', 'desc') // Or 'submittedAt' if that's the string version
+    );
+    const suggestedCommentsSnap = await getDocs(sq);
+    const approvedSuggestedComments: LocationComment[] = suggestedCommentsSnap.docs.map(sDoc => {
+      const sData = sDoc.data() as SuggestedComment; // Cast to SuggestedComment type
+      return {
+        id: sDoc.id, // Use suggestedComment doc ID
+        user: sData.userName,
+        comment: sData.commentText,
+        date: formatDateField(sData.submittedAtFirestore || sData.submittedAt), // Use appropriate date field
+      };
+    });
+    
+    const existingComments: LocationComment[] = (data.comments || []).map((comment: any) => ({
+      id: comment.id || randomUUID(),
+      user: comment.user,
+      comment: comment.comment,
+      date: formatDateField(comment.date),
+    }));
+
+    let allComments = [...existingComments, ...approvedSuggestedComments];
+    // Deduplicate comments based on ID, preferring original ones if IDs might clash.
+    // This simple deduplication assumes suggestedComment IDs are distinct from existing comment IDs.
+    // A more robust deduplication might be needed if an admin action also copies comments.
+    const uniqueComments = Array.from(new Map(allComments.map(c => [c.id, c])).values());
+    // Sort all comments by date, most recent first.
+    uniqueComments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     const location: Location = {
       id: docSnap.id,
       townId: data.townId,
@@ -158,12 +212,7 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       category: data.category,
       coordinates: data.coordinates,
       submittedBy: data.submittedBy,
-      comments: (data.comments || []).map((comment: any) => ({
-        id: comment.id || randomUUID(), // Ensure comment has an ID
-        user: comment.user,
-        comment: comment.comment,
-        date: formatDateField(comment.date),
-      })),
+      comments: uniqueComments,
       createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
     };
     return location;
@@ -174,7 +223,6 @@ export async function getLocationById(id: string): Promise<Location | undefined>
 }
 
 
-// locationCategories remains static as it's not from DB
 export const locationCategories = [
   "Park",
   "Nature Spot",
@@ -192,7 +240,6 @@ export const locationCategories = [
   "Other"
 ];
 
-// For use in SuggestLocationForm for town datalist
 export const mockTowns: Pick<Town, 'id' | 'name'>[] = [
     { id: 'formby', name: 'Formby' },
     { id: 'windermere', name: 'Windermere' },
