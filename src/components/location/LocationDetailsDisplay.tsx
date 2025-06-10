@@ -43,7 +43,7 @@ const initialCommentFormState: AddCommentFormState = { message: '', type: 'info'
 
 function CommentForm({ locationId }: { locationId: string }) {
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth(); 
+  const { user, loading: authLoading } = useAuth();
   const [actionState, formAction, isPending] = useActionState(addCommentToLocation, initialCommentFormState);
 
   const { register, handleSubmit, control, formState: { errors }, reset, setError } = useForm<CommentFormData>({
@@ -56,21 +56,26 @@ function CommentForm({ locationId }: { locationId: string }) {
 
   useEffect(() => {
     if (actionState?.message) {
+      console.log('[Client] Action State Updated:', JSON.stringify(actionState, null, 2));
+
       toast({
         title: actionState.type === 'success' ? 'Success!' : actionState.type === 'error' ? 'Error' : 'Info',
         description: actionState.message,
         variant: actionState.type === 'error' ? 'destructive' : 'default',
       });
       if (actionState.type === 'success') {
-        reset(); // Clear form fields
+        reset();
       } else if (actionState.type === 'error' && actionState.errors) {
+        console.log('[Client] Server validation errors received:', JSON.stringify(actionState.errors, null, 2));
         Object.entries(actionState.errors).forEach(([fieldName, fieldErrors]) => {
           if (fieldErrors && fieldErrors.length > 0) {
-             if (Object.keys(CommentFormSchema.shape).includes(fieldName)) {
+             if (fieldName === 'userName' || fieldName === 'commentText') {
                 setError(fieldName as FieldPath<CommentFormData>, {
                 type: 'server',
                 message: fieldErrors.join(', '),
               });
+            } else {
+              console.warn(`[Client] Server validation error for unmapped field '${fieldName}': ${fieldErrors.join(', ')}`);
             }
           }
         });
@@ -79,10 +84,23 @@ function CommentForm({ locationId }: { locationId: string }) {
   }, [actionState, toast, reset, setError]);
 
   const processCommentSubmit = (data: CommentFormData) => {
+    console.log('[Client] processCommentSubmit called with data:', data);
      if (authLoading) {
+      console.log('[Client] Auth is loading, returning early.');
       toast({ title: "Authenticating", description: "Please wait, checking user status.", variant: "default" });
       return;
     }
+
+    if (!locationId || typeof locationId !== 'string' || locationId.trim() === '') {
+      console.error('[Client] Invalid or missing locationId in CommentForm:', locationId);
+      toast({
+        title: 'Client Error',
+        description: 'Cannot submit comment: Location ID is missing or invalid.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const formData = new FormData();
     formData.append('locationId', locationId);
     formData.append('userName', data.userName);
@@ -90,6 +108,13 @@ function CommentForm({ locationId }: { locationId: string }) {
     if (user && user.isAnonymous && user.uid) {
       formData.append('suggesterUid', user.uid);
     }
+
+    console.log('[Client] Submitting comment. FormData prepared. Keys:', Array.from(formData.keys()));
+    console.log('[Client] FormData locationId:', formData.get('locationId'));
+    console.log('[Client] FormData userName:', formData.get('userName'));
+    console.log('[Client] FormData commentText:', formData.get('commentText'));
+    console.log('[Client] FormData suggesterUid:', formData.get('suggesterUid'));
+
     formAction(formData);
   };
 
@@ -105,10 +130,10 @@ function CommentForm({ locationId }: { locationId: string }) {
         <form onSubmit={handleSubmit(processCommentSubmit)} className="space-y-4">
           <div>
             <Label htmlFor="userName" className="font-medium">Your Name</Label>
-            <Input 
-              id="userName" 
-              {...register('userName')} 
-              className="mt-1" 
+            <Input
+              id="userName"
+              {...register('userName')}
+              className="mt-1"
               aria-invalid={errors.userName ? "true" : "false"}
               disabled={isPending || authLoading}
             />
@@ -116,17 +141,17 @@ function CommentForm({ locationId }: { locationId: string }) {
           </div>
           <div>
             <Label htmlFor="commentText" className="font-medium">Your Comment</Label>
-            <Textarea 
-              id="commentText" 
-              {...register('commentText')} 
-              rows={4} 
-              className="mt-1" 
+            <Textarea
+              id="commentText"
+              {...register('commentText')}
+              rows={4}
+              className="mt-1"
               aria-invalid={errors.commentText ? "true" : "false"}
               disabled={isPending || authLoading}
             />
             {errors.commentText && <p className="text-sm text-destructive mt-1">{errors.commentText.message}</p>}
           </div>
-          
+
           {actionState?.message && !actionState.errors && (
              <Alert variant={actionState.type === 'error' ? 'destructive' : 'default'} className={
                actionState.type === 'success' ? 'bg-green-50 border-green-300 text-green-700' :
@@ -181,10 +206,8 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
       });
     }
   };
-  
-  // Sort comments by date, most recent first.
-  // Create a new sorted array to avoid mutating the prop.
-  const sortedComments = location.comments && location.comments.length > 0 
+
+  const sortedComments = location.comments && location.comments.length > 0
     ? [...location.comments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
     : [];
 
@@ -208,33 +231,33 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
             <CardDescription className="text-lg text-primary-foreground/90 drop-shadow-sm">{location.townName}</CardDescription>
         </div>
       </CardHeader>
-      
+
       <CardContent className="p-6 space-y-6">
         <div className="space-y-4 text-sm">
-          
+
           <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-md">
             {getCategoryIcon(location.category)}
             <span className="font-medium text-secondary-foreground">Category:</span>
             <span>{location.category}</span>
           </div>
-          
-          
+
+
           <div className="p-3 bg-secondary/50 rounded-md space-y-1">
             <div className="flex items-center gap-2">
               <MapPin className="w-5 h-5 text-accent" />
               <span className="font-medium text-secondary-foreground">Coordinates:</span>
               <span>{location.coordinates.lat.toFixed(3)}, {location.coordinates.lng.toFixed(3)}</span>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleCopyCoordinates} 
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyCoordinates}
                 className="ml-auto h-7 w-7"
                 aria-label="Copy Coordinates"
               >
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground pl-7"> 
+            <p className="text-xs text-muted-foreground pl-7">
               These values can be copy and pasted into e.g. Google Maps.
             </p>
           </div>
