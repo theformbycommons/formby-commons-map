@@ -461,6 +461,9 @@ export async function addCommentToLocation(
   prevState: AddCommentFormState | undefined,
   formData: FormData
 ): Promise<AddCommentFormState> {
+  
+  console.log('[Action:addCommentToLocation] Received FormData keys:', Array.from(formData.keys()));
+
   const rawData = {
     locationId: formData.get('locationId') as string,
     userName: formData.get('userName') as string,
@@ -468,17 +471,22 @@ export async function addCommentToLocation(
     suggesterUid: formData.get('suggesterUid') as string | undefined,
   };
 
+  console.log('[Action:addCommentToLocation] Raw data for validation:', JSON.stringify(rawData, null, 2));
+
   const validatedFields = AddCommentSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
+    const validationErrors = validatedFields.error.flatten();
+    console.error('[Action:addCommentToLocation] Validation failed. Details:', JSON.stringify(validationErrors, null, 2));
     return {
       message: "Validation failed. Please check your input.",
       type: 'error',
-      errors: validatedFields.error.flatten().fieldErrors,
+      errors: validationErrors.fieldErrors,
     };
   }
 
   const { locationId, userName, commentText, suggesterUid } = validatedFields.data;
+  console.log('[Action:addCommentToLocation] Validation successful. Data:', JSON.stringify(validatedFields.data, null, 2));
 
   try {
     // Check daily limit for anonymous users
@@ -490,6 +498,7 @@ export async function addCommentToLocation(
         'lastCommentDate' // Date field name in that collection
       );
       if (!dailyLimitCheck.allowed) {
+         console.warn(`[Action:addCommentToLocation] Daily comment limit reached for UID: ${suggesterUid}`);
         return {
           message: dailyLimitCheck.message || "Daily comment limit reached.",
           type: 'error',
@@ -499,9 +508,10 @@ export async function addCommentToLocation(
 
     const locationDoc = await getLocationById(locationId);
     if (!locationDoc) {
+      console.error(`[Action:addCommentToLocation] Location not found for ID: ${locationId}`);
       return { message: "Location not found.", type: 'error' };
     }
-    const locationName = locationDoc.name; // Denormalized field
+    const locationName = locationDoc.name; 
 
     const newSuggestedComment: Omit<SuggestedComment, 'id' | 'submittedAt'> = {
       locationId,
@@ -513,7 +523,9 @@ export async function addCommentToLocation(
       ...(suggesterUid && { suggesterUid }),
     };
 
+    console.log('[Action:addCommentToLocation] Attempting to add suggested comment to Firestore:', JSON.stringify(newSuggestedComment, null, 2));
     const newCommentRef = await adminDb.collection('suggestedComments').add(newSuggestedComment);
+    console.log(`[Action:addCommentToLocation] Suggested comment added successfully with ID: ${newCommentRef.id}`);
     
     // No revalidation of the public location page here, as comment is pending.
     // Revalidation for an admin page would go here if such a page existed.
@@ -526,7 +538,7 @@ export async function addCommentToLocation(
     };
 
   } catch (error: any) {
-    console.error("Error adding suggested comment (using adminDb):", error);
+    console.error("[Action:addCommentToLocation] Error during comment submission process:", error);
     return {
       message: error.message || "Failed to submit comment. Please try again.",
       type: 'error',
@@ -537,3 +549,6 @@ export async function addCommentToLocation(
 // Helper function to get a generic user daily limit (can be reused)
 // Note: This was refactored into checkAndIncrementAnonymousUserDailyLimit for more specific use.
 // Keeping the more generic structure of checkAndIncrementAnonymousUserDailyLimit.
+
+
+    
