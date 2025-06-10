@@ -1,15 +1,24 @@
 
 'use client';
 
-import type { Location } from '@/lib/types';
+import type { Location, LocationComment } from '@/lib/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Tag, UserCircle, MessageSquare, CalendarDays, Copy } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ArrowLeft, MapPin, Tag, UserCircle, MessageSquare, CalendarDays, Copy, Send, CheckCircle, XCircle, Info, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react'; 
+import { useState, useEffect, useActionState } from 'react';
+import { useForm, Controller, type FieldPath } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { addCommentToLocation, type AddCommentFormState } from '@/lib/actions';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LocationDetailsDisplayProps {
   location: Location;
@@ -22,6 +31,127 @@ function getCategoryIcon(category: string) {
   if (lowerCategory.includes('landmark') || lowerCategory.includes('historical')) return <Tag className="w-5 h-5 text-blue-600" />;
   return <Tag className="w-5 h-5 text-gray-600" />;
 }
+
+const CommentFormSchema = z.object({
+  userName: z.string().min(2, "Your name must be at least 2 characters.").max(50, "Name must be 50 characters or less."),
+  commentText: z.string().min(3, "Comment must be at least 3 characters.").max(500, "Comment must be 500 characters or less."),
+});
+type CommentFormData = z.infer<typeof CommentFormSchema>;
+
+const initialCommentFormState: AddCommentFormState = { message: '', type: 'info' };
+
+
+function CommentForm({ locationId }: { locationId: string }) {
+  const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth(); 
+  const [actionState, formAction, isPending] = useActionState(addCommentToLocation, initialCommentFormState);
+
+  const { register, handleSubmit, control, formState: { errors }, reset, setError } = useForm<CommentFormData>({
+    resolver: zodResolver(CommentFormSchema),
+    defaultValues: {
+      userName: '',
+      commentText: '',
+    }
+  });
+
+  useEffect(() => {
+    if (actionState?.message) {
+      toast({
+        title: actionState.type === 'success' ? 'Success!' : actionState.type === 'error' ? 'Error' : 'Info',
+        description: actionState.message,
+        variant: actionState.type === 'error' ? 'destructive' : 'default',
+      });
+      if (actionState.type === 'success') {
+        reset(); // Clear form fields
+      } else if (actionState.type === 'error' && actionState.errors) {
+        Object.entries(actionState.errors).forEach(([fieldName, fieldErrors]) => {
+          if (fieldErrors && fieldErrors.length > 0) {
+             if (Object.keys(CommentFormSchema.shape).includes(fieldName)) {
+                setError(fieldName as FieldPath<CommentFormData>, {
+                type: 'server',
+                message: fieldErrors.join(', '),
+              });
+            }
+          }
+        });
+      }
+    }
+  }, [actionState, toast, reset, setError]);
+
+  const processCommentSubmit = (data: CommentFormData) => {
+     if (authLoading) {
+      toast({ title: "Authenticating", description: "Please wait, checking user status.", variant: "default" });
+      return;
+    }
+    const formData = new FormData();
+    formData.append('locationId', locationId);
+    formData.append('userName', data.userName);
+    formData.append('commentText', data.commentText);
+    if (user && user.isAnonymous && user.uid) {
+      formData.append('suggesterUid', user.uid);
+    }
+    formAction(formData);
+  };
+
+  return (
+    <Card className="mt-8 shadow-md">
+      <CardHeader>
+        <CardTitle className="font-headline text-xl text-primary flex items-center gap-2">
+          <MessageSquare className="w-6 h-6" />
+          Leave a Comment
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(processCommentSubmit)} className="space-y-4">
+          <div>
+            <Label htmlFor="userName" className="font-medium">Your Name</Label>
+            <Input 
+              id="userName" 
+              {...register('userName')} 
+              className="mt-1" 
+              aria-invalid={errors.userName ? "true" : "false"}
+              disabled={isPending || authLoading}
+            />
+            {errors.userName && <p className="text-sm text-destructive mt-1">{errors.userName.message}</p>}
+          </div>
+          <div>
+            <Label htmlFor="commentText" className="font-medium">Your Comment</Label>
+            <Textarea 
+              id="commentText" 
+              {...register('commentText')} 
+              rows={4} 
+              className="mt-1" 
+              aria-invalid={errors.commentText ? "true" : "false"}
+              disabled={isPending || authLoading}
+            />
+            {errors.commentText && <p className="text-sm text-destructive mt-1">{errors.commentText.message}</p>}
+          </div>
+          
+          {actionState?.message && !actionState.errors && (
+             <Alert variant={actionState.type === 'error' ? 'destructive' : 'default'} className={
+               actionState.type === 'success' ? 'bg-green-50 border-green-300 text-green-700' :
+               actionState.type === 'error' ? 'bg-red-50 border-red-300 text-red-700' : ''
+             }>
+              {actionState.type === 'success' && <CheckCircle className="h-5 w-5" />}
+              {actionState.type === 'error' && <XCircle className="h-5 w-5" />}
+              {actionState.type === 'info' && <Info className="h-5 w-5" />}
+              <AlertTitle className="font-semibold ml-1">
+                {actionState.type === 'success' ? 'Success!' : actionState.type === 'error' ? 'Error' : 'Notification'}
+              </AlertTitle>
+              <AlertDescription className="ml-1">{actionState.message}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button type="submit" className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isPending || authLoading}>
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            {isPending ? 'Submitting...' : 'Submit Comment'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 export default function LocationDetailsDisplay({ location }: LocationDetailsDisplayProps) {
   const { toast } = useToast();
@@ -51,6 +181,13 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
       });
     }
   };
+  
+  // Sort comments by date, most recent first.
+  // Create a new sorted array to avoid mutating the prop.
+  const sortedComments = location.comments && location.comments.length > 0 
+    ? [...location.comments].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
+    : [];
+
 
   return (
     <Card className="overflow-hidden shadow-xl">
@@ -108,25 +245,14 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
           <p className="text-foreground/90 leading-relaxed whitespace-pre-wrap">{location.description}</p>
         </div>
 
-        {/* Removed suggesterComment display section
-        {location.suggesterComment && (
-          <div>
-            <h3 className="font-headline text-lg text-primary mb-2">Note from {location.submittedBy || 'Suggester'}</h3>
-            <blockquote className="border-l-4 border-accent pl-4 py-2 bg-secondary/30 rounded-r-md">
-              <p className="text-foreground/80 italic">{location.suggesterComment}</p>
-            </blockquote>
-          </div>
-        )}
-        */}
-
-        {location.comments && location.comments.length > 0 && (
+        {sortedComments && sortedComments.length > 0 && (
           <div>
             <h3 className="font-headline text-xl text-primary mb-3 flex items-center gap-2">
               <MessageSquare className="w-6 h-6" />
-              User Comments ({location.comments.length})
+              User Comments ({sortedComments.length})
             </h3>
             <div className="space-y-4">
-              {location.comments.map((comment) => (
+              {sortedComments.map((comment) => (
                 <Card key={comment.id} className="bg-background/70 shadow-sm">
                   <CardHeader className="pb-2 pt-3 px-4">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -136,18 +262,21 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
                       </div>
                       <div className="flex items-center gap-1">
                         <CalendarDays className="w-3.5 h-3.5" />
-                        {format(parseISO(comment.date), 'dd MMM yyyy')}
+                        {format(parseISO(comment.date), 'dd MMM yyyy, HH:mm')}
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="pb-3 pt-1 px-4">
-                    <p className="text-sm text-foreground/90">{comment.comment}</p>
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap">{comment.comment}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
           </div>
         )}
+
+        <CommentForm locationId={location.id} />
+
       </CardContent>
 
       <CardFooter className="p-6 border-t">

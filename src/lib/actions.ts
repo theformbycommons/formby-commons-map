@@ -2,11 +2,12 @@
 'use server';
 
 import { z } from 'zod';
-import type { NewLocationSuggestion, Location } from './types';
+import type { NewLocationSuggestion, Location, LocationComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
 import { getTownByName } from './data';
 import { revalidatePath } from 'next/cache';
 import { FieldValue } from 'firebase-admin/firestore';
+import { randomUUID } from 'crypto';
 
 
 // Zod schema for server-side validation (SuggestLocationForm)
@@ -16,7 +17,6 @@ const SuggestionFormSchemaServer = z.object({
   townName: z.string().min(2, "Town name is required").max(50),
   category: z.string().min(1, "Category is required"),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
-  // suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(), // Removed
   imageUrl: z.string().url("Invalid image URL.").optional().nullable(),
   uploadedImageSize: z.preprocess(
     (val) => (val ? Number(val) : undefined),
@@ -37,12 +37,12 @@ export interface SuggestionFormState {
   message: string;
   type: 'success' | 'error' | 'info';
   errors?: Record<string, (string[] | undefined)>;
-  submittedSuggestionData?: Omit<NewLocationSuggestion, 'suggesterComment'>; // Reflect removal
+  submittedSuggestionData?: Omit<NewLocationSuggestion, 'suggesterComment'>;
 }
 
 const DEFAULT_MAX_GLOBAL_BYTES = 1 * 1024 * 1024 * 1024; // 1GB
 const DEFAULT_MAX_DAILY_BYTES = 50 * 1024 * 1024; // 50MB
-const APPROX_NON_IMAGE_DATA_SIZE = 1.5 * 1024; // Approx 1.5KB for text data per submission (reduced slightly)
+const APPROX_NON_IMAGE_DATA_SIZE = 1.5 * 1024; 
 
 async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
@@ -55,7 +55,7 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
       const dailyQuotaDoc = await transaction.get(dailyQuotaRef);
 
-      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) { // Corrected: .exists is a property
+      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) { 
         throw new Error("Quota configuration documents not found in Firestore. Please set them up in 'quotaManagement' collection.");
       }
 
@@ -133,7 +133,6 @@ export async function submitSuggestion(
   formData: FormData
 ): Promise<SuggestionFormState> {
 
-  // const suggesterCommentValue = formData.get('suggesterComment'); // Removed
   const imageUrlValue = formData.get('imageUrl');
   const uploadedImageSizeValue = formData.get('uploadedImageSize');
   const suggesterUidValue = formData.get('suggesterUid');
@@ -144,7 +143,6 @@ export async function submitSuggestion(
     townName: formData.get('townName') as string,
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    // suggesterComment: suggesterCommentValue === null || String(suggesterCommentValue).trim() === '' ? undefined : String(suggesterCommentValue), // Removed
     imageUrl: imageUrlValue === null || String(imageUrlValue).trim() === '' ? undefined : String(imageUrlValue),
     uploadedImageSize: uploadedImageSizeValue === null || String(uploadedImageSizeValue).trim() === '' ? undefined : String(uploadedImageSizeValue),
     latitude: formData.get('latitude') as string,
@@ -163,7 +161,6 @@ export async function submitSuggestion(
     if (flatErrors.formErrors.length > 0) {
         detailedErrorMessage += `Form errors: ${flatErrors.formErrors.join(', ')}; `;
     }
-    // console.error("Server-side validation errors:", flatErrors.fieldErrors); // Keep for server logs
     return {
       message: detailedErrorMessage.length > "Validation failed. Details: ".length ? detailedErrorMessage : "Validation failed. Please check form fields.",
       type: 'error',
@@ -174,12 +171,11 @@ export async function submitSuggestion(
   const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
   
   const dataForFirestore: Record<string, any> = { ...dataFromValidation };
-  delete dataForFirestore.uploadedImageSize; // Not stored in Firestore
+  delete dataForFirestore.uploadedImageSize; 
 
   if (dataForFirestore.imageUrl === undefined) {
     dataForFirestore.imageUrl = null;
   }
-  // suggesterComment is removed, so no need to handle its conversion to null.
 
   try {
     if (suggesterUid) {
@@ -208,7 +204,7 @@ export async function submitSuggestion(
       townName: dataForFirestore.townName as string,
       category: dataForFirestore.category as string,
       suggesterName: dataForFirestore.suggesterName as string,
-      imageUrl: dataForFirestore.imageUrl as string | null, // Explicitly use null if undefined
+      imageUrl: dataForFirestore.imageUrl as string | null, 
       status: 'pending' as const,
       submittedAtFirestore: FieldValue.serverTimestamp(),
       coordinates: {
@@ -228,7 +224,7 @@ export async function submitSuggestion(
       type: 'success',
       submittedSuggestionData: {
         id: newDocRef.id,
-        ...suggestionForDb, // suggesterComment is already removed from here
+        ...suggestionForDb, 
         submittedAt: new Date().toISOString(),
       } as unknown as NewLocationSuggestion, 
     };
@@ -291,7 +287,6 @@ export async function approveSuggestion(
     const batch = adminDb.batch();
 
     const newLocationRef = adminDb.collection('locations').doc();
-    // Ensure Omit type reflects removal of suggesterComment
     const newLocationData: Omit<Location, 'id' | 'createdAt' | 'suggesterComment'> & { createdAtFirestore: any } = {
       townId: town.id,
       townName: suggestionData.townName,
@@ -301,7 +296,6 @@ export async function approveSuggestion(
       category: suggestionData.category,
       coordinates: suggestionData.coordinates,
       submittedBy: suggestionData.suggesterName,
-      // suggesterComment is removed from Location type, so not included here
       comments: [],
       createdAtFirestore: FieldValue.serverTimestamp(),
     };
@@ -318,6 +312,8 @@ export async function approveSuggestion(
     revalidatePath('/admin/suggestions');
     revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
     revalidatePath('/');
+    revalidatePath(`/location/${newLocationRef.id}`);
+
 
     return {
       message: `Suggestion "${suggestionData.name}" approved and published successfully!`,
@@ -440,5 +436,130 @@ export async function deleteSuggestion(
       }
     }
     return { message, type: 'error', suggestionId };
+  }
+}
+
+// Schema for adding a comment
+const AddCommentSchema = z.object({
+  locationId: z.string().min(1, "Location ID is required."),
+  userName: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name must be 50 characters or less."),
+  commentText: z.string().min(3, "Comment must be at least 3 characters.").max(500, "Comment must be 500 characters or less."),
+  suggesterUid: z.string().min(1, "User ID is missing.").optional(), // For anonymous user tracking
+});
+
+export interface AddCommentFormState {
+  message: string;
+  type: 'success' | 'error' | 'info';
+  errors?: Record<string, string[] | undefined>;
+  commentId?: string; // ID of the newly added comment
+}
+
+const ANONYMOUS_USER_DAILY_COMMENT_LIMIT = 20; 
+
+async function checkAndIncrementAnonymousUserCommentLimit(uid: string): Promise<{ allowed: boolean; message?: string }> {
+  const todayDateString = new Date().toISOString().split('T')[0];
+  const userLimitRef = adminDb.collection('userDailyCommentLimits').doc(uid); // Separate collection for comment limits
+
+  try {
+    await adminDb.runTransaction(async (transaction) => {
+      const userLimitDoc = await transaction.get(userLimitRef);
+
+      if (!userLimitDoc.exists) {
+        transaction.set(userLimitRef, {
+          count: 1,
+          lastCommentDate: todayDateString,
+        });
+        return;
+      }
+
+      const data = userLimitDoc.data()!;
+      if (data.lastCommentDate !== todayDateString) {
+        transaction.update(userLimitRef, {
+          count: 1,
+          lastCommentDate: todayDateString,
+        });
+        return;
+      }
+
+      if (data.count >= ANONYMOUS_USER_DAILY_COMMENT_LIMIT) {
+        throw new Error(`You have reached the daily limit of ${ANONYMOUS_USER_DAILY_COMMENT_LIMIT} comments. Please try again tomorrow.`);
+      }
+      transaction.update(userLimitRef, { count: FieldValue.increment(1) });
+    });
+    return { allowed: true };
+  } catch (error: any) {
+    console.error(`Error checking/incrementing daily comment limit for UID ${uid}:`, error);
+    return { allowed: false, message: error.message || "Failed to verify daily comment limit." };
+  }
+}
+
+
+export async function addCommentToLocation(
+  prevState: AddCommentFormState | undefined,
+  formData: FormData
+): Promise<AddCommentFormState> {
+  const rawData = {
+    locationId: formData.get('locationId') as string,
+    userName: formData.get('userName') as string,
+    commentText: formData.get('commentText') as string,
+    suggesterUid: formData.get('suggesterUid') as string | undefined,
+  };
+
+  const validatedFields = AddCommentSchema.safeParse(rawData);
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed. Please check your input.",
+      type: 'error',
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { locationId, userName, commentText, suggesterUid } = validatedFields.data;
+
+  try {
+    if (suggesterUid) {
+      const dailyLimitCheck = await checkAndIncrementAnonymousUserCommentLimit(suggesterUid);
+      if (!dailyLimitCheck.allowed) {
+        return {
+          message: dailyLimitCheck.message || "Daily comment limit reached.",
+          type: 'error',
+        };
+      }
+    }
+
+
+    const locationRef = adminDb.collection('locations').doc(locationId);
+    const locationSnap = await locationRef.get();
+
+    if (!locationSnap.exists) {
+      return { message: "Location not found.", type: 'error' };
+    }
+
+    const newComment: LocationComment = {
+      id: randomUUID(), // Generate a unique ID for the comment
+      user: userName,
+      comment: commentText,
+      date: new Date().toISOString(),
+    };
+
+    await locationRef.update({
+      comments: FieldValue.arrayUnion(newComment),
+    });
+
+    revalidatePath(`/location/${locationId}`);
+
+    return {
+      message: "Comment added successfully!",
+      type: 'success',
+      commentId: newComment.id,
+    };
+
+  } catch (error: any) {
+    console.error("Error adding comment (using adminDb):", error);
+    return {
+      message: error.message || "Failed to add comment. Please try again.",
+      type: 'error',
+    };
   }
 }
