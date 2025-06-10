@@ -1,8 +1,11 @@
+
 import { getLocationById } from '@/lib/data';
 import LocationDetailsDisplay from '@/components/location/LocationDetailsDisplay';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+
+export const dynamic = 'force-dynamic'; // Ensures fresh data on every request
 
 interface LocationPageProps {
   params: {
