@@ -196,11 +196,14 @@ export async function getLocationById(id: string): Promise<Location | undefined>
 
     let allComments = [...existingComments, ...approvedSuggestedComments];
     // Deduplicate comments based on ID, preferring original ones if IDs might clash.
-    // This simple deduplication assumes suggestedComment IDs are distinct from existing comment IDs.
-    // A more robust deduplication might be needed if an admin action also copies comments.
     const uniqueComments = Array.from(new Map(allComments.map(c => [c.id, c])).values());
     // Sort all comments by date, most recent first.
     uniqueComments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // DIAGNOSTIC LOGGING:
+    console.log(`[DEBUG] getLocationById(${id}): Fetched comments:`, JSON.stringify(uniqueComments, null, 2));
+    // If uniqueComments is empty or only contains comments you expect, the issue is not data fetching here.
+    // If it contains the deleted comments, they are still in Firestore in either data.comments or suggestedComments (approved).
 
     const location: Location = {
       id: docSnap.id,
