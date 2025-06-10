@@ -11,6 +11,7 @@ import {
   Timestamp,
   // addDoc // We'll use addDoc in actions.ts for suggestions
 } from 'firebase/firestore';
+import { randomUUID } from 'crypto'; // For comment IDs if necessary
 
 // Helper to convert Firestore timestamp to ISO string or return existing string
 const formatDateField = (dateField: any): string => {
@@ -18,9 +19,20 @@ const formatDateField = (dateField: any): string => {
     return dateField.toDate().toISOString();
   }
   if (typeof dateField === 'string') {
-    return dateField;
+    // Attempt to parse and re-format to ensure it's a valid ISO string,
+    // or return as is if it's already a valid ISO string.
+    try {
+      return new Date(dateField).toISOString();
+    } catch (e) {
+      // If parsing fails, it might not be a date string, or an invalid one.
+      // Fallback or handle as an error. For now, returning a default.
+      console.warn(`Invalid date string encountered: ${dateField}`);
+      return new Date(0).toISOString(); // Default to epoch for invalid strings
+    }
   }
-  return new Date().toISOString(); // Fallback
+  // If undefined, null, or other type, return a default or handle as error.
+  // console.warn(`formatDateField received an unexpected type or undefined value:`, dateField);
+  return new Date(0).toISOString(); // Default to epoch for undefined/null or unexpected types
 };
 
 
@@ -28,10 +40,19 @@ export async function getTowns(): Promise<Town[]> {
   try {
     const townsCol = collection(db, 'towns');
     const townSnapshot = await getDocs(townsCol);
-    const townsList = townSnapshot.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    } as Omit<Town, 'locationCount'>));
+    const townsList = townSnapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      // Ensure we construct the Town object explicitly to avoid passing unwanted fields
+      return {
+        id: docSnap.id,
+        name: data.name,
+        county: data.county,
+        country: data.country,
+        coordinates: data.coordinates, // Assuming this is already a plain object
+        description: data.description,
+        imageUrl: data.imageUrl,
+      } as Omit<Town, 'locationCount'>;
+    });
 
     // For each town, calculate locationCount
     const townsWithCounts: Town[] = [];
@@ -52,7 +73,7 @@ export async function getTownByName(name: string): Promise<Town | undefined> {
   try {
     const decodedName = decodeURIComponent(name);
     const townsCol = collection(db, 'towns');
-    const q = query(townsCol, where('name', '==', decodedName)); // Assuming names are unique, or take the first
+    const q = query(townsCol, where('name', '==', decodedName));
     const townSnapshot = await getDocs(q);
 
     if (townSnapshot.empty) {
@@ -60,9 +81,17 @@ export async function getTownByName(name: string): Promise<Town | undefined> {
       return undefined;
     }
     const townDoc = townSnapshot.docs[0];
-    const townData = { id: townDoc.id, ...townDoc.data() } as Omit<Town, 'locationCount'>;
+    const data = townDoc.data();
+    const townData = {
+        id: townDoc.id,
+        name: data.name,
+        county: data.county,
+        country: data.country,
+        coordinates: data.coordinates,
+        description: data.description,
+        imageUrl: data.imageUrl,
+    } as Omit<Town, 'locationCount'>;
 
-    // Calculate locationCount
     const locationsCol = collection(db, 'locations');
     const lq = query(locationsCol, where('townId', '==', townDoc.id));
     const locationSnapshot = await getDocs(lq);
@@ -81,14 +110,26 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
     const locationSnapshot = await getDocs(q);
     return locationSnapshot.docs.map(docSnap => {
       const data = docSnap.data();
-      return {
+      // Explicitly construct the Location object to ensure plain objects for client components
+      const location: Location = {
         id: docSnap.id,
-        ...data,
+        townId: data.townId,
+        townName: data.townName,
+        name: data.name,
+        description: data.description,
+        imageUrl: data.imageUrl || null,
+        category: data.category,
+        coordinates: data.coordinates, // Assuming this is already a plain {lat, lng} object
+        submittedBy: data.submittedBy,
         comments: (data.comments || []).map((comment: any) => ({
-          ...comment,
-          date: formatDateField(comment.date),
+          id: comment.id || randomUUID(), // Ensure comment has an ID
+          user: comment.user,
+          comment: comment.comment,
+          date: formatDateField(comment.date), // Ensure comment date is a string
         })),
-      } as Location;
+        createdAt: formatDateField(data.createdAtFirestore || data.createdAt), // Ensure createdAt is a string
+      };
+      return location;
     });
   } catch (error) {
     console.error(`Error fetching locations for town ID ${townId}:`, error);
@@ -106,14 +147,26 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       return undefined;
     }
     const data = docSnap.data();
-    return {
+    // Explicitly construct the Location object
+    const location: Location = {
       id: docSnap.id,
-      ...data,
+      townId: data.townId,
+      townName: data.townName,
+      name: data.name,
+      description: data.description,
+      imageUrl: data.imageUrl || null,
+      category: data.category,
+      coordinates: data.coordinates,
+      submittedBy: data.submittedBy,
       comments: (data.comments || []).map((comment: any) => ({
-        ...comment,
+        id: comment.id || randomUUID(), // Ensure comment has an ID
+        user: comment.user,
+        comment: comment.comment,
         date: formatDateField(comment.date),
       })),
-    } as Location;
+      createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
+    };
+    return location;
   } catch (error) {
     console.error(`Error fetching location by ID ${id}:`, error);
     return undefined;
@@ -139,30 +192,10 @@ export const locationCategories = [
   "Other"
 ];
 
-// Mock data below is no longer used by the functions above.
-// You can remove it or keep it for reference.
-/*
-export const mockComments: LocationComment[] = [
-  // ...
-];
-
-export const mockTowns: Town[] = [
-  // ...
-];
-
-export const mockLocations: Location[] = [
-  // ...
-];
-*/
-// The addSuggestedLocation function from mock data is removed,
-// as this logic will now reside in `src/lib/actions.ts` to directly interact with Firestore.
-
-// For use in SuggestLocationForm for town datalist (can be replaced with a fetch if towns are many)
+// For use in SuggestLocationForm for town datalist
 export const mockTowns: Pick<Town, 'id' | 'name'>[] = [
     { id: 'formby', name: 'Formby' },
     { id: 'windermere', name: 'Windermere' },
     { id: 'stives', name: 'St Ives' },
   ];
-  // In a real app, you might want to fetch town names for the suggestion form dynamically
-  // or manage a smaller list. For now, this mock list for the datalist is fine.
-  // Or, users can just type the town name.
+  
