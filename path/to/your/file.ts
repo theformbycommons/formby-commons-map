@@ -1,0 +1,1 @@
+The ENTIRE new content of the file
