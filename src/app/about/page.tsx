@@ -27,7 +27,7 @@ export default function AboutPage() {
               We live in an ever-changing world, where the places that shape us often feel like they're in flux, or even at risk of disappearing. But instead of focusing on what might be lost, imagine a space where we can celebrate the profound connections we have to our hometowns.
             </p>
             <p>
-              This web project is born from a desire to foster positive reflection and build a vibrant community around the places that hold deep personal significance. It's about realizing that characteristics of the places we live in – the streets, parks, buildings, and natural landscapes – are deeply connected to our emotions and who we've become.
+              This web project is born from a desire to foster positive reflection and build a community around the places that hold deep personal significance. It's about realizing that characteristics of the places we live in – the streets, parks, buildings, and natural landscapes – are deeply connected to our emotions and who we've become.
             </p>
           </section>
 
