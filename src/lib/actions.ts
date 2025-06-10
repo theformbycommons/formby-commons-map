@@ -2,9 +2,9 @@
 'use server';
 
 import { z } from 'zod';
-import type { NewLocationSuggestion, Location, LocationComment } from './types';
+import type { NewLocationSuggestion, Location, LocationComment, SuggestedComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
-import { getTownByName } from './data';
+import { getTownByName, getLocationById } from './data'; // getLocationById will be used for comment moderation
 import { revalidatePath } from 'next/cache';
 import { FieldValue } from 'firebase-admin/firestore';
 import { randomUUID } from 'crypto';
@@ -89,9 +89,9 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
 
 const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
-async function checkAndIncrementAnonymousUserDailyLimit(uid: string): Promise<{ allowed: boolean; message?: string }> {
+async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionName: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
-  const userLimitRef = adminDb.collection('userDailySuggestionLimits').doc(uid);
+  const userLimitRef = adminDb.collection(collectionName).doc(uid);
 
   try {
     await adminDb.runTransaction(async (transaction) => {
@@ -99,31 +99,31 @@ async function checkAndIncrementAnonymousUserDailyLimit(uid: string): Promise<{ 
 
       if (!userLimitDoc.exists) {
         transaction.set(userLimitRef, {
-          count: 1,
-          lastSubmissionDate: todayDateString,
+          [countFieldName]: 1,
+          [dateFieldName]: todayDateString,
         });
         return;
       }
 
       const data = userLimitDoc.data()!;
-      if (data.lastSubmissionDate !== todayDateString) {
+      if (data[dateFieldName] !== todayDateString) {
         transaction.update(userLimitRef, {
-          count: 1,
-          lastSubmissionDate: todayDateString,
+          [countFieldName]: 1,
+          [dateFieldName]: todayDateString,
         });
         return;
       }
 
-      if (data.count >= ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT) {
-        throw new Error(`You have reached the daily limit of ${ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT} suggestions. Please try again tomorrow.`);
+      if (data[countFieldName] >= limit) {
+        throw new Error(`You have reached the daily limit of ${limit} submissions for this action. Please try again tomorrow.`);
       }
 
-      transaction.update(userLimitRef, { count: FieldValue.increment(1) });
+      transaction.update(userLimitRef, { [countFieldName]: FieldValue.increment(1) });
     });
     return { allowed: true };
   } catch (error: any) {
-    console.error(`Error checking/incrementing daily limit for UID ${uid}:`, error);
-    return { allowed: false, message: error.message || "Failed to verify daily submission limit." };
+    console.error(`Error checking/incrementing daily limit for UID ${uid} in ${collectionName}:`, error);
+    return { allowed: false, message: error.message || `Failed to verify daily submission limit for this action.` };
   }
 }
 
@@ -179,10 +179,10 @@ export async function submitSuggestion(
 
   try {
     if (suggesterUid) {
-      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid);
+      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid, ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT, 'userDailySuggestionLimits', 'lastSubmissionDate');
       if (!dailyLimitCheck.allowed) {
         return {
-          message: dailyLimitCheck.message || "Daily submission limit reached.",
+          message: dailyLimitCheck.message || "Daily suggestion limit reached.",
           type: 'error',
         };
       }
@@ -211,6 +211,7 @@ export async function submitSuggestion(
         lat: latitude,
         lng: longitude,
       },
+      ...(suggesterUid && { suggesterUid }),
     };
 
 
@@ -225,7 +226,7 @@ export async function submitSuggestion(
       submittedSuggestionData: {
         id: newDocRef.id,
         ...suggestionForDb, 
-        submittedAt: new Date().toISOString(),
+        submittedAt: new Date().toISOString(), // client-side representation
       } as unknown as NewLocationSuggestion, 
     };
 
@@ -287,7 +288,7 @@ export async function approveSuggestion(
     const batch = adminDb.batch();
 
     const newLocationRef = adminDb.collection('locations').doc();
-    const newLocationData: Omit<Location, 'id' | 'createdAt' | 'suggesterComment'> & { createdAtFirestore: any } = {
+    const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: any } = {
       townId: town.id,
       townName: suggestionData.townName,
       name: suggestionData.name,
@@ -451,48 +452,10 @@ export interface AddCommentFormState {
   message: string;
   type: 'success' | 'error' | 'info';
   errors?: Record<string, string[] | undefined>;
-  commentId?: string; // ID of the newly added comment
+  commentId?: string; // ID of the newly added suggested comment
 }
 
 const ANONYMOUS_USER_DAILY_COMMENT_LIMIT = 20; 
-
-async function checkAndIncrementAnonymousUserCommentLimit(uid: string): Promise<{ allowed: boolean; message?: string }> {
-  const todayDateString = new Date().toISOString().split('T')[0];
-  const userLimitRef = adminDb.collection('userDailyCommentLimits').doc(uid); // Separate collection for comment limits
-
-  try {
-    await adminDb.runTransaction(async (transaction) => {
-      const userLimitDoc = await transaction.get(userLimitRef);
-
-      if (!userLimitDoc.exists) {
-        transaction.set(userLimitRef, {
-          count: 1,
-          lastCommentDate: todayDateString,
-        });
-        return;
-      }
-
-      const data = userLimitDoc.data()!;
-      if (data.lastCommentDate !== todayDateString) {
-        transaction.update(userLimitRef, {
-          count: 1,
-          lastCommentDate: todayDateString,
-        });
-        return;
-      }
-
-      if (data.count >= ANONYMOUS_USER_DAILY_COMMENT_LIMIT) {
-        throw new Error(`You have reached the daily limit of ${ANONYMOUS_USER_DAILY_COMMENT_LIMIT} comments. Please try again tomorrow.`);
-      }
-      transaction.update(userLimitRef, { count: FieldValue.increment(1) });
-    });
-    return { allowed: true };
-  } catch (error: any) {
-    console.error(`Error checking/incrementing daily comment limit for UID ${uid}:`, error);
-    return { allowed: false, message: error.message || "Failed to verify daily comment limit." };
-  }
-}
-
 
 export async function addCommentToLocation(
   prevState: AddCommentFormState | undefined,
@@ -518,8 +481,14 @@ export async function addCommentToLocation(
   const { locationId, userName, commentText, suggesterUid } = validatedFields.data;
 
   try {
+    // Check daily limit for anonymous users
     if (suggesterUid) {
-      const dailyLimitCheck = await checkAndIncrementAnonymousUserCommentLimit(suggesterUid);
+      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(
+        suggesterUid,
+        ANONYMOUS_USER_DAILY_COMMENT_LIMIT,
+        'userDailyCommentLimits', // Collection name for comment limits
+        'lastCommentDate' // Date field name in that collection
+      );
       if (!dailyLimitCheck.allowed) {
         return {
           message: dailyLimitCheck.message || "Daily comment limit reached.",
@@ -528,38 +497,43 @@ export async function addCommentToLocation(
       }
     }
 
-
-    const locationRef = adminDb.collection('locations').doc(locationId);
-    const locationSnap = await locationRef.get();
-
-    if (!locationSnap.exists) {
+    const locationDoc = await getLocationById(locationId);
+    if (!locationDoc) {
       return { message: "Location not found.", type: 'error' };
     }
+    const locationName = locationDoc.name; // Denormalized field
 
-    const newComment: LocationComment = {
-      id: randomUUID(), // Generate a unique ID for the comment
-      user: userName,
-      comment: commentText,
-      date: new Date().toISOString(),
+    const newSuggestedComment: Omit<SuggestedComment, 'id' | 'submittedAt'> = {
+      locationId,
+      locationName,
+      userName,
+      commentText,
+      status: 'pending',
+      submittedAtFirestore: FieldValue.serverTimestamp(),
+      ...(suggesterUid && { suggesterUid }),
     };
 
-    await locationRef.update({
-      comments: FieldValue.arrayUnion(newComment),
-    });
-
-    revalidatePath(`/location/${locationId}`);
+    const newCommentRef = await adminDb.collection('suggestedComments').add(newSuggestedComment);
+    
+    // No revalidation of the public location page here, as comment is pending.
+    // Revalidation for an admin page would go here if such a page existed.
+    // e.g., revalidatePath('/admin/comments');
 
     return {
-      message: "Comment added successfully!",
+      message: "Thank you! Your comment has been submitted and is now pending review.",
       type: 'success',
-      commentId: newComment.id,
+      commentId: newCommentRef.id,
     };
 
   } catch (error: any) {
-    console.error("Error adding comment (using adminDb):", error);
+    console.error("Error adding suggested comment (using adminDb):", error);
     return {
-      message: error.message || "Failed to add comment. Please try again.",
+      message: error.message || "Failed to submit comment. Please try again.",
       type: 'error',
     };
   }
 }
+
+// Helper function to get a generic user daily limit (can be reused)
+// Note: This was refactored into checkAndIncrementAnonymousUserDailyLimit for more specific use.
+// Keeping the more generic structure of checkAndIncrementAnonymousUserDailyLimit.
