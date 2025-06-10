@@ -445,7 +445,7 @@ const AddCommentSchema = z.object({
   locationId: z.string().min(1, "Location ID is required."),
   userName: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name must be 50 characters or less."),
   commentText: z.string().min(3, "Comment must be at least 3 characters.").max(500, "Comment must be 500 characters or less."),
-  suggesterUid: z.string().min(1, "User ID is missing.").optional(), // For anonymous user tracking
+  suggesterUid: z.string().min(1, "User ID is missing.").nullable().optional(), // For anonymous user tracking
 });
 
 export interface AddCommentFormState {
@@ -468,7 +468,7 @@ export async function addCommentToLocation(
     locationId: formData.get('locationId') as string,
     userName: formData.get('userName') as string,
     commentText: formData.get('commentText') as string,
-    suggesterUid: formData.get('suggesterUid') as string | undefined,
+    suggesterUid: formData.get('suggesterUid') as string | null | undefined, // Can be null from formData.get
   };
 
   console.log('[Action:addCommentToLocation] Raw data for validation:', JSON.stringify(rawData, null, 2));
@@ -490,12 +490,12 @@ export async function addCommentToLocation(
 
   try {
     // Check daily limit for anonymous users
-    if (suggesterUid) {
+    if (suggesterUid) { // suggesterUid could be null here if schema is .nullable().optional()
       const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(
-        suggesterUid,
+        suggesterUid, // If suggesterUid is null, this might cause issues or needs to be handled by checkAndIncrement...
         ANONYMOUS_USER_DAILY_COMMENT_LIMIT,
-        'userDailyCommentLimits', // Collection name for comment limits
-        'lastCommentDate' // Date field name in that collection
+        'userDailyCommentLimits', 
+        'lastCommentDate' 
       );
       if (!dailyLimitCheck.allowed) {
          console.warn(`[Action:addCommentToLocation] Daily comment limit reached for UID: ${suggesterUid}`);
@@ -520,17 +520,13 @@ export async function addCommentToLocation(
       commentText,
       status: 'pending',
       submittedAtFirestore: FieldValue.serverTimestamp(),
-      ...(suggesterUid && { suggesterUid }),
+      ...(suggesterUid && { suggesterUid }), // Only add suggesterUid if it's truthy (not null, not undefined, not empty string)
     };
 
     console.log('[Action:addCommentToLocation] Attempting to add suggested comment to Firestore:', JSON.stringify(newSuggestedComment, null, 2));
     const newCommentRef = await adminDb.collection('suggestedComments').add(newSuggestedComment);
     console.log(`[Action:addCommentToLocation] Suggested comment added successfully with ID: ${newCommentRef.id}`);
     
-    // No revalidation of the public location page here, as comment is pending.
-    // Revalidation for an admin page would go here if such a page existed.
-    // e.g., revalidatePath('/admin/comments');
-
     return {
       message: "Thank you! Your comment has been submitted and is now pending review.",
       type: 'success',
