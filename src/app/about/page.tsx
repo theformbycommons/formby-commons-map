@@ -64,7 +64,7 @@ export default function AboutPage() {
           <section aria-labelledby="section-non-profit-mission">
             <h2 id="section-non-profit-mission" className="font-headline text-2xl text-primary mb-3">A Passion Project</h2>
             <p className="mb-4">
-              At its heart, this web app is a passion non-profit project, created in Formby, Northwest England, within the vibrant Liverpool City Region. This endeavour has never been, nor will it ever be, about financial gain or commercial ventures.
+              At its heart, this web app is a passion non-profit project, created in Formby, Northwest England, within the lively Liverpool City Region. This endeavour has never been, nor will it ever be, about financial gain or commercial ventures.
             </p>
             <p>
               You won't find any advertising here, and it's not designed to be a tourist website or a platform for political agendas. Instead, it's driven purely by a deep love of place, a commitment to community building, and a desire to bridge divides across all age groups, from the young to the old.
