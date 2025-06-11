@@ -25,7 +25,7 @@ export default async function HomePage() {
         <div className="relative z-10 flex flex-col items-center justify-center">
           <div className="bg-background/20 p-6 rounded-lg max-w-2xl w-full mx-auto shadow-xl backdrop-blur-sm space-y-4">
             <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to Local Glow</h1>
-            <p className="text-lg font-bold text-muted-foreground mx-auto drop-shadow-sm">
+            <p className="text-lg font-bold text-accent mx-auto drop-shadow-sm">
               Celebrating the Heart and Soul of Our Hometowns
             </p>
             <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8 sm:mt-10">
