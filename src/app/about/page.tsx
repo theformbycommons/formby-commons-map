@@ -19,6 +19,9 @@ export default function AboutPage() {
             <BookOpenText className="h-10 w-10" />
           </div>
           <CardTitle className="font-headline text-4xl text-primary">The Idea Behind Local Glow</CardTitle>
+          <p className="text-md text-muted-foreground mt-3 mx-auto max-w-xl">
+            A vibrant collection of what makes our towns uniquely lovable, seen through the eyes of those who call them home. Discover the everyday magic and cherished corners that define our communities, celebrating their spirit.
+          </p>
         </CardHeader>
         <CardContent className="pt-8 px-6 md:px-8 space-y-6 text-foreground/90 leading-relaxed">
           <section aria-labelledby="section-introduction">

@@ -28,9 +28,11 @@ export default async function HomePage() {
             <p className="text-lg text-muted-foreground mx-auto drop-shadow-sm">
               Celebrating the Heart and Soul of Our Hometowns
             </p>
+            {/* Removed paragraph:
             <p className="text-foreground font-semibold mx-auto drop-shadow-sm">
               A vibrant collection of what makes our towns uniquely lovable, seen through the eyes of those who call them home. Discover the everyday magic and cherished corners that define our communities, celebrating their spirit.
             </p>
+            */}
             <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8">
               <Link href="/about">
                 <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind Local Glow
