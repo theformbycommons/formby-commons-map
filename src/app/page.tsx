@@ -28,7 +28,7 @@ export default async function HomePage() {
             <p className="text-lg font-bold text-muted-foreground mx-auto drop-shadow-sm">
               Celebrating the Heart and Soul of Our Hometowns
             </p>
-            <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-10 md:mt-12">
+            <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-12 md:mt-16">
               <Link href="/about">
                 <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind Local Glow
               </Link>
