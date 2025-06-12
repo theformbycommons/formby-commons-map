@@ -273,6 +273,12 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
           <div>
             <h3 className="font-headline text-xl text-primary mb-2">Description</h3>
             <p className="text-foreground/90 leading-relaxed whitespace-pre-wrap">{location.description}</p>
+            <p className="text-sm text-muted-foreground mt-3">
+              Have a photo that you feel captures the essence of this place even better? We encourage you to{' '}
+              <Link href="/suggest-location" className="text-accent hover:underline">
+                share your perspective by suggesting it
+              </Link>! Your unique view helps enrich our collective Local Glow.
+            </p>
           </div>
 
           {sortedComments && sortedComments.length > 0 && (
@@ -343,6 +349,4 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
     </Dialog>
   );
 }
-
-
     
