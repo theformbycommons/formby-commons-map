@@ -57,7 +57,7 @@ export default async function HomePage() {
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
               <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Uncover Hidden Gems</h4>
+                <h4 className="font-semibold mb-1 text-primary/90">Uncover Hidden Locations</h4>
                 <p>Within each town, explore unique "Local Glow" locations revealed on the town's interactive map or listed beneath it.</p>
               </div>
             </div>
@@ -65,7 +65,7 @@ export default async function HomePage() {
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</div>
               <div>
                 <h4 className="font-semibold mb-1 text-primary/90">Contribute Your Own Spark</h4>
-                <p>Know a special place? Click the "Suggest Location" button (top right, with a <PlusCircle className="inline-block h-4 w-4 text-accent align-text-bottom" /> icon). Fill out the form, and crucially, set the precise location by clicking on the map within the form – you can zoom using +/- or pinch gestures.</p>
+                <p>Know a special place? Click the "Suggest Location" button (top right, with a <PlusCircle className="inline-block h-4 w-4 text-accent align-text-bottom" /> icon). Fill out the form (you can also upload a picture), and crucially, set the precise location by clicking on the map within the form – you can zoom using +/- or pinch gestures.</p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
