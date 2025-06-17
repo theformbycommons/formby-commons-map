@@ -1,11 +1,18 @@
 import SuggestLocationForm from '@/components/location/SuggestLocationForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lightbulb } from 'lucide-react';
-import { getTowns } from '@/lib/data'; // Import getTowns
-import type { Town } from '@/lib/types'; // Import Town type
+import { getTowns } from '@/lib/data'; 
+// Removed: import type { Town } from '@/lib/types'; // No longer strictly needed here due to explicit mapping
 
 export default async function SuggestLocationPage() {
-  const towns: Pick<Town, 'id' | 'name'>[] = (await getTowns()).map(town => ({ id: town.id, name: town.name }));
+  // Fetch the full town data
+  const allTownsData = await getTowns();
+
+  // Explicitly map to a new array of simple objects with only string id and name
+  const townsForForm: Array<{ id: string; name: string }> = allTownsData.map(town => ({
+    id: String(town.id), // Ensure id is a string
+    name: String(town.name), // Ensure name is a string
+  }));
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -21,7 +28,7 @@ export default async function SuggestLocationPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SuggestLocationForm towns={towns} /> {/* Pass towns as a prop */}
+          <SuggestLocationForm towns={townsForForm} /> {/* Pass the explicitly plain towns data */}
         </CardContent>
       </Card>
     </div>
