@@ -7,7 +7,18 @@ import { adminDb, adminStorage } from './firebase-admin';
 // getLocationById is used for fetching location data
 import { getLocationById } from './data';
 import { revalidatePath } from 'next/cache';
-import * as adminFS from 'firebase-admin/firestore'; // Using namespaced import
+import { 
+  collection, 
+  doc, 
+  query, 
+  where, 
+  addDoc, 
+  deleteDoc, 
+  updateDoc,
+  getDoc, // For use inside transaction if needed, though transaction.get is primary
+  runTransaction, // Import runTransaction
+  FieldValue 
+} from 'firebase-admin/firestore';
 import { randomUUID } from 'crypto';
 
 
@@ -49,14 +60,14 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
   const todayDateString = new Date().toISOString().split('T')[0];
 
   try {
-    const globalQuotaRef = adminFS.doc(adminDb, 'quotaManagement', 'globalStorage');
-    const dailyQuotaRef = adminFS.doc(adminDb, 'quotaManagement', 'dailyUploads');
+    const globalQuotaRef = doc(adminDb, 'quotaManagement', 'globalStorage');
+    const dailyQuotaRef = doc(adminDb, 'quotaManagement', 'dailyUploads');
 
-    await adminDb.runTransaction(async (transaction) => {
+    await runTransaction(adminDb, async (transaction) => {
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
       const dailyQuotaDoc = await transaction.get(dailyQuotaRef);
 
-      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) {
+      if (!globalQuotaDoc.exists() || !dailyQuotaDoc.exists()) {
         throw new Error("Quota configuration documents not found in Firestore. Please set them up in 'quotaManagement' collection.");
       }
 
@@ -76,29 +87,29 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
         throw new Error('Daily upload limit reached. We are sorry, but at the moment, the site can\'t accept any new location submissions. Please try again tomorrow.');
       }
 
-      transaction.update(globalQuotaRef, { totalBytesUsed: adminFS.FieldValue.increment(dataSizeBytes) });
-      transaction.update(dailyQuotaRef, { bytesUploadedToday: adminFS.FieldValue.increment(dataSizeBytes) });
+      transaction.update(globalQuotaRef, { totalBytesUsed: FieldValue.increment(dataSizeBytes) });
+      transaction.update(dailyQuotaRef, { bytesUploadedToday: FieldValue.increment(dataSizeBytes) });
     });
 
     return { allowed: true };
 
   } catch (error: any) {
-    console.error("Error in checkAndIncrementQuotas (using adminFS):", error);
+    console.error("Error in checkAndIncrementQuotas:", error);
     return { allowed: false, message: error.message || "Failed to verify storage quotas." };
   }
 }
 
 const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
-async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionName: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
+async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionNamePath: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
-  const userLimitRef = adminFS.doc(adminDb, collectionName, uid);
+  const userLimitRef = doc(adminDb, collectionNamePath, uid);
 
   try {
-    await adminDb.runTransaction(async (transaction) => {
+    await runTransaction(adminDb, async (transaction) => {
       const userLimitDoc = await transaction.get(userLimitRef);
 
-      if (!userLimitDoc.exists) {
+      if (!userLimitDoc.exists()) {
         transaction.set(userLimitRef, {
           [countFieldName]: 1,
           [dateFieldName]: todayDateString,
@@ -119,11 +130,11 @@ async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: numb
         throw new Error(`You have reached the daily limit of ${limit} submissions for this action. Please try again tomorrow.`);
       }
 
-      transaction.update(userLimitRef, { [countFieldName]: adminFS.FieldValue.increment(1) });
+      transaction.update(userLimitRef, { [countFieldName]: FieldValue.increment(1) });
     });
     return { allowed: true };
   } catch (error: any) {
-    console.error(`Error checking/incrementing daily limit for UID ${uid} in ${collectionName}:`, error);
+    console.error(`Error checking/incrementing daily limit for UID ${uid} in ${collectionNamePath}:`, error);
     return { allowed: false, message: error.message || `Failed to verify daily submission limit for this action.` };
   }
 }
@@ -207,7 +218,7 @@ export async function submitSuggestion(
       suggesterName: dataForFirestore.suggesterName as string,
       imageUrl: dataForFirestore.imageUrl as string | null,
       status: 'pending' as const,
-      submittedAtFirestore: adminFS.FieldValue.serverTimestamp(),
+      submittedAtFirestore: FieldValue.serverTimestamp(),
       coordinates: {
         lat: latitude,
         lng: longitude,
@@ -215,8 +226,8 @@ export async function submitSuggestion(
       ...(suggesterUid && { suggesterUid }),
     };
 
-    const suggestedLocationsColRef = adminFS.collection(adminDb, 'suggestedLocations');
-    const newDocRef = await adminFS.addDoc(suggestedLocationsColRef, suggestionForDb);
+    const suggestedLocationsColRef = collection(adminDb, 'suggestedLocations');
+    const newDocRef = await addDoc(suggestedLocationsColRef, suggestionForDb);
 
     revalidatePath('/admin/suggestions');
 
@@ -237,7 +248,7 @@ export async function submitSuggestion(
     } else if (typeof error === 'string') {
       errorMessage = `Error: ${error}`;
     }
-    console.error("Error in submitSuggestion action (using adminFS):", error);
+    console.error("Error in submitSuggestion action:", error);
     return {
       message: errorMessage,
       type: 'error',
@@ -263,12 +274,12 @@ export async function approveSuggestion(
   }
 
   try {
-    const suggestionRef = adminFS.doc(adminDb, 'suggestedLocations', suggestionId);
+    const suggestionRef = doc(adminDb, 'suggestedLocations', suggestionId);
 
-    const result = await adminDb.runTransaction(async (transaction) => {
+    const result = await runTransaction(adminDb, async (transaction) => {
       const suggestionSnap = await transaction.get(suggestionRef);
 
-      if (!suggestionSnap.exists) {
+      if (!suggestionSnap.exists()) {
         throw new Error("Suggestion not found.");
       }
 
@@ -280,31 +291,31 @@ export async function approveSuggestion(
 
       let townIdToUse: string;
       let townCreationMessage = "";
-      const townsColRef = adminFS.collection(adminDb, 'towns');
-      const townQueryInstance = adminFS.query(townsColRef, adminFS.where('name', '==', suggestionData.townName));
+      const townsColRef = collection(adminDb, 'towns');
+      const townQueryInstance = query(townsColRef, where('name', '==', suggestionData.townName));
       const townSnapshot = await transaction.get(townQueryInstance);
 
       if (townSnapshot.empty) {
-        const newTownDocRef = adminFS.doc(townsColRef); // Auto-generate ID for the new town
+        const newTownDocRef = doc(townsColRef); // Auto-generate ID for the new town
         const newTownData = {
           name: suggestionData.townName,
           county: "Unknown (Auto-created)",
           country: "UK",
           coordinates: suggestionData.coordinates,
-          description: "", // Keep empty as per user request
+          description: "", // Empty string as per user request
           imageUrl: null,
         };
         transaction.set(newTownDocRef, newTownData);
         townIdToUse = newTownDocRef.id;
-        townCreationMessage = ` New town "${suggestionData.townName}" was automatically created and needs details (including description) updated via Firebase Console.`;
+        townCreationMessage = ` New town "${suggestionData.townName}" was automatically created and needs details updated via Firebase Console.`;
       } else {
         townIdToUse = townSnapshot.docs[0].id;
       }
 
-      const newLocationCollectionRef = adminFS.collection(adminDb, 'locations');
-      const newLocationRef = adminFS.doc(newLocationCollectionRef); // Auto-generate ID for new location
+      const newLocationCollectionRef = collection(adminDb, 'locations');
+      const newLocationRef = doc(newLocationCollectionRef); // Auto-generate ID for new location
 
-      const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: adminFS.FieldValue } = {
+      const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: FieldValue } = {
         townId: townIdToUse,
         townName: suggestionData.townName,
         name: suggestionData.name,
@@ -314,13 +325,13 @@ export async function approveSuggestion(
         coordinates: suggestionData.coordinates,
         submittedBy: suggestionData.suggesterName,
         comments: [],
-        createdAtFirestore: adminFS.FieldValue.serverTimestamp(),
+        createdAtFirestore: FieldValue.serverTimestamp(),
       };
       transaction.set(newLocationRef, newLocationData);
 
       transaction.update(suggestionRef, {
         status: 'approved',
-        approvedAtFirestore: adminFS.FieldValue.serverTimestamp(),
+        approvedAtFirestore: FieldValue.serverTimestamp(),
         publishedLocationId: newLocationRef.id,
       });
 
@@ -352,7 +363,7 @@ export async function approveSuggestion(
     throw new Error("Transaction completed without expected success or info state.");
 
   } catch (error: any) {
-    console.error("Error approving suggestion (using adminFS):", error);
+    console.error("Error approving suggestion:", error);
     if (error.message === "Suggestion not found.") {
       return { message: "Suggestion not found.", type: 'error', suggestionId };
     }
@@ -435,8 +446,8 @@ export async function deleteSuggestion(
   }
 
   try {
-    const suggestionDocRef = adminFS.doc(adminDb, 'suggestedLocations', suggestionId);
-    await adminFS.deleteDoc(suggestionDocRef);
+    const suggestionDocRef = doc(adminDb, 'suggestedLocations', suggestionId);
+    await deleteDoc(suggestionDocRef);
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
 
@@ -526,11 +537,11 @@ export async function addCommentToLocation(
       }
     }
 
-    const locationDoc = await getLocationById(locationId); // This uses client-side SDK, fine for read
-    if (!locationDoc) {
+    const locationDataDoc = await getLocationById(locationId); 
+    if (!locationDataDoc) {
       return { message: "Location not found.", type: 'error' };
     }
-    const locationName = locationDoc.name;
+    const locationName = locationDataDoc.name;
 
     const newSuggestedComment: Omit<SuggestedComment, 'id' | 'submittedAt'> = {
       locationId,
@@ -538,12 +549,12 @@ export async function addCommentToLocation(
       userName,
       commentText,
       status: 'pending',
-      submittedAtFirestore: adminFS.FieldValue.serverTimestamp(),
+      submittedAtFirestore: FieldValue.serverTimestamp(),
       ...(suggesterUid && { suggesterUid }),
     };
 
-    const suggestedCommentsColRef = adminFS.collection(adminDb, 'suggestedComments');
-    const newCommentRef = await adminFS.addDoc(suggestedCommentsColRef, newSuggestedComment);
+    const suggestedCommentsColRef = collection(adminDb, 'suggestedComments');
+    const newCommentRef = await addDoc(suggestedCommentsColRef, newSuggestedComment);
 
     revalidatePath(`/location/${locationId}`);
 
@@ -561,4 +572,3 @@ export async function addCommentToLocation(
     };
   }
 }
-    
