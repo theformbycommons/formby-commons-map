@@ -230,16 +230,18 @@ export const locationCategories = [
   "Park",
   "Nature Spot",
   "Cafe",
-  "Restaurant",
   "Pub / Restaurant",
   "Shop",
   "Landmark",
   "Viewpoint",
-  "Museum",
   "Gallery / Museum",
   "Attraction",
   "Historical Site",
   "Accommodation",
+  "Lovely spot",
+  "Quirky",
+  "Art",
+  "Architecture",
   "Other"
 ];
 
