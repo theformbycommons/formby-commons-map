@@ -297,12 +297,12 @@ export async function approveSuggestion(
           county: "Unknown (Auto-created)",
           country: "UK", // Default, admin can update
           coordinates: suggestionData.coordinates, // Use suggestion's coords as a starting point
-          description: `This town ("${suggestionData.townName}") was automatically created when approving suggestion for "${suggestionData.name}". Admin: please update details.`,
+          description: "", // Set description to empty string
           imageUrl: null, // No image for auto-created towns initially
         };
         transaction.set(newTownDocRef, newTownData);
         townIdToUse = newTownDocRef.id;
-        townCreationMessage = ` New town "${suggestionData.townName}" was automatically created and needs details updated via Firebase Console.`;
+        townCreationMessage = ` New town "${suggestionData.townName}" was automatically created and needs details (including description) updated via Firebase Console.`;
       } else {
         townIdToUse = townSnapshot.docs[0].id;
       }
