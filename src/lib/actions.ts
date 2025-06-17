@@ -4,7 +4,6 @@
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, LocationComment, SuggestedComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
-// getLocationById is used for fetching location data
 import { getLocationById } from './data';
 import { revalidatePath } from 'next/cache';
 import { 
@@ -15,8 +14,8 @@ import {
   addDoc, 
   deleteDoc, 
   updateDoc,
-  getDoc, // For use inside transaction if needed, though transaction.get is primary
-  runTransaction, // Import runTransaction
+  getDoc,
+  runTransaction,
   FieldValue 
 } from 'firebase-admin/firestore';
 import { randomUUID } from 'crypto';
@@ -289,31 +288,22 @@ export async function approveSuggestion(
         return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info' as const, suggestionId };
       }
 
-      let townIdToUse: string;
-      let townCreationMessage = "";
+      // Check if town exists
       const townsColRef = collection(adminDb, 'towns');
       const townQueryInstance = query(townsColRef, where('name', '==', suggestionData.townName));
-      const townSnapshot = await transaction.get(townQueryInstance);
+      const townSnapshot = await transaction.get(townQueryInstance); // Use transaction.get
 
       if (townSnapshot.empty) {
-        const newTownDocRef = doc(townsColRef); // Auto-generate ID for the new town
-        const newTownData = {
-          name: suggestionData.townName,
-          county: "Unknown (Auto-created)",
-          country: "UK",
-          coordinates: suggestionData.coordinates,
-          description: "", // Empty string as per user request
-          imageUrl: null,
-        };
-        transaction.set(newTownDocRef, newTownData);
-        townIdToUse = newTownDocRef.id;
-        townCreationMessage = ` New town "${suggestionData.townName}" was automatically created and needs details updated via Firebase Console.`;
-      } else {
-        townIdToUse = townSnapshot.docs[0].id;
+        // Town does not exist, instruct admin to create it manually.
+        // This is the key change: no automatic town creation here.
+        throw new Error(`Town "${suggestionData.townName}" not found. Please create it manually in Firestore (towns collection) before approving this suggestion.`);
       }
+      
+      const townIdToUse = townSnapshot.docs[0].id;
 
+      // Proceed with creating the location as the town exists.
       const newLocationCollectionRef = collection(adminDb, 'locations');
-      const newLocationRef = doc(newLocationCollectionRef); // Auto-generate ID for new location
+      const newLocationRef = doc(newLocationCollectionRef); // Auto-generate ID
 
       const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: FieldValue } = {
         townId: townIdToUse,
@@ -340,12 +330,11 @@ export async function approveSuggestion(
         locationName: suggestionData.name,
         newLocationId: newLocationRef.id,
         townNameForReval: suggestionData.townName,
-        townCreationMessage: townCreationMessage,
       };
     });
 
     if (result && 'type' in result && result.type === 'info') {
-        return result;
+        return result; // If suggestion was already processed
     }
 
     if (result && result.success) {
@@ -355,20 +344,26 @@ export async function approveSuggestion(
         revalidatePath(`/location/${result.newLocationId}`);
 
         return {
-            message: `Suggestion "${result.locationName}" approved and published successfully!${result.townCreationMessage}`,
+            message: `Suggestion "${result.locationName}" approved and published successfully!`,
             type: 'success',
             suggestionId
         };
     }
-    throw new Error("Transaction completed without expected success or info state.");
+    // This part should ideally not be reached if the transaction throws or returns an info state.
+    throw new Error("Transaction completed without expected success or info state. This indicates an unexpected flow in approveSuggestion.");
 
   } catch (error: any) {
     console.error("Error approving suggestion:", error);
-    if (error.message === "Suggestion not found.") {
-      return { message: "Suggestion not found.", type: 'error', suggestionId };
+    // Catch the specific error for town not found and relay it.
+    if (error.message.startsWith("Town \"") && error.message.endsWith("not found. Please create it manually in Firestore (towns collection) before approving this suggestion.")) {
+      return { message: error.message, type: 'error', suggestionId };
     }
+    if (error.message === "Suggestion not found.") {
+      return { message: "Suggestion not found. It might have been deleted.", type: 'error', suggestionId };
+    }
+    // Generic error for other issues
     return {
-      message: error.message || "Failed to approve suggestion due to an unexpected error. Please try again.",
+      message: error.message || "Failed to approve suggestion due to an unexpected error. Please check server logs.",
       type: 'error',
       suggestionId
     };
