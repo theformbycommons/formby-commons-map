@@ -16,7 +16,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
 import { locationCategories } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon, ChevronDown } from 'lucide-react';
+import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
 import { resizeImage } from '@/lib/imageUtils';
 import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -179,11 +179,9 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
   };
 
   const handleTownSelection = (selectedTownName: string) => {
-    if (selectedTownName === "__NEW__") {
-      setValue('townName', '', { shouldValidate: true }); // Clear if "enter new" is chosen
-    } else if (selectedTownName) {
-      setValue('townName', selectedTownName, { shouldValidate: true });
-    }
+    // If "__NEW__" is selected, clear the townName input for manual entry.
+    // Otherwise, populate it with the selected town name.
+    setValue('townName', selectedTownName === "__NEW__" ? "" : selectedTownName, { shouldValidate: true });
   };
 
   const processSubmit = async (data: SuggestionFormData) => {
@@ -267,6 +265,15 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
     });
   };
 
+  // Determine the value for the Select component.
+  // If townNameValue is one of the existing towns, use that.
+  // If townNameValue is empty (user selected "__NEW__" or cleared it), the Select's value prop will be "" which shows the placeholder.
+  // If townNameValue is something else (manually typed, not in list), Select value will be "__NEW__" to indicate manual entry mode.
+  const selectValue = towns.find(t => t.name === townNameValue) 
+    ? townNameValue 
+    : (townNameValue === "" ? "" : "__NEW__");
+
+
   return (
     <form
       onSubmit={handleSubmit(processSubmit)}
@@ -288,12 +295,15 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
 
       <div className="space-y-2">
         <Label htmlFor="townSelect" className="font-medium">Town</Label>
-        <Select onValueChange={handleTownSelection} value={towns.find(t => t.name === townNameValue) ? townNameValue : (townNameValue ? "__NEW__" : "")}>
+        <Select 
+          onValueChange={handleTownSelection} 
+          value={selectValue} // Use the calculated selectValue
+        >
           <SelectTrigger id="townSelect" className="w-full">
             <SelectValue placeholder="Select an existing town or enter new one below" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Select an existing town (optional)</SelectItem>
+            {/* Removed the SelectItem with value="" that caused the error */}
             {towns.map(town => (
               <SelectItem key={town.id} value={town.name}>{town.name}</SelectItem>
             ))}
@@ -308,7 +318,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
             placeholder="Enter new town name here if not listed above"
             aria-invalid={errors.townName ? "true" : "false"}
         />
-        <p className="text-xs text-muted-foreground mt-1">Select a town from the list, or type a new town name directly in the text field above. If the town is new, it will be created upon approval of your suggestion.</p>
+        <p className="text-xs text-muted-foreground mt-1">Select a town from the list. If your town isn't listed, choose "-- Or enter a new town name below --" and then type the new town name directly in the text field above. It will be created upon approval.</p>
         {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
       </div>
 
