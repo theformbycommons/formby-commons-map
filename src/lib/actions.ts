@@ -4,9 +4,10 @@
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, LocationComment, SuggestedComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
-import { getTownByName, getLocationById } from './data'; // getLocationById will be used for comment moderation
+// getTownByName is no longer directly used in approveSuggestion, logic moved into transaction
+import { getLocationById } from './data'; 
 import { revalidatePath } from 'next/cache';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, query as adminQuery, where as adminWhere } from 'firebase-admin/firestore'; // Import query and where for admin SDK
 import { randomUUID } from 'crypto';
 
 
@@ -264,69 +265,108 @@ export async function approveSuggestion(
 
   try {
     const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
-    const suggestionSnap = await suggestionRef.get();
+    
+    // Run as a transaction
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const suggestionSnap = await transaction.get(suggestionRef);
 
-    if (!suggestionSnap.exists) {
-      return { message: "Suggestion not found.", type: 'error', suggestionId };
-    }
+      if (!suggestionSnap.exists) {
+        // This error will be caught by the outer catch and returned
+        throw new Error("Suggestion not found.");
+      }
 
-    const suggestionData = suggestionSnap.data() as NewLocationSuggestion;
+      const suggestionData = suggestionSnap.data() as NewLocationSuggestion;
 
-    if (suggestionData.status !== 'pending') {
-      return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info', suggestionId };
-    }
+      if (suggestionData.status !== 'pending') {
+        // Not an error, just info. Return directly as this doesn't need to roll back.
+        return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info' as const, suggestionId };
+      }
 
-    const town = await getTownByName(suggestionData.townName);
-    if (!town) {
-      return {
-        message: `Town "${suggestionData.townName}" not found. Please create the town in the 'towns' collection first before approving this suggestion.`,
-        type: 'error',
-        suggestionId
+      let townIdToUse: string;
+      let townCreationMessage = "";
+      const townsCol = adminDb.collection('towns');
+      // Use adminQuery and adminWhere from firebase-admin/firestore
+      const townQueryInstance = adminQuery(townsCol, adminWhere('name', '==', suggestionData.townName));
+      const townSnapshot = await transaction.get(townQueryInstance);
+
+      if (townSnapshot.empty) {
+        // Town doesn't exist, create it
+        const newTownDocRef = townsCol.doc(); // Auto-generate ID for the new town
+        const newTownData = {
+          name: suggestionData.townName,
+          county: "Unknown (Auto-created)",
+          country: "UK", // Default, admin can update
+          coordinates: suggestionData.coordinates, // Use suggestion's coords as a starting point
+          description: `This town ("${suggestionData.townName}") was automatically created when approving suggestion for "${suggestionData.name}". Admin: please update details.`,
+          imageUrl: null, // No image for auto-created towns initially
+        };
+        transaction.set(newTownDocRef, newTownData);
+        townIdToUse = newTownDocRef.id;
+        townCreationMessage = ` New town "${suggestionData.townName}" was automatically created and needs details updated via Firebase Console.`;
+      } else {
+        townIdToUse = townSnapshot.docs[0].id;
+      }
+
+      const newLocationRef = adminDb.collection('locations').doc(); // Auto-generate ID for new location
+      const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: FieldValue } = {
+        townId: townIdToUse,
+        townName: suggestionData.townName,
+        name: suggestionData.name,
+        description: suggestionData.description,
+        imageUrl: suggestionData.imageUrl || null,
+        category: suggestionData.category,
+        coordinates: suggestionData.coordinates,
+        submittedBy: suggestionData.suggesterName,
+        comments: [], // New locations start with no comments
+        createdAtFirestore: FieldValue.serverTimestamp(),
       };
-    }
+      transaction.set(newLocationRef, newLocationData);
 
-    const batch = adminDb.batch();
-
-    const newLocationRef = adminDb.collection('locations').doc();
-    const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: any } = {
-      townId: town.id,
-      townName: suggestionData.townName,
-      name: suggestionData.name,
-      description: suggestionData.description,
-      imageUrl: suggestionData.imageUrl || null, 
-      category: suggestionData.category,
-      coordinates: suggestionData.coordinates,
-      submittedBy: suggestionData.suggesterName,
-      comments: [],
-      createdAtFirestore: FieldValue.serverTimestamp(),
-    };
-    batch.set(newLocationRef, newLocationData);
-
-    batch.update(suggestionRef, {
-      status: 'approved',
-      approvedAtFirestore: FieldValue.serverTimestamp(),
-      publishedLocationId: newLocationRef.id,
+      transaction.update(suggestionRef, {
+        status: 'approved',
+        approvedAtFirestore: FieldValue.serverTimestamp(),
+        publishedLocationId: newLocationRef.id,
+      });
+      
+      // Return data needed for revalidation and success message from the transaction callback
+      return {
+        success: true as const,
+        locationName: suggestionData.name,
+        newLocationId: newLocationRef.id,
+        townNameForReval: suggestionData.townName,
+        townCreationMessage: townCreationMessage,
+      };
     });
 
-    await batch.commit();
+    // If the transaction returned an info message (e.g. suggestion already processed)
+    if (result && 'type' in result && result.type === 'info') {
+        return result;
+    }
+    
+    // If transaction was successful (result.success is true)
+    if (result && result.success) {
+        revalidatePath('/admin/suggestions');
+        revalidatePath(`/town/${encodeURIComponent(result.townNameForReval)}`);
+        revalidatePath('/'); // Revalidate homepage to show new town or updated counts
+        revalidatePath(`/location/${result.newLocationId}`);
 
-    revalidatePath('/admin/suggestions');
-    revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
-    revalidatePath('/');
-    revalidatePath(`/location/${newLocationRef.id}`);
+        return {
+            message: `Suggestion "${result.locationName}" approved and published successfully!${result.townCreationMessage}`,
+            type: 'success',
+            suggestionId
+        };
+    }
+    // Fallback if transaction result is not as expected (should not happen if logic is correct)
+    throw new Error("Transaction completed without expected success or info state.");
 
-
-    return {
-      message: `Suggestion "${suggestionData.name}" approved and published successfully!`,
-      type: 'success',
-      suggestionId
-    };
-
-  } catch (error)
- {
+  } catch (error: any) {
     console.error("Error approving suggestion (using adminDb):", error);
+    // Handle specific errors like "Suggestion not found" if thrown from transaction
+    if (error.message === "Suggestion not found.") {
+      return { message: "Suggestion not found.", type: 'error', suggestionId };
+    }
     return {
-      message: "Failed to approve suggestion. Please try again.",
+      message: error.message || "Failed to approve suggestion due to an unexpected error. Please try again.",
       type: 'error',
       suggestionId
     };
@@ -527,6 +567,12 @@ export async function addCommentToLocation(
     const newCommentRef = await adminDb.collection('suggestedComments').add(newSuggestedComment);
     console.log(`[Action:addCommentToLocation] Suggested comment added successfully with ID: ${newCommentRef.id}`);
     
+    // Important: Revalidate the specific location page after a new comment is submitted for review
+    // This won't make the comment appear (as it's pending), but ensures other data is fresh if needed.
+    // Actual display of approved comment is handled by revalidation after admin approval of the comment.
+    revalidatePath(`/location/${locationId}`);
+
+
     return {
       message: "Thank you! Your comment has been submitted and is now pending review.",
       type: 'success',
@@ -541,10 +587,4 @@ export async function addCommentToLocation(
     };
   }
 }
-
-// Helper function to get a generic user daily limit (can be reused)
-// Note: This was refactored into checkAndIncrementAnonymousUserDailyLimit for more specific use.
-// Keeping the more generic structure of checkAndIncrementAnonymousUserDailyLimit.
-
-
     
