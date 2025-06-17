@@ -2,15 +2,12 @@
 'use server';
 
 import { z } from 'zod';
-import type { NewLocationSuggestion, Location, SuggestedComment } from './types';
-import { adminDb, adminStorage } from './firebase-admin'; // adminDb should provide compat API
-// Explicitly import FieldValue for actions that might still use it, but keep it away from approveSuggestion for now.
+import type { NewLocationSuggestion, Location, SuggestedComment, Town } from './types';
+import { adminDb, adminStorage } from './firebase-admin';
 import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
-import { collection, doc, addDoc, deleteDoc, updateDoc, getDoc, getDocs, runTransaction, query, where } from 'firebase-admin/firestore';
-
-
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+// Removed specific modular imports like collection, doc, query, where, addDoc, deleteDoc, updateDoc, getDoc, runTransaction
+// as approveSuggestion will now use compat API style. Other functions might still use them.
 
 
 // Zod schema for server-side validation (SuggestLocationForm)
@@ -51,14 +48,14 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
   const todayDateString = new Date().toISOString().split('T')[0];
 
   try {
-    const globalQuotaRef = doc(adminDb, 'quotaManagement', 'globalStorage');
-    const dailyQuotaRef = doc(adminDb, 'quotaManagement', 'dailyUploads');
+    const globalQuotaRef = adminDb.collection('quotaManagement').doc('globalStorage');
+    const dailyQuotaRef = adminDb.collection('quotaManagement').doc('dailyUploads');
 
-    await runTransaction(adminDb, async (transaction) => {
+    await adminDb.runTransaction(async (transaction) => {
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
       const dailyQuotaDoc = await transaction.get(dailyQuotaRef);
 
-      if (!globalQuotaDoc.exists() || !dailyQuotaDoc.exists()) {
+      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) {
         throw new Error("Quota configuration documents not found in Firestore. Please set them up in 'quotaManagement' collection.");
       }
 
@@ -94,13 +91,13 @@ const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
 async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionNamePath: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
-  const userLimitRef = doc(adminDb, collectionNamePath, uid);
+  const userLimitRef = adminDb.collection(collectionNamePath).doc(uid);
 
   try {
-    await runTransaction(adminDb, async (transaction) => {
+    await adminDb.runTransaction(async (transaction) => {
       const userLimitDoc = await transaction.get(userLimitRef);
 
-      if (!userLimitDoc.exists()) {
+      if (!userLimitDoc.exists) {
         transaction.set(userLimitRef, {
           [countFieldName]: 1,
           [dateFieldName]: todayDateString,
@@ -218,8 +215,8 @@ export async function submitSuggestion(
       ...(suggesterUid && { suggesterUid }),
     };
 
-    const suggestedLocationsColRef = collection(adminDb, 'suggestedLocations');
-    const newDocRef = await addDoc(suggestedLocationsColRef, suggestionForDb);
+    const suggestedLocationsColRef = adminDb.collection('suggestedLocations');
+    const newDocRef = await suggestedLocationsColRef.add(suggestionForDb); // Using compat API: .add()
 
     revalidatePath('/admin/suggestions');
 
@@ -266,33 +263,103 @@ export async function approveSuggestion(
   }
 
   try {
-    // Use compat API style directly on adminDb instance
     const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
-    
-    // VERY MINIMAL UPDATE FOR DIAGNOSIS:
-    // Only update the status. NO AdminFieldValue.serverTimestamp()
-    await suggestionRef.update({
-      status: 'approved',
-      // approvedAtFirestore: AdminFieldValue.serverTimestamp(), // Still keeping this out
+    const suggestionSnap = await suggestionRef.get();
+
+    if (!suggestionSnap.exists) {
+      return { message: "Suggestion not found.", type: 'error', suggestionId };
+    }
+    const suggestionData = suggestionSnap.data() as NewLocationSuggestion;
+
+    if (suggestionData.status === 'approved') {
+      return { message: `Suggestion "${suggestionData.name}" is already approved.`, type: 'info', suggestionId };
+    }
+     if (suggestionData.status === 'rejected') {
+      return { message: `Suggestion "${suggestionData.name}" has been rejected and cannot be published.`, type: 'info', suggestionId };
+    }
+
+    // Check if town exists using compat API
+    const townsColRef = adminDb.collection('towns');
+    const townQuery = townsColRef.where('name', '==', suggestionData.townName);
+    const townQuerySnapshot = await townQuery.get();
+
+    let townId: string;
+    let townDataForLocation: Pick<Town, 'id' | 'name' | 'county' | 'country' | 'coordinates' | 'description' | 'imageUrl'>;
+
+    if (townQuerySnapshot.empty) {
+      return { 
+        message: `Town '${suggestionData.townName}' not found. Please create it manually in the 'towns' collection in Firestore (with all required fields: name, county, country, coordinates, description, imageUrl (optional)) before approving this suggestion. Ensure the 'name' field exactly matches '${suggestionData.townName}'.`, 
+        type: 'error', 
+        suggestionId 
+      };
+    } else {
+      const existingTownDoc = townQuerySnapshot.docs[0];
+      townId = existingTownDoc.id;
+      const data = existingTownDoc.data();
+      townDataForLocation = {
+        id: existingTownDoc.id,
+        name: data.name,
+        county: data.county,
+        country: data.country,
+        coordinates: data.coordinates,
+        description: data.description,
+        imageUrl: data.imageUrl,
+      };
+    }
+
+    // Create Location and Update Suggestion in a Transaction using compat API
+    await adminDb.runTransaction(async (transaction) => {
+      const transSuggestionSnap = await transaction.get(suggestionRef); // Re-fetch suggestion
+      if (!transSuggestionSnap.exists) {
+        throw new Error("Suggestion not found within transaction.");
+      }
+      // Ensure suggestion is still pending, could have been processed by another admin
+      const currentSuggestionData = transSuggestionSnap.data() as NewLocationSuggestion;
+      if (currentSuggestionData.status !== 'pending') {
+          throw new Error(`Suggestion status is no longer pending (current: ${currentSuggestionData.status}). It may have been processed by another administrator.`);
+      }
+
+
+      const newLocationRef = adminDb.collection('locations').doc(); // Auto-generate ID
+
+      const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt'> = {
+        townId: townId,
+        townName: townDataForLocation.name, // Use name from fetched town
+        name: suggestionData.name,
+        description: suggestionData.description,
+        imageUrl: suggestionData.imageUrl || null,
+        category: suggestionData.category,
+        coordinates: suggestionData.coordinates,
+        submittedBy: suggestionData.suggesterName,
+        createdAtFirestore: AdminFieldValue.serverTimestamp(),
+      };
+      transaction.set(newLocationRef, { ...newLocationData, comments: [] }); // Add empty comments array
+
+      transaction.update(suggestionRef, {
+        status: 'approved',
+        approvedAtFirestore: AdminFieldValue.serverTimestamp(),
+        publishedLocationId: newLocationRef.id,
+      });
     });
 
     revalidatePath('/admin/suggestions');
+    revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
+    revalidatePath('/'); // Revalidate homepage as town counts might change if a new town gets its first location
 
     return {
-      message: `DIAGNOSTIC (Compat API): Suggestion "${suggestionId}" status *should be* updated to 'approved'. Full publishing logic is BYPASSED. Please verify in Firestore.`,
-      type: 'info', 
+      message: `Suggestion "${suggestionData.name}" for ${suggestionData.townName} approved and published! Location ID: ${suggestionData.publishedLocationId || 'newly created'}.`,
+      type: 'success',
       suggestionId
     };
 
   } catch (error: any) {
-    console.error("Error in (DIAGNOSTIC - Compat API) approveSuggestion action:", error);
-    let errorMessage = "DIAGNOSTIC (Compat API): Failed to update suggestion status. Please check server logs.";
+    console.error("Error in approveSuggestion action (compat API):", error);
+    let errorMessage = "Failed to approve and publish suggestion.";
      if (error instanceof Error && error.message) {
-      errorMessage = `DIAGNOSTIC (Compat API) Error: ${error.message}`;
+      errorMessage = `Error: ${error.message}`;
     } else {
-      errorMessage = `DIAGNOSTIC (Compat API) Error: An unknown error occurred. Raw error: ${String(error)}`;
+      errorMessage = `Error: An unknown error occurred. Raw error: ${String(error)}`;
     }
-    console.error("Full error object:", JSON.stringify(error, null, 2));
     return {
       message: errorMessage,
       type: 'error',
@@ -373,8 +440,8 @@ export async function deleteSuggestion(
   }
 
   try {
-    const suggestionDocRef = doc(adminDb, 'suggestedLocations', suggestionId);
-    await deleteDoc(suggestionDocRef);
+    const suggestionDocRef = adminDb.collection('suggestedLocations').doc(suggestionId); // compat API
+    await suggestionDocRef.delete(); // compat API
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
 
@@ -464,8 +531,9 @@ export async function addCommentToLocation(
       }
     }
 
-    const locationDataDocSnap = await getDoc(doc(adminDb, 'locations', locationId)); 
-    if (!locationDataDocSnap.exists()) {
+    const locationDataDocRef = adminDb.collection('locations').doc(locationId); // compat API
+    const locationDataDocSnap = await locationDataDocRef.get(); // compat API
+    if (!locationDataDocSnap.exists) {
       return { message: "Location not found.", type: 'error' };
     }
     const locationName = locationDataDocSnap.data()?.name || "Unknown Location";
@@ -480,8 +548,8 @@ export async function addCommentToLocation(
       ...(suggesterUid && { suggesterUid }),
     };
 
-    const suggestedCommentsColRef = collection(adminDb, 'suggestedComments');
-    const newCommentRef = await addDoc(suggestedCommentsColRef, newSuggestedComment);
+    const suggestedCommentsColRef = adminDb.collection('suggestedComments'); // compat API
+    const newCommentRef = await suggestedCommentsColRef.add(newSuggestedComment); // compat API
 
     revalidatePath(`/location/${locationId}`);
 
@@ -499,5 +567,4 @@ export async function addCommentToLocation(
     };
   }
 }
-
     
