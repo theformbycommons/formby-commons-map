@@ -1,8 +1,12 @@
 import SuggestLocationForm from '@/components/location/SuggestLocationForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lightbulb } from 'lucide-react';
+import { getTowns } from '@/lib/data'; // Import getTowns
+import type { Town } from '@/lib/types'; // Import Town type
 
-export default function SuggestLocationPage() {
+export default async function SuggestLocationPage() {
+  const towns: Pick<Town, 'id' | 'name'>[] = (await getTowns()).map(town => ({ id: town.id, name: town.name }));
+
   return (
     <div className="max-w-2xl mx-auto">
       <Card className="shadow-lg">
@@ -17,7 +21,7 @@ export default function SuggestLocationPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SuggestLocationForm />
+          <SuggestLocationForm towns={towns} /> {/* Pass towns as a prop */}
         </CardContent>
       </Card>
     </div>

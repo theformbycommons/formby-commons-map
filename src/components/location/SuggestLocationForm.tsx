@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
-import { locationCategories, mockTowns } from '@/lib/data';
+import { locationCategories } from '@/lib/data'; // No longer importing mockTowns
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
 import { resizeImage } from '@/lib/imageUtils';
@@ -23,6 +23,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext'; 
+import type { Town } from '@/lib/types'; // Import Town type for props
 
 const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
   ssr: false,
@@ -54,6 +55,10 @@ const initialState: SuggestionFormState = {
   message: '',
   type: 'info',
 };
+
+interface SuggestLocationFormProps {
+  towns: Pick<Town, 'id' | 'name'>[]; // Prop to receive towns list
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -97,7 +102,7 @@ function SubmitButton() {
   );
 }
 
-export default function SuggestLocationForm() {
+export default function SuggestLocationForm({ towns }: SuggestLocationFormProps) { // Accept towns prop
   const [state, formAction] = useActionState(submitSuggestion, initialState);
   const { toast } = useToast();
   const [currentFile, setCurrentFile] = useState<File | null>(null);
@@ -273,8 +278,9 @@ export default function SuggestLocationForm() {
           <Label htmlFor="townName" className="font-medium">Town Name</Label>
           <Input id="townName" {...register('townName')} className="mt-1" placeholder="e.g., Formby" list="town-suggestions" aria-invalid={errors.townName ? "true" : "false"} />
           <datalist id="town-suggestions">
-            {mockTowns.map(town => <option key={town.id} value={town.name} />)}
+            {towns.map(town => <option key={town.id} value={town.name} />)}
           </datalist>
+          <p className="text-xs text-muted-foreground mt-1">Choose from existing towns or type a new one. If the town is new, it will be created upon approval of your suggestion.</p>
           {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
       </div>
       
@@ -369,4 +375,3 @@ export default function SuggestLocationForm() {
     </form>
   );
 }
-

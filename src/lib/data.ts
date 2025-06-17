@@ -242,11 +242,5 @@ export const locationCategories = [
   "Street",
   "Other"
 ];
-
-export const mockTowns: Pick<Town, 'id' | 'name'>[] = [
-    { id: 'formby', name: 'Formby' },
-    { id: 'windermere', name: 'Windermere' },
-    { id: 'stives', name: 'St Ives' },
-  ];
   
-
+// mockTowns removed
