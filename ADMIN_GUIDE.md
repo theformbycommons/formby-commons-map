@@ -86,12 +86,12 @@ Navigate to `/admin/suggestions` after logging in.
     *   **Rejected:** Suggestion has been reviewed and not published.
 
 ### 3.2. Approving Suggestions
-1.  For a "Pending" suggestion, click **"Approve & Publish"**.
+1.  For a "Pending" suggestion (or an "Approved" one that failed to fully publish), click **"Approve & Publish"**.
 2.  **CRITICAL PRE-REQUISITE for NEW TOWNS:** If the `townName` in the suggestion does **not** already exist as a document in the `towns` collection in Firestore, you **MUST manually create the town document first**.
     *   Go to Firestore -> `towns` collection.
     *   Add a new document.
     *   **Required fields**: `name` (must exactly match `townName` from suggestion), `county` (String), `country` (String), `coordinates` (Map with `lat` (Number) and `lng` (Number)), `description` (String, can be empty), `imageUrl` (String, optional, can be `null`). See Section 5.2 for more details.
-    *   If the town is not created first, the "Approve & Publish" action will show an error, and the suggestion will remain pending.
+    *   If the town is not created first, the "Approve & Publish" action will show an error, and the suggestion will remain pending or unlinked.
 3.  **Action:**
     *   If the town exists (or was just created by you), the system will:
         *   Create a new document in the `locations` collection using the details from the suggestion.
@@ -165,7 +165,7 @@ Direct Firestore manipulation is powerful but should be done carefully.
             *   `lat` (Number): Latitude, e.g., `53.558`
             *   `lng` (Number): Longitude, e.g., `-3.067`
         *   `description` (String): A brief description of the town. Can be an empty string `""` initially.
-        *   `imageUrl` (String, Optional): URL to the town's banner image stored in Firebase Storage. (e.g., `gs://<your-bucket-name>/town-images/formby.png` or the public HTTPS URL). Can be `null`.
+        *   `imageUrl` (String, Optional): This field is **not currently used** by the application to display town-specific images. Town images are dynamically loaded from Firebase Storage based on naming convention (see Section 6.1.1). You can leave this `null` or set a URL for your own reference, but it won't affect the site's display.
 *   **Editing a Town:** Click on the town's document ID in the `towns` collection, then modify its fields.
 *   **Deleting a Town:** Be cautious. Deleting a town document does **not** automatically delete associated locations from the `locations` collection. This could lead to orphaned locations.
 
@@ -204,18 +204,32 @@ These collections track submissions from anonymous users to prevent abuse. Docum
 2.  Navigate to **Build -> Storage**.
 3.  Files are organized into folders (paths).
 
-### 6.1. Image Paths
-*   **Location Suggestions:** `suggested_location_images/` (images uploaded with new suggestions).
-*   **Published Locations:** Images for published locations re-use the URL from `suggested_location_images/` if the suggestion had an image.
-*   **Town Banners:** `town-images/` (e.g., `formby.png`, `windermere.jpg`).
-*   **Placeholder Images:** (Stored in `town-images/` for convenience by the app's current setup)
-    *   `green_town_placeholder.png` (Used by `TownBannerImage.tsx`)
-    *   `painted_town_preview_placeholder.png` (Used by `TownPreviewImage.tsx`)
+### 6.1. Image Paths & Usage
+*   **Location Suggestions:** `suggested_location_images/`
+    *   Images uploaded with new location suggestions are stored here. The URL is then copied to the published location if approved.
+*   **Published Locations:**
+    *   Images for published locations re-use the URL from `suggested_location_images/` if the suggestion had an image. There isn't a separate "published_location_images" folder by default.
+*   **Town Images (`town-images/` folder):**
+    *   This folder is crucial for displaying town-specific images on the homepage (preview cards) and individual town pages (banner images).
+    *   **Naming Convention:** To use a specific image for a town:
+        1.  Convert the town name to **lowercase**.
+        2.  Replace all **spaces** with **hyphens (`-`)**.
+        3.  Save your image as `formatted-town-name.png` or `formatted-town-name.jpg`.
+        4.  **Example:** For a town named "Port Haddock", the image should be `port-haddock.png` or `port-haddock.jpg`.
+    *   **Upload:** Upload these named images into the `town-images/` folder in Firebase Storage.
+    *   **Component Logic:**
+        *   `TownPreviewImage.tsx` (homepage cards): Looks for `town-images/formatted-town-name.png`, then `town-images/formatted-town-name.jpg`. If not found, it uses `town-images/painted_town_preview_placeholder.png`.
+        *   `TownBannerImage.tsx` (town page banner): Looks for `town-images/formatted-town-name.png`, then `town-images/formatted-town-name.jpg`. If not found, it uses `town-images/green_town_placeholder.png`.
+*   **Placeholder Images (stored in `town-images/` by default):**
+    *   `green_town_placeholder.png`: Used by `TownBannerImage.tsx` as a fallback if a town-specific banner is not found.
+    *   `painted_town_preview_placeholder.png`: Used by `TownPreviewImage.tsx` as a fallback if a town-specific preview image is not found.
+    *   You can replace these placeholder files in Storage with your own desired default images, keeping the filenames the same.
 
 ### 6.2. Uploading/Replacing Images
 *   Use the "Upload file" button in the Storage browser.
-*   Ensure filenames and paths match what the application expects (e.g., for town banners, `town-images/town-name.png`).
-*   After uploading, you can get the public HTTPS URL or the `gs://` path. You might need to update the corresponding `imageUrl` field in Firestore documents (`towns` or `locations` collections).
+*   Ensure filenames and paths match what the application expects (especially for town images and placeholders, see 6.1).
+*   After uploading a new town-specific image, you might need to do a hard refresh on the relevant web pages to see the change, due to browser and CDN caching.
+*   If replacing an image for a *published location* (one that came from a suggestion), you would typically need to update the `imageUrl` field in the corresponding Firestore document in the `locations` collection. For town images, no Firestore update is needed; the components find them by name.
 
 ### 6.3. Deleting Images
 *   If you delete a location or suggestion from Firestore, its associated image in Storage is **not always automatically deleted** by Firestore itself.
@@ -224,6 +238,7 @@ These collections track submissions from anonymous users to prevent abuse. Docum
 *   Use the `imageUrl` from the Firestore document to find the file path in Storage.
     *   Example: Public URL `https://firebasestorage.googleapis.com/v0/b/YOUR_BUCKET_NAME/o/suggested_location_images%2Fimage.jpg?alt=media...`
     *   The path within your bucket is `suggested_location_images/image.jpg`.
+*   Deleting town-specific images from `town-images/` will cause the components to fall back to the default placeholders.
 
 ## 7. Troubleshooting: Rescuing a Broken Web App in Firebase Studio
 
