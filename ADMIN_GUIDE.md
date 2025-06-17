@@ -82,19 +82,23 @@ Navigate to `/admin/suggestions` after logging in.
 *   The page lists all suggestions, showing details like name, description, town, category, submitted image (if any), suggester name, and current status.
 *   Status badges indicate:
     *   **Pending:** New suggestion awaiting review.
-    *   **Approved:** Suggestion has been published.
+    *   **Approved:** Suggestion has been reviewed and its status updated. **Further manual steps are required by the admin to fully publish this location.** (This is a temporary state due to ongoing troubleshooting of the automated publishing process).
     *   **Rejected:** Suggestion has been reviewed and not published.
 
-### 3.2. Approving Suggestions
+### 3.2. Approving Suggestions (Temporarily Simplified Workflow - DIAGNOSTIC STEP)
 1.  For a "Pending" suggestion, click **"Approve & Publish"**.
-2.  **Action:**
-    *   A new document is created in the `locations` collection in Firestore.
-    *   The suggestion's `status` in `suggestedLocations` is updated to `approved`.
-    *   The `publishedLocationId` field on the suggestion is set to the ID of the new `locations` document.
-    *   `approvedAtFirestore` timestamp is set.
-3.  **IMPORTANT Prerequisite for New Towns:** If the `townName` specified in the suggestion does **not** already exist as a document in the `towns` collection in Firestore, the approval process will **fail**.
-    *   You will receive an error message like: `"Town 'YourNewTownName' not found. Please create it manually in Firestore (towns collection) before approving this suggestion."`
-    *   **Before approving a suggestion for a new town, you MUST manually create the town document in the `towns` collection in Firestore.** See section 5.2 "Managing Towns (`towns` collection)" for details on the required fields.
+2.  **Action (TEMPORARILY SIMPLIFIED FOR DIAGNOSIS):**
+    *   The suggestion's `status` in the `suggestedLocations` collection in Firestore is updated to `approved`.
+    *   You will receive a toast message confirming only this status update. **No new town or location documents will be automatically created by this action at this stage.**
+3.  **IMPORTANT: MANUAL STEPS REQUIRED BY ADMIN AFTER CLICKING "Approve & Publish" (Due to current technical limitations being diagnosed):**
+    *   **A. Create Town (if new):** If the `townName` in the suggestion does not already exist as a document in the `towns` collection in Firestore, you **MUST manually create the town document**. See section 5.2 for details on the required fields.
+    *   **B. Create Location:** You **MUST manually create a new document in the `locations` collection** in Firestore for this approved suggestion.
+        *   Copy relevant details like `name`, `description`, `imageUrl` (if any), `category`, `coordinates`, and `submittedBy` (from the `suggesterName` field of the suggestion) into the new location document.
+        *   Ensure the `townId` (document ID of the town from step A or existing town) and `townName` are correctly set in the new location document.
+        *   Add a `createdAtFirestore: FieldValue.serverTimestamp()` field (or a manual timestamp if `FieldValue` is also problematic) and an empty `comments: []` array to the new location document.
+    *   **C. Link Suggestion to Published Location:** After creating the location document (Step B), copy its auto-generated ID. Go back to the original document in the `suggestedLocations` collection (the one whose status you just updated to 'approved') and manually add/update a field named `publishedLocationId` with this new location ID. You might also want to manually add an `approvedAtFirestore: FieldValue.serverTimestamp()` field (or a manual timestamp).
+
+    **Note:** This highly manual process is a temporary measure while we diagnose issues with the automated publishing features. The goal is to restore full automation.
 
 ### 3.3. Deleting Suggestions
 1.  Click **"Delete"** for any suggestion.
@@ -109,7 +113,7 @@ Navigate to `/admin/suggestions` after logging in.
     *   In the Firestore document, manually change the `status` field from `pending` to `rejected`.
     *   You might also want to add a `rejectedAtFirestore: FieldValue.serverTimestamp()` field or similar for tracking.
 3.  **To Edit a Suggestion before Approval:**
-    *   Directly modify any fields (e.g., `name`, `description`, `category`) in the Firestore document. Save the changes. Then you can approve it via the admin panel (ensuring the town exists if it's a new town, see 3.2).
+    *   Directly modify any fields (e.g., `name`, `description`, `category`) in the Firestore document. Save the changes. Then you can use the (simplified) "Approve & Publish" button and follow the manual steps in 3.2.
 
 ## 4. Managing Comments (Directly in Firestore)
 
@@ -149,7 +153,7 @@ Direct Firestore manipulation is powerful but should be done carefully.
 2.  Navigate to **Build -> Firestore Database**.
 
 ### 5.2. Managing Towns (`towns` collection)
-*   **Adding a New Town (Required before approving suggestions for new towns):**
+*   **Adding a New Town (Required before approving suggestions for new towns under the simplified workflow):**
     1.  If the `towns` collection doesn't exist, click "Start collection". Otherwise, select `towns` and click "Add document".
     2.  Collection ID: `towns`.
     3.  Document ID: Can be auto-generated by Firestore, or you can provide a custom ID (e.g., lowercase, hyphenated town name like `formby-merseyside`).
@@ -166,7 +170,7 @@ Direct Firestore manipulation is powerful but should be done carefully.
 *   **Deleting a Town:** Be cautious. Deleting a town document does **not** automatically delete associated locations from the `locations` collection. This could lead to orphaned locations.
 
 ### 5.3. Managing Locations (`locations` collection)
-*   These documents are typically created when a suggestion is approved (assuming the town exists).
+*   These documents are **now created manually by the admin** after a suggestion's status is set to "approved" via the admin panel (see section 3.2).
 *   **Editing a Location:** Find the document by its ID. You can modify fields like `name`, `description`, `imageUrl`, `category`, `coordinates`.
 *   **Deleting a Location:**
     1.  Delete the document from the `locations` collection.
@@ -202,7 +206,7 @@ These collections track submissions from anonymous users to prevent abuse. Docum
 
 ### 6.1. Image Paths
 *   **Location Suggestions:** `suggested_location_images/` (images uploaded with new suggestions).
-*   **Published Locations:** Images for published locations currently re-use the URL from `suggested_location_images/`. If a suggestion's image is deleted after approval, the live location might show a broken image unless this is handled.
+*   **Published Locations:** Images for published locations currently re-use the URL from `suggested_location_images/` if the admin copies it during manual location creation. If a suggestion's image is deleted after approval, the live location might show a broken image unless this is handled.
 *   **Town Banners:** `town-images/` (e.g., `formby.png`, `windermere.jpg`).
 *   **Placeholder Images:** (Stored in `town-images/` for convenience by the app's current setup)
     *   `green_town_placeholder.png` (Used by `TownBannerImage.tsx`)

@@ -4,8 +4,7 @@
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, SuggestedComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
-import { getLocationById } from './data'; // Assuming this uses client SDK and is fine for revalidation checks if needed elsewhere
-import { revalidatePath } from 'next/cache';
+// Import specific functions directly from firebase-admin/firestore
 import { 
   collection, 
   doc, 
@@ -15,8 +14,10 @@ import {
   getDoc,
   getDocs, 
   runTransaction,
-  FieldValue 
+  FieldValue // Keep FieldValue import for other actions that might use it
 } from 'firebase-admin/firestore';
+
+import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 
 
@@ -93,6 +94,9 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
 
   } catch (error: any) {
     console.error("Error in checkAndIncrementQuotas:", error);
+    // If FieldValue itself is an issue, this could also fail.
+    // For now, we assume FieldValue.increment works if checkAndIncrementQuotas is called,
+    // as the primary reported error is with FieldValue.serverTimestamp() or similar during approveSuggestion.
     return { allowed: false, message: error.message || "Failed to verify storage quotas." };
   }
 }
@@ -131,7 +135,8 @@ async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: numb
       transaction.update(userLimitRef, { [countFieldName]: FieldValue.increment(1) });
     });
     return { allowed: true };
-  } catch (error: any) {
+  } catch (error: any)
+{
     console.error(`Error checking/incrementing daily limit for UID ${uid} in ${collectionNamePath}:`, error);
     return { allowed: false, message: error.message || `Failed to verify daily submission limit for this action.` };
   }
@@ -216,7 +221,7 @@ export async function submitSuggestion(
       suggesterName: dataForFirestore.suggesterName as string,
       imageUrl: dataForFirestore.imageUrl as string | null,
       status: 'pending' as const,
-      submittedAtFirestore: FieldValue.serverTimestamp(),
+      submittedAtFirestore: FieldValue.serverTimestamp(), // This use of FieldValue might also be problematic if the core issue is with FieldValue
       coordinates: {
         lat: latitude,
         lng: longitude,
@@ -273,108 +278,28 @@ export async function approveSuggestion(
 
   try {
     const suggestionRef = doc(adminDb, 'suggestedLocations', suggestionId);
-    const suggestionSnapForData = await getDoc(suggestionRef);
-
-    if (!suggestionSnapForData.exists()) {
-      return { message: "Suggestion not found. It might have been deleted or already processed.", type: 'error', suggestionId };
-    }
-    const suggestionData = suggestionSnapForData.data() as NewLocationSuggestion;
-
-    if (suggestionData.status !== 'pending') {
-      return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info', suggestionId };
-    }
-
-    // Fetch ALL towns and filter in JavaScript
-    const townsColRef = collection(adminDb, 'towns');
-    const allTownsSnapshot = await getDocs(townsColRef);
-
-    let foundTownDoc: import('firebase-admin/firestore').QueryDocumentSnapshot | undefined = undefined;
-    for (const townLoopDoc of allTownsSnapshot.docs) { // Renamed 'doc' to 'townLoopDoc' to avoid conflict with 'doc' function
-        if (townLoopDoc.data().name === suggestionData.townName) {
-            foundTownDoc = townLoopDoc;
-            break;
-        }
-    }
-
-    if (!foundTownDoc) {
-      return { 
-        message: `Town "${suggestionData.townName}" not found in the database. Please create it manually in Firestore (towns collection) before approving this suggestion. Ensure the town name matches exactly.`, 
-        type: 'error', 
-        suggestionId 
-      };
-    }
-    const townIdToUse = foundTownDoc.id;
-    const townNameForRevalFromDb = foundTownDoc.data().name;
     
-    const result = await runTransaction(adminDb, async (transaction) => {
-      const currentSuggestionSnap = await transaction.get(suggestionRef); 
-
-      if (!currentSuggestionSnap.exists()) {
-        throw new Error("Suggestion disappeared during transaction. Please try again."); 
-      }
-      const currentSuggestionData = currentSuggestionSnap.data() as NewLocationSuggestion;
-      if (currentSuggestionData.status !== 'pending') {
-        return { 
-            processedExternally: true as const, 
-            currentStatus: currentSuggestionData.status 
-        };
-      }
-
-      const newLocationCollectionRef = collection(adminDb, 'locations');
-      const newLocationRef = doc(newLocationCollectionRef); 
-
-      const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: FieldValue } = {
-        townId: townIdToUse, 
-        townName: suggestionData.townName,
-        name: suggestionData.name,
-        description: suggestionData.description,
-        imageUrl: suggestionData.imageUrl || null,
-        category: suggestionData.category,
-        coordinates: suggestionData.coordinates,
-        submittedBy: suggestionData.suggesterName,
-        comments: [],
-        createdAtFirestore: FieldValue.serverTimestamp(),
-      };
-      transaction.set(newLocationRef, newLocationData);
-
-      transaction.update(suggestionRef, {
-        status: 'approved',
-        approvedAtFirestore: FieldValue.serverTimestamp(),
-        publishedLocationId: newLocationRef.id,
-      });
-
-      return {
-        success: true as const,
-        locationName: suggestionData.name,
-        newLocationId: newLocationRef.id,
-        townNameForReval: townNameForRevalFromDb,
-      };
+    // VERY MINIMAL UPDATE FOR DIAGNOSIS:
+    // Only update the status.
+    // Temporarily removing FieldValue.serverTimestamp() for approvedAtFirestore.
+    await updateDoc(suggestionRef, {
+      status: 'approved',
+      // approvedAtFirestore: FieldValue.serverTimestamp(), // Problematic line, temporarily removed
     });
 
-    if (result && 'processedExternally' in result && result.processedExternally) {
-        return { message: `Suggestion was already ${result.currentStatus} by another process.`, type: 'info', suggestionId };
-    }
-    
-    if (result && result.success) {
-        revalidatePath('/admin/suggestions');
-        revalidatePath(`/town/${encodeURIComponent(result.townNameForReval)}`);
-        revalidatePath('/');
-        revalidatePath(`/location/${result.newLocationId}`);
+    revalidatePath('/admin/suggestions');
 
-        return {
-            message: `Suggestion "${result.locationName}" approved and published successfully!`,
-            type: 'success',
-            suggestionId
-        };
-    }
-    
-    throw new Error("Transaction completed without expected success or external processing state.");
+    return {
+      message: `DIAGNOSTIC: Suggestion "${suggestionId}" status updated to 'approved'. Full publishing logic is BYPASSED. Please verify in Firestore. If this worked, FieldValue or transactions are the issue.`,
+      type: 'info', // Changed to info as it's a partial/diagnostic operation
+      suggestionId
+    };
 
   } catch (error: any) {
-    console.error("Error approving suggestion:", error);
-    let errorMessage = error.message || "Failed to approve suggestion due to an unexpected error. Please check server logs.";
-     if (error.message.startsWith("Town \"") && error.message.endsWith("not found. Please create it manually in Firestore (towns collection) before approving this suggestion.")) {
-      errorMessage = error.message; 
+    console.error("Error in (VERY simplified) approveSuggestion action:", error);
+    let errorMessage = "Failed to update suggestion status (minimal attempt). Please check server logs.";
+     if (error instanceof Error && error.message) {
+      errorMessage = `Error: ${error.message}`;
     }
     return {
       message: errorMessage,
@@ -558,7 +483,7 @@ export async function addCommentToLocation(
       userName,
       commentText,
       status: 'pending',
-      submittedAtFirestore: FieldValue.serverTimestamp(),
+      submittedAtFirestore: FieldValue.serverTimestamp(), // This might also be an issue if FieldValue is globally problematic
       ...(suggesterUid && { suggesterUid }),
     };
 
