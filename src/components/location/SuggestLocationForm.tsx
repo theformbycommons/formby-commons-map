@@ -35,7 +35,6 @@ const SuggestionFormClientSchema = z.object({
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
-  // suggesterComment: z.string().max(500, "Comment must be 500 characters or less.").optional(), // Removed
   pictureFile: z.any().optional()
     .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max original file size is 5MB.`)
     .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
@@ -113,7 +112,6 @@ export default function SuggestLocationForm() {
       townName: '',
       category: '',
       suggesterName: '',
-      // suggesterComment: '', // Removed
       pictureFile: undefined,
     }
   });
@@ -227,13 +225,6 @@ export default function SuggestLocationForm() {
 
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      // if (key === 'suggesterComment') { // Removed
-      //   if (value !== undefined && value !== null && String(value).trim() !== '') {
-      //     formDataForServerAction.append(key, String(value));
-      //   }
-      //   return; 
-      // }
-
       if (key !== 'pictureFile' && value !== undefined && value !== null) {
         if (String(value).trim() !== '' || typeof value === 'number' ) {
              formDataForServerAction.append(key, String(value));
@@ -287,6 +278,21 @@ export default function SuggestLocationForm() {
           {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
       </div>
       
+      <div className="space-y-2">
+        <Label htmlFor="locationMap" className="font-medium flex items-center gap-1">
+            <MapPinIcon className="h-5 w-5 text-primary" /> Precise Location (Required)
+        </Label>
+        <p className="text-xs text-muted-foreground mt-1">Click on the map to place a pin for the exact location. You can drag the pin too.</p>
+        <LocationPickerMap value={selectedMapCoords} onValueChange={handleCoordinatesChange} />
+        <input type="hidden" {...register('latitude')} />
+        <input type="hidden" {...register('longitude')} />
+        {(errors.latitude || errors.longitude) && (
+            <p className="text-sm text-destructive mt-1">
+                {errors.latitude?.message || errors.longitude?.message || "Please select a valid location on the map."}
+            </p>
+        )}
+      </div>
+
       <div>
         <Label htmlFor="category" className="font-medium">Category</Label>
         <Controller
@@ -306,21 +312,6 @@ export default function SuggestLocationForm() {
           )}
         />
         {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="locationMap" className="font-medium flex items-center gap-1">
-            <MapPinIcon className="h-5 w-5 text-primary" /> Precise Location (Required)
-        </Label>
-        <p className="text-xs text-muted-foreground mt-1">Click on the map to place a pin for the exact location. You can drag the pin too.</p>
-        <LocationPickerMap value={selectedMapCoords} onValueChange={handleCoordinatesChange} />
-        <input type="hidden" {...register('latitude')} />
-        <input type="hidden" {...register('longitude')} />
-        {(errors.latitude || errors.longitude) && (
-            <p className="text-sm text-destructive mt-1">
-                {errors.latitude?.message || errors.longitude?.message || "Please select a valid location on the map."}
-            </p>
-        )}
       </div>
 
       <div>
@@ -349,15 +340,6 @@ export default function SuggestLocationForm() {
         <p className="text-xs text-muted-foreground mt-1">How you'd like to be credited (e.g., first name, nickname, initials, or a pseudonym).</p>
         {errors.suggesterName && <p className="text-sm text-destructive mt-1">{errors.suggesterName.message}</p>}
       </div>
-
-      {/* Removed suggesterComment field
-      <div>
-        <Label htmlFor="suggesterComment" className="font-medium">Your Comments/Notes (Optional)</Label>
-        <Textarea id="suggesterComment" {...register('suggesterComment')} rows={3} className="mt-1" aria-invalid={errors.suggesterComment ? "true" : "false"} />
-        <p className="text-xs text-muted-foreground mt-1">Any additional details or why you're suggesting this place.</p>
-        {errors.suggesterComment && <p className="text-sm text-destructive mt-1">{errors.suggesterComment.message}</p>}
-      </div>
-      */}
 
       {state?.message && !state.errors && (
          <Alert variant={state.type === 'error' ? 'destructive' : 'default'} className={
