@@ -4,10 +4,10 @@
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, LocationComment, SuggestedComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
-// getTownByName is no longer directly used in approveSuggestion, logic moved into transaction
+// getLocationById is used for fetching location data
 import { getLocationById } from './data';
 import { revalidatePath } from 'next/cache';
-import { FieldValue, query, where } from 'firebase-admin/firestore'; // Import query and where for admin SDK (modified)
+import * as adminFS from 'firebase-admin/firestore'; // Using namespaced import
 import { randomUUID } from 'crypto';
 
 
@@ -49,8 +49,8 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
   const todayDateString = new Date().toISOString().split('T')[0];
 
   try {
-    const globalQuotaRef = adminDb.collection('quotaManagement').doc('globalStorage');
-    const dailyQuotaRef = adminDb.collection('quotaManagement').doc('dailyUploads');
+    const globalQuotaRef = adminFS.doc(adminDb, 'quotaManagement', 'globalStorage');
+    const dailyQuotaRef = adminFS.doc(adminDb, 'quotaManagement', 'dailyUploads');
 
     await adminDb.runTransaction(async (transaction) => {
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
@@ -76,14 +76,14 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
         throw new Error('Daily upload limit reached. We are sorry, but at the moment, the site can\'t accept any new location submissions. Please try again tomorrow.');
       }
 
-      transaction.update(globalQuotaRef, { totalBytesUsed: FieldValue.increment(dataSizeBytes) });
-      transaction.update(dailyQuotaRef, { bytesUploadedToday: FieldValue.increment(dataSizeBytes) });
+      transaction.update(globalQuotaRef, { totalBytesUsed: adminFS.FieldValue.increment(dataSizeBytes) });
+      transaction.update(dailyQuotaRef, { bytesUploadedToday: adminFS.FieldValue.increment(dataSizeBytes) });
     });
 
     return { allowed: true };
 
   } catch (error: any) {
-    console.error("Error in checkAndIncrementQuotas (using adminDb):", error);
+    console.error("Error in checkAndIncrementQuotas (using adminFS):", error);
     return { allowed: false, message: error.message || "Failed to verify storage quotas." };
   }
 }
@@ -92,7 +92,7 @@ const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
 async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionName: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
-  const userLimitRef = adminDb.collection(collectionName).doc(uid);
+  const userLimitRef = adminFS.doc(adminDb, collectionName, uid);
 
   try {
     await adminDb.runTransaction(async (transaction) => {
@@ -119,7 +119,7 @@ async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: numb
         throw new Error(`You have reached the daily limit of ${limit} submissions for this action. Please try again tomorrow.`);
       }
 
-      transaction.update(userLimitRef, { [countFieldName]: FieldValue.increment(1) });
+      transaction.update(userLimitRef, { [countFieldName]: adminFS.FieldValue.increment(1) });
     });
     return { allowed: true };
   } catch (error: any) {
@@ -207,7 +207,7 @@ export async function submitSuggestion(
       suggesterName: dataForFirestore.suggesterName as string,
       imageUrl: dataForFirestore.imageUrl as string | null,
       status: 'pending' as const,
-      submittedAtFirestore: FieldValue.serverTimestamp(),
+      submittedAtFirestore: adminFS.FieldValue.serverTimestamp(),
       coordinates: {
         lat: latitude,
         lng: longitude,
@@ -215,9 +215,8 @@ export async function submitSuggestion(
       ...(suggesterUid && { suggesterUid }),
     };
 
-
-    const suggestedLocationsCol = adminDb.collection('suggestedLocations');
-    const newDocRef = await suggestedLocationsCol.add(suggestionForDb);
+    const suggestedLocationsColRef = adminFS.collection(adminDb, 'suggestedLocations');
+    const newDocRef = await adminFS.addDoc(suggestedLocationsColRef, suggestionForDb);
 
     revalidatePath('/admin/suggestions');
 
@@ -238,7 +237,7 @@ export async function submitSuggestion(
     } else if (typeof error === 'string') {
       errorMessage = `Error: ${error}`;
     }
-    console.error("Error in submitSuggestion action (using adminDb):", error);
+    console.error("Error in submitSuggestion action (using adminFS):", error);
     return {
       message: errorMessage,
       type: 'error',
@@ -264,41 +263,36 @@ export async function approveSuggestion(
   }
 
   try {
-    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
+    const suggestionRef = adminFS.doc(adminDb, 'suggestedLocations', suggestionId);
 
-    // Run as a transaction
     const result = await adminDb.runTransaction(async (transaction) => {
       const suggestionSnap = await transaction.get(suggestionRef);
 
       if (!suggestionSnap.exists) {
-        // This error will be caught by the outer catch and returned
         throw new Error("Suggestion not found.");
       }
 
       const suggestionData = suggestionSnap.data() as NewLocationSuggestion;
 
       if (suggestionData.status !== 'pending') {
-        // Not an error, just info. Return directly as this doesn't need to roll back.
         return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info' as const, suggestionId };
       }
 
       let townIdToUse: string;
       let townCreationMessage = "";
-      const townsCol = adminDb.collection('towns');
-      // Use query and where directly from firebase-admin/firestore (modified)
-      const townQueryInstance = query(townsCol, where('name', '==', suggestionData.townName));
+      const townsColRef = adminFS.collection(adminDb, 'towns');
+      const townQueryInstance = adminFS.query(townsColRef, adminFS.where('name', '==', suggestionData.townName));
       const townSnapshot = await transaction.get(townQueryInstance);
 
       if (townSnapshot.empty) {
-        // Town doesn't exist, create it
-        const newTownDocRef = townsCol.doc(); // Auto-generate ID for the new town
+        const newTownDocRef = adminFS.doc(townsColRef); // Auto-generate ID for the new town
         const newTownData = {
           name: suggestionData.townName,
           county: "Unknown (Auto-created)",
-          country: "UK", // Default, admin can update
-          coordinates: suggestionData.coordinates, // Use suggestion's coords as a starting point
-          description: "", // Set description to empty string
-          imageUrl: null, // No image for auto-created towns initially
+          country: "UK",
+          coordinates: suggestionData.coordinates,
+          description: "", // Keep empty as per user request
+          imageUrl: null,
         };
         transaction.set(newTownDocRef, newTownData);
         townIdToUse = newTownDocRef.id;
@@ -307,8 +301,10 @@ export async function approveSuggestion(
         townIdToUse = townSnapshot.docs[0].id;
       }
 
-      const newLocationRef = adminDb.collection('locations').doc(); // Auto-generate ID for new location
-      const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: FieldValue } = {
+      const newLocationCollectionRef = adminFS.collection(adminDb, 'locations');
+      const newLocationRef = adminFS.doc(newLocationCollectionRef); // Auto-generate ID for new location
+
+      const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: adminFS.FieldValue } = {
         townId: townIdToUse,
         townName: suggestionData.townName,
         name: suggestionData.name,
@@ -317,18 +313,17 @@ export async function approveSuggestion(
         category: suggestionData.category,
         coordinates: suggestionData.coordinates,
         submittedBy: suggestionData.suggesterName,
-        comments: [], // New locations start with no comments
-        createdAtFirestore: FieldValue.serverTimestamp(),
+        comments: [],
+        createdAtFirestore: adminFS.FieldValue.serverTimestamp(),
       };
       transaction.set(newLocationRef, newLocationData);
 
       transaction.update(suggestionRef, {
         status: 'approved',
-        approvedAtFirestore: FieldValue.serverTimestamp(),
+        approvedAtFirestore: adminFS.FieldValue.serverTimestamp(),
         publishedLocationId: newLocationRef.id,
       });
 
-      // Return data needed for revalidation and success message from the transaction callback
       return {
         success: true as const,
         locationName: suggestionData.name,
@@ -338,16 +333,14 @@ export async function approveSuggestion(
       };
     });
 
-    // If the transaction returned an info message (e.g. suggestion already processed)
     if (result && 'type' in result && result.type === 'info') {
         return result;
     }
 
-    // If transaction was successful (result.success is true)
     if (result && result.success) {
         revalidatePath('/admin/suggestions');
         revalidatePath(`/town/${encodeURIComponent(result.townNameForReval)}`);
-        revalidatePath('/'); // Revalidate homepage to show new town or updated counts
+        revalidatePath('/');
         revalidatePath(`/location/${result.newLocationId}`);
 
         return {
@@ -356,12 +349,10 @@ export async function approveSuggestion(
             suggestionId
         };
     }
-    // Fallback if transaction result is not as expected (should not happen if logic is correct)
     throw new Error("Transaction completed without expected success or info state.");
 
   } catch (error: any) {
-    console.error("Error approving suggestion (using adminDb):", error);
-    // Handle specific errors like "Suggestion not found" if thrown from transaction
+    console.error("Error approving suggestion (using adminFS):", error);
     if (error.message === "Suggestion not found.") {
       return { message: "Suggestion not found.", type: 'error', suggestionId };
     }
@@ -407,7 +398,6 @@ export async function deleteSuggestion(
   let finalMessage = "";
   let finalType: 'success' | 'error' | 'info' = 'info';
 
-
   if (!suggestionId) {
     return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
@@ -428,7 +418,7 @@ export async function deleteSuggestion(
         if (imgErr.code === 404 || (imgErr.errors && imgErr.errors.some((e: any) => e.reason === 'notFound'))) {
           imageDeletionErrorDetails = `Image '${filePath}' not found in storage (may have been already deleted or path is incorrect).`;
           console.warn(`[Admin Action] ${imageDeletionErrorDetails}`);
-          imageDeletedSuccessfully = true;
+          imageDeletedSuccessfully = true; 
         } else {
           imageDeletionErrorDetails = `Failed to delete image '${filePath}': ${imgErr.message}.`;
           console.error(`[Admin Action] ${imageDeletionErrorDetails}`, imgErr);
@@ -445,7 +435,8 @@ export async function deleteSuggestion(
   }
 
   try {
-    await adminDb.collection('suggestedLocations').doc(suggestionId).delete();
+    const suggestionDocRef = adminFS.doc(adminDb, 'suggestedLocations', suggestionId);
+    await adminFS.deleteDoc(suggestionDocRef);
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
 
@@ -480,19 +471,18 @@ export async function deleteSuggestion(
   }
 }
 
-// Schema for adding a comment
 const AddCommentSchema = z.object({
   locationId: z.string().min(1, "Location ID is required."),
   userName: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name must be 50 characters or less."),
   commentText: z.string().min(3, "Comment must be at least 3 characters.").max(500, "Comment must be 500 characters or less."),
-  suggesterUid: z.string().min(1, "User ID is missing.").nullable().optional(), // For anonymous user tracking
+  suggesterUid: z.string().min(1, "User ID is missing.").nullable().optional(),
 });
 
 export interface AddCommentFormState {
   message: string;
   type: 'success' | 'error' | 'info';
   errors?: Record<string, string[] | undefined>;
-  commentId?: string; // ID of the newly added suggested comment
+  commentId?: string;
 }
 
 const ANONYMOUS_USER_DAILY_COMMENT_LIMIT = 20;
@@ -501,23 +491,16 @@ export async function addCommentToLocation(
   prevState: AddCommentFormState | undefined,
   formData: FormData
 ): Promise<AddCommentFormState> {
-
-  console.log('[Action:addCommentToLocation] Received FormData keys:', Array.from(formData.keys()));
-
   const rawData = {
     locationId: formData.get('locationId') as string,
     userName: formData.get('userName') as string,
     commentText: formData.get('commentText') as string,
-    suggesterUid: formData.get('suggesterUid') as string | null | undefined, // Can be null from formData.get
+    suggesterUid: formData.get('suggesterUid') as string | null | undefined,
   };
-
-  console.log('[Action:addCommentToLocation] Raw data for validation:', JSON.stringify(rawData, null, 2));
-
   const validatedFields = AddCommentSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
     const validationErrors = validatedFields.error.flatten();
-    console.error('[Action:addCommentToLocation] Validation failed. Details:', JSON.stringify(validationErrors, null, 2));
     return {
       message: "Validation failed. Please check your input.",
       type: 'error',
@@ -526,19 +509,16 @@ export async function addCommentToLocation(
   }
 
   const { locationId, userName, commentText, suggesterUid } = validatedFields.data;
-  console.log('[Action:addCommentToLocation] Validation successful. Data:', JSON.stringify(validatedFields.data, null, 2));
 
   try {
-    // Check daily limit for anonymous users
-    if (suggesterUid) { // suggesterUid could be null here if schema is .nullable().optional()
+    if (suggesterUid) {
       const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(
-        suggesterUid, // If suggesterUid is null, this might cause issues or needs to be handled by checkAndIncrement...
+        suggesterUid,
         ANONYMOUS_USER_DAILY_COMMENT_LIMIT,
         'userDailyCommentLimits',
         'lastCommentDate'
       );
       if (!dailyLimitCheck.allowed) {
-         console.warn(`[Action:addCommentToLocation] Daily comment limit reached for UID: ${suggesterUid}`);
         return {
           message: dailyLimitCheck.message || "Daily comment limit reached.",
           type: 'error',
@@ -546,9 +526,8 @@ export async function addCommentToLocation(
       }
     }
 
-    const locationDoc = await getLocationById(locationId);
+    const locationDoc = await getLocationById(locationId); // This uses client-side SDK, fine for read
     if (!locationDoc) {
-      console.error(`[Action:addCommentToLocation] Location not found for ID: ${locationId}`);
       return { message: "Location not found.", type: 'error' };
     }
     const locationName = locationDoc.name;
@@ -559,19 +538,14 @@ export async function addCommentToLocation(
       userName,
       commentText,
       status: 'pending',
-      submittedAtFirestore: FieldValue.serverTimestamp(),
-      ...(suggesterUid && { suggesterUid }), // Only add suggesterUid if it's truthy (not null, not undefined, not empty string)
+      submittedAtFirestore: adminFS.FieldValue.serverTimestamp(),
+      ...(suggesterUid && { suggesterUid }),
     };
 
-    console.log('[Action:addCommentToLocation] Attempting to add suggested comment to Firestore:', JSON.stringify(newSuggestedComment, null, 2));
-    const newCommentRef = await adminDb.collection('suggestedComments').add(newSuggestedComment);
-    console.log(`[Action:addCommentToLocation] Suggested comment added successfully with ID: ${newCommentRef.id}`);
+    const suggestedCommentsColRef = adminFS.collection(adminDb, 'suggestedComments');
+    const newCommentRef = await adminFS.addDoc(suggestedCommentsColRef, newSuggestedComment);
 
-    // Important: Revalidate the specific location page after a new comment is submitted for review
-    // This won't make the comment appear (as it's pending), but ensures other data is fresh if needed.
-    // Actual display of approved comment is handled by revalidation after admin approval of the comment.
     revalidatePath(`/location/${locationId}`);
-
 
     return {
       message: "Thank you! Your comment has been submitted and is now pending review.",
