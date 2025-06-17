@@ -5,9 +5,9 @@ import { z } from 'zod';
 import type { NewLocationSuggestion, Location, LocationComment, SuggestedComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
 // getTownByName is no longer directly used in approveSuggestion, logic moved into transaction
-import { getLocationById } from './data'; 
+import { getLocationById } from './data';
 import { revalidatePath } from 'next/cache';
-import { FieldValue, query as adminQuery, where as adminWhere } from 'firebase-admin/firestore'; // Import query and where for admin SDK
+import { FieldValue, query, where } from 'firebase-admin/firestore'; // Import query and where for admin SDK (modified)
 import { randomUUID } from 'crypto';
 
 
@@ -43,7 +43,7 @@ export interface SuggestionFormState {
 
 const DEFAULT_MAX_GLOBAL_BYTES = 1 * 1024 * 1024 * 1024; // 1GB
 const DEFAULT_MAX_DAILY_BYTES = 50 * 1024 * 1024; // 50MB
-const APPROX_NON_IMAGE_DATA_SIZE = 1.5 * 1024; 
+const APPROX_NON_IMAGE_DATA_SIZE = 1.5 * 1024;
 
 async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
@@ -56,7 +56,7 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
       const globalQuotaDoc = await transaction.get(globalQuotaRef);
       const dailyQuotaDoc = await transaction.get(dailyQuotaRef);
 
-      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) { 
+      if (!globalQuotaDoc.exists || !dailyQuotaDoc.exists) {
         throw new Error("Quota configuration documents not found in Firestore. Please set them up in 'quotaManagement' collection.");
       }
 
@@ -170,9 +170,9 @@ export async function submitSuggestion(
   }
 
   const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
-  
+
   const dataForFirestore: Record<string, any> = { ...dataFromValidation };
-  delete dataForFirestore.uploadedImageSize; 
+  delete dataForFirestore.uploadedImageSize;
 
   if (dataForFirestore.imageUrl === undefined) {
     dataForFirestore.imageUrl = null;
@@ -188,7 +188,7 @@ export async function submitSuggestion(
         };
       }
     }
-    
+
     const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
     const quotaCheckResult = await checkAndIncrementQuotas(dataSizeForQuota);
 
@@ -205,7 +205,7 @@ export async function submitSuggestion(
       townName: dataForFirestore.townName as string,
       category: dataForFirestore.category as string,
       suggesterName: dataForFirestore.suggesterName as string,
-      imageUrl: dataForFirestore.imageUrl as string | null, 
+      imageUrl: dataForFirestore.imageUrl as string | null,
       status: 'pending' as const,
       submittedAtFirestore: FieldValue.serverTimestamp(),
       coordinates: {
@@ -226,9 +226,9 @@ export async function submitSuggestion(
       type: 'success',
       submittedSuggestionData: {
         id: newDocRef.id,
-        ...suggestionForDb, 
+        ...suggestionForDb,
         submittedAt: new Date().toISOString(), // client-side representation
-      } as unknown as NewLocationSuggestion, 
+      } as unknown as NewLocationSuggestion,
     };
 
   } catch (error: any) {
@@ -265,7 +265,7 @@ export async function approveSuggestion(
 
   try {
     const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
-    
+
     // Run as a transaction
     const result = await adminDb.runTransaction(async (transaction) => {
       const suggestionSnap = await transaction.get(suggestionRef);
@@ -285,8 +285,8 @@ export async function approveSuggestion(
       let townIdToUse: string;
       let townCreationMessage = "";
       const townsCol = adminDb.collection('towns');
-      // Use adminQuery and adminWhere from firebase-admin/firestore
-      const townQueryInstance = adminQuery(townsCol, adminWhere('name', '==', suggestionData.townName));
+      // Use query and where directly from firebase-admin/firestore (modified)
+      const townQueryInstance = query(townsCol, where('name', '==', suggestionData.townName));
       const townSnapshot = await transaction.get(townQueryInstance);
 
       if (townSnapshot.empty) {
@@ -327,7 +327,7 @@ export async function approveSuggestion(
         approvedAtFirestore: FieldValue.serverTimestamp(),
         publishedLocationId: newLocationRef.id,
       });
-      
+
       // Return data needed for revalidation and success message from the transaction callback
       return {
         success: true as const,
@@ -342,7 +342,7 @@ export async function approveSuggestion(
     if (result && 'type' in result && result.type === 'info') {
         return result;
     }
-    
+
     // If transaction was successful (result.success is true)
     if (result && result.success) {
         revalidatePath('/admin/suggestions');
@@ -418,7 +418,7 @@ export async function deleteSuggestion(
       const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
       const bucket = bucketName ? adminStorage.bucket(bucketName) : adminStorage.bucket();
       const file = bucket.file(filePath);
-      
+
       try {
         console.log(`[Admin Action] Attempting to delete image '${filePath}' from bucket '${bucket.name}'.`);
         await file.delete();
@@ -441,7 +441,7 @@ export async function deleteSuggestion(
       imageDeletedSuccessfully = false;
     }
   } else {
-    imageDeletedSuccessfully = true; 
+    imageDeletedSuccessfully = true;
   }
 
   try {
@@ -495,13 +495,13 @@ export interface AddCommentFormState {
   commentId?: string; // ID of the newly added suggested comment
 }
 
-const ANONYMOUS_USER_DAILY_COMMENT_LIMIT = 20; 
+const ANONYMOUS_USER_DAILY_COMMENT_LIMIT = 20;
 
 export async function addCommentToLocation(
   prevState: AddCommentFormState | undefined,
   formData: FormData
 ): Promise<AddCommentFormState> {
-  
+
   console.log('[Action:addCommentToLocation] Received FormData keys:', Array.from(formData.keys()));
 
   const rawData = {
@@ -534,8 +534,8 @@ export async function addCommentToLocation(
       const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(
         suggesterUid, // If suggesterUid is null, this might cause issues or needs to be handled by checkAndIncrement...
         ANONYMOUS_USER_DAILY_COMMENT_LIMIT,
-        'userDailyCommentLimits', 
-        'lastCommentDate' 
+        'userDailyCommentLimits',
+        'lastCommentDate'
       );
       if (!dailyLimitCheck.allowed) {
          console.warn(`[Action:addCommentToLocation] Daily comment limit reached for UID: ${suggesterUid}`);
@@ -551,7 +551,7 @@ export async function addCommentToLocation(
       console.error(`[Action:addCommentToLocation] Location not found for ID: ${locationId}`);
       return { message: "Location not found.", type: 'error' };
     }
-    const locationName = locationDoc.name; 
+    const locationName = locationDoc.name;
 
     const newSuggestedComment: Omit<SuggestedComment, 'id' | 'submittedAt'> = {
       locationId,
@@ -566,7 +566,7 @@ export async function addCommentToLocation(
     console.log('[Action:addCommentToLocation] Attempting to add suggested comment to Firestore:', JSON.stringify(newSuggestedComment, null, 2));
     const newCommentRef = await adminDb.collection('suggestedComments').add(newSuggestedComment);
     console.log(`[Action:addCommentToLocation] Suggested comment added successfully with ID: ${newCommentRef.id}`);
-    
+
     // Important: Revalidate the specific location page after a new comment is submitted for review
     // This won't make the comment appear (as it's pending), but ensures other data is fresh if needed.
     // Actual display of approved comment is handled by revalidation after admin approval of the comment.
