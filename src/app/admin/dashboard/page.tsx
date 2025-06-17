@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { ListChecks, MessageSquareWarning, LogOut, Home } from 'lucide-react';
+import { ListChecks, MessageSquareWarning, LogOut, Home as HomeIcon } from 'lucide-react'; // Renamed Home to HomeIcon
 import { useEffect } from 'react';
 
 export default function AdminDashboardPage() {
@@ -41,7 +41,7 @@ export default function AdminDashboardPage() {
       <Card className="shadow-lg">
         <CardHeader className="text-center">
           <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
-            <Home className="h-8 w-8" />
+            <HomeIcon className="h-8 w-8" />
           </div>
           <CardTitle className="font-headline text-3xl text-primary">Admin Dashboard</CardTitle>
           <CardDescription>Select a task to manage Local Glow content.</CardDescription>
@@ -54,10 +54,10 @@ export default function AdminDashboardPage() {
             </Link>
           </Button>
           
-          <Button asChild variant="outline" className="w-full justify-start text-lg py-6 border-primary/50 hover:bg-primary/10 hover:border-primary" disabled>
+          <Button asChild variant="outline" className="w-full justify-start text-lg py-6 border-primary/50 hover:bg-primary/10 hover:border-primary">
             <Link href="/admin/comments">
               <MessageSquareWarning className="mr-3 h-5 w-5 text-primary" />
-              Manage Pending Comments (Coming Soon)
+              Manage Pending Comments
             </Link>
           </Button>
         </CardContent>

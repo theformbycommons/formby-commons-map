@@ -1,14 +1,15 @@
 
 'use server';
 
-import type { NewLocationSuggestion } from './types';
-import { db } from './firebase';
+import type { NewLocationSuggestion, SuggestedComment } from './types';
+import { db } from './firebase'; // Using client-side db for these admin read operations for now
 import {
   collection,
   getDocs,
   orderBy,
   query,
-  Timestamp
+  Timestamp,
+  where
 } from 'firebase/firestore';
 
 // Helper to convert Firestore timestamp to ISO string or return existing string/undefined
@@ -52,7 +53,7 @@ export async function getSuggestedLocations(): Promise<NewLocationSuggestion[]> 
         townName: data.townName,
         category: data.category,
         suggesterName: data.suggesterName,
-        suggesterComment: data.suggesterComment, 
+        // suggesterComment: data.suggesterComment, // suggesterComment not part of NewLocationSuggestion type
         status: data.status,
         submittedAt: submittedAtString || new Date(0).toISOString(), // Fallback if submittedAtString is undefined
         ...(approvedAtString && { approvedAt: approvedAtString }), 
@@ -65,6 +66,46 @@ export async function getSuggestedLocations(): Promise<NewLocationSuggestion[]> 
     });
   } catch (error) {
     console.error("Error fetching suggested locations:", error);
+    return [];
+  }
+}
+
+
+export async function getPendingComments(): Promise<SuggestedComment[]> {
+  try {
+    const commentsCol = collection(db, 'suggestedComments');
+    const q = query(
+      commentsCol,
+      where('status', '==', 'pending'),
+      orderBy('submittedAtFirestore', 'desc')
+    );
+    const commentsSnapshot = await getDocs(q);
+
+    return commentsSnapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      const submittedAtString = formatDateField(data.submittedAtFirestore) || formatDateField(data.submittedAt);
+      
+      const comment: SuggestedComment = {
+        id: docSnap.id,
+        locationId: data.locationId,
+        locationName: data.locationName,
+        userName: data.userName,
+        commentText: data.commentText,
+        suggesterUid: data.suggesterUid,
+        status: data.status,
+        submittedAt: submittedAtString || new Date(0).toISOString(), // Fallback
+      };
+      // Optional fields if they exist and are valid dates
+      const approvedAtString = formatDateField(data.approvedAtFirestore) || formatDateField(data.approvedAt);
+      if (approvedAtString) comment.approvedAt = approvedAtString;
+      
+      const rejectedAtString = formatDateField(data.rejectedAtFirestore) || formatDateField(data.rejectedAt);
+      if (rejectedAtString) comment.rejectedAt = rejectedAtString;
+
+      return comment;
+    });
+  } catch (error) {
+    console.error("Error fetching pending comments:", error);
     return [];
   }
 }

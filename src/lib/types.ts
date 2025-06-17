@@ -45,6 +45,7 @@ export interface NewLocationSuggestion {
   townName: string;
   category: string;
   suggesterName: string;
+  // suggesterComment?: string; // This field is not in the type, but was referenced in admin-data.ts. Keeping it out for now.
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string; // ISO date string
   submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
@@ -57,7 +58,7 @@ export interface NewLocationSuggestion {
 
 // For new comments awaiting moderation
 export interface SuggestedComment {
-  id?: string; // Firestore document ID, added when fetching
+  id?: string; // Firestore document ID, added when fetching. Made optional.
   locationId: string;
   locationName: string; // Denormalized for easier display in admin UI
   userName: string;
