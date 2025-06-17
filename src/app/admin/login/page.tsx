@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState } from 'react'; // Removed startTransition
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
-import { auth } from '@/lib/firebase'; // Client-side Firebase auth
+import { auth } from '@/lib/firebase'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,18 +25,11 @@ export default function AdminLoginPage() {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
-    // console.log('Admin login: handleLogin initiated.'); // Client-side log
 
     try {
-      // console.log('Admin login: Attempting signInWithEmailAndPassword...'); // Client-side log
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // console.log('Admin login: signInWithEmailAndPassword successful.', userCredential.user); // Client-side log
-
-      // console.log('Admin login: Attempting getIdToken...'); // Client-side log
       const idToken = await getIdToken(userCredential.user);
-      // console.log('Admin login: getIdToken successful. Token length:', idToken.length); // Client-side log (don't log the full token)
 
-      // console.log('Admin login: Attempting fetch to /api/auth/session-login...'); // Client-side log
       const response = await fetch('/api/auth/session-login', {
         method: 'POST',
         headers: {
@@ -44,11 +37,9 @@ export default function AdminLoginPage() {
         },
         body: JSON.stringify({ idToken }),
       });
-      // console.log('Admin login: Fetch response status:', response.status); // Client-side log
 
       if (!response.ok) {
         const data = await response.json();
-        // console.error('Admin login: Session login API error response data:', data); // Client-side log
         throw new Error(data.error || 'Failed to set session cookie.');
       }
       
@@ -56,16 +47,10 @@ export default function AdminLoginPage() {
         title: 'Login Successful',
         description: 'Redirecting to admin dashboard...',
       });
-      // console.log('Admin login: Session cookie set, redirecting to /admin/suggestions using window.location.href.'); // Client-side log
-      
-      // Simpler redirect:
-      window.location.href = '/admin/suggestions';
-      // Alternatively, if you want to use Next.js router for potential benefits (though window.location.href is fine for hard redirect after login):
-      // router.push('/admin/suggestions');
-
+      // Redirect to the new admin dashboard
+      window.location.href = '/admin/dashboard';
 
     } catch (err: any) {
-      // console.error('Admin login: Error during login process:', err); // Client-side log
       setError(err.message || 'An unknown error occurred during login.');
       toast({
         title: 'Login Failed',
@@ -74,7 +59,6 @@ export default function AdminLoginPage() {
       });
     } finally {
       setIsLoading(false);
-      // console.log('Admin login: handleLogin finished.'); // Client-side log
     }
   };
 

@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2, LogOut, Trash2 } from 'lucide-react';
+// Removed: import { useRouter } from 'next/navigation'; // No longer needed here
+import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2, Home, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import type { NewLocationSuggestion } from '@/lib/types';
@@ -18,7 +18,7 @@ import {
 } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useActionState, startTransition } from 'react';
-import { auth } from '@/lib/firebase';
+// Removed: import { auth } from '@/lib/firebase'; // Logout handled by dashboard now
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,7 +69,7 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
   }, [state, toast, suggestionId]);
 
 
-  if (currentStatus !== 'pending') {
+  if (currentStatus === 'rejected') { // No approve button for rejected items
     return null; 
   }
 
@@ -85,7 +85,7 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
             aria-disabled={isPending}
         >
         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-        Approve & Publish
+        {currentStatus === 'pending' ? 'Approve & Publish' : 'Complete Publishing'}
         </Button>
     </form>
   );
@@ -154,9 +154,8 @@ export default function AdminSuggestionsPage() {
   const [suggestions, setSuggestions] = useState<NewLocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const router = useRouter();
+  // Removed: const router = useRouter(); // No longer used here
 
-  // state is now only used for approve/delete which re-fetches data
   const [actionState] = useActionState(() => Promise.resolve({ message: '', type: 'info' }), { message: '', type: 'info' });
 
 
@@ -177,26 +176,8 @@ export default function AdminSuggestionsPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [toast, actionState]); // Re-fetch when actionState changes (e.g., after delete/approve)
+  }, [toast, actionState]); 
 
-
-  const handleLogout = async () => {
-    try {
-      if (auth) { 
-        await auth.signOut(); 
-      }
-      
-      const response = await fetch('/api/auth/session-logout', { method: 'POST' });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Logout failed');
-      }
-      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      router.push('/admin/login');
-    } catch (err: any) {
-      toast({ title: 'Logout Error', description: err.message, variant: 'destructive' });
-    }
-  };
 
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const firestoreConsoleBaseUrl = projectId
@@ -219,9 +200,7 @@ export default function AdminSuggestionsPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="font-headline text-3xl text-primary">Manage Location Suggestions</CardTitle>
-            <Button onClick={handleLogout} variant="outline" size="sm">
-              <LogOut className="mr-2 h-4 w-4" /> Logout
-            </Button>
+            {/* Logout button removed, now on dashboard */}
           </div>
           <CardDescription>
             Review new submissions. Use 'Approve & Publish' to make them live. 
@@ -268,8 +247,6 @@ export default function AdminSuggestionsPage() {
                         
                         <p className="text-sm text-foreground/80 line-clamp-3">{suggestion.description}</p>
                         
-                        {/* suggesterComment display removed */}
-
                         <div className="text-xs text-muted-foreground space-y-1 pt-2">
                           <p><strong>Suggester:</strong> {suggestion.suggesterName}</p>
                           <p>
@@ -281,7 +258,7 @@ export default function AdminSuggestionsPage() {
                         </div>
                         
                         <div className="pt-2 flex flex-wrap gap-2 items-center">
-                          {suggestion.status === 'pending' && suggestion.id && (
+                          {suggestion.status !== 'rejected' && suggestion.id && (
                             <ApproveButton suggestionId={suggestion.id} currentStatus={suggestion.status} />
                           )}
                           {firestoreConsoleBaseUrl && suggestion.id ? (
@@ -313,8 +290,8 @@ export default function AdminSuggestionsPage() {
         </CardContent>
         <CardFooter className="text-center">
             <Button asChild variant="outline" className="mx-auto">
-              <Link href="/">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+              <Link href="/admin/dashboard">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Admin Dashboard
               </Link>
             </Button>
         </CardFooter>
@@ -323,5 +300,4 @@ export default function AdminSuggestionsPage() {
   );
 }
 
-// Ensure Image layout prop is correctly used
 const ImageLayoutFix = () => <Image src="https://placehold.co/100x100.png" alt="fix" layout="fill" objectFit="cover" />;
