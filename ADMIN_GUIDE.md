@@ -82,10 +82,10 @@ Navigate to `/admin/suggestions` after logging in.
 *   The page lists all suggestions, showing details like name, description, town, category, submitted image (if any), suggester name, and current status.
 *   Status badges indicate:
     *   **Pending:** New suggestion awaiting review.
-    *   **Approved:** Suggestion has been reviewed and its status updated. **Further manual steps are required by the admin to fully publish this location.** (This is a temporary state due to ongoing troubleshooting of the automated publishing process).
+    *   **Approved (Diagnostic Mode):** Suggestion's status has been updated in Firestore. **All other publishing steps (town creation, location creation) are currently BYPASSED and MUST be done manually by the admin.** (This is a temporary state due to ongoing troubleshooting of the automated publishing process).
     *   **Rejected:** Suggestion has been reviewed and not published.
 
-### 3.2. Approving Suggestions (Temporarily Simplified Workflow - DIAGNOSTIC STEP)
+### 3.2. Approving Suggestions (Currently Highly Simplified Workflow - DIAGNOSTIC STEP)
 1.  For a "Pending" suggestion, click **"Approve & Publish"**.
 2.  **Action (TEMPORARILY SIMPLIFIED FOR DIAGNOSIS):**
     *   The suggestion's `status` in the `suggestedLocations` collection in Firestore is updated to `approved`.
@@ -95,8 +95,8 @@ Navigate to `/admin/suggestions` after logging in.
     *   **B. Create Location:** You **MUST manually create a new document in the `locations` collection** in Firestore for this approved suggestion.
         *   Copy relevant details like `name`, `description`, `imageUrl` (if any), `category`, `coordinates`, and `submittedBy` (from the `suggesterName` field of the suggestion) into the new location document.
         *   Ensure the `townId` (document ID of the town from step A or existing town) and `townName` are correctly set in the new location document.
-        *   Add a `createdAtFirestore: FieldValue.serverTimestamp()` field (or a manual timestamp if `FieldValue` is also problematic) and an empty `comments: []` array to the new location document.
-    *   **C. Link Suggestion to Published Location:** After creating the location document (Step B), copy its auto-generated ID. Go back to the original document in the `suggestedLocations` collection (the one whose status you just updated to 'approved') and manually add/update a field named `publishedLocationId` with this new location ID. You might also want to manually add an `approvedAtFirestore: FieldValue.serverTimestamp()` field (or a manual timestamp).
+        *   Add a `createdAtFirestore` field (e.g., manually set current date as a Timestamp in Firestore console or use `FieldValue.serverTimestamp()` if that becomes reliable later) and an empty `comments: []` array to the new location document.
+    *   **C. Link Suggestion to Published Location:** After creating the location document (Step B), copy its auto-generated ID. Go back to the original document in the `suggestedLocations` collection (the one whose status you just updated to 'approved') and manually add/update a field named `publishedLocationId` with this new location ID. You might also want to manually add an `approvedAtFirestore` field.
 
     **Note:** This highly manual process is a temporary measure while we diagnose issues with the automated publishing features. The goal is to restore full automation.
 
@@ -111,7 +111,7 @@ Navigate to `/admin/suggestions` after logging in.
 1.  Click **"Manage in Firebase Console"**. This opens the specific suggestion document directly in your Firestore database.
 2.  **To Reject a Suggestion:**
     *   In the Firestore document, manually change the `status` field from `pending` to `rejected`.
-    *   You might also want to add a `rejectedAtFirestore: FieldValue.serverTimestamp()` field or similar for tracking.
+    *   You might also want to add a `rejectedAtFirestore` field for tracking.
 3.  **To Edit a Suggestion before Approval:**
     *   Directly modify any fields (e.g., `name`, `description`, `category`) in the Firestore document. Save the changes. Then you can use the (simplified) "Approve & Publish" button and follow the manual steps in 3.2.
 
@@ -129,7 +129,7 @@ New comments submitted by users are added to the `suggestedComments` collection 
 ### 4.2. Approving Comments
 1.  In the Firestore document for the specific `suggestedComments` entry:
 2.  Change the `status` field from `pending` to `approved`.
-3.  Optionally, set an `approvedAtFirestore: FieldValue.serverTimestamp()` field.
+3.  Optionally, set an `approvedAtFirestore` field (e.g., manually set current Timestamp).
 4.  **Outcome:** Approved comments will automatically be fetched and displayed on the relevant location's page. The `getLocationById` and `getLocationsByTownId` functions in `src/lib/data.ts` merge these approved comments with any pre-existing comments in the `locations` document.
 
 ### 4.3. Rejecting Comments
@@ -153,7 +153,7 @@ Direct Firestore manipulation is powerful but should be done carefully.
 2.  Navigate to **Build -> Firestore Database**.
 
 ### 5.2. Managing Towns (`towns` collection)
-*   **Adding a New Town (Required before approving suggestions for new towns under the simplified workflow):**
+*   **Adding a New Town (Required before approving suggestions for new towns):**
     1.  If the `towns` collection doesn't exist, click "Start collection". Otherwise, select `towns` and click "Add document".
     2.  Collection ID: `towns`.
     3.  Document ID: Can be auto-generated by Firestore, or you can provide a custom ID (e.g., lowercase, hyphenated town name like `formby-merseyside`).

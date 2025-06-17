@@ -3,19 +3,11 @@
 
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, SuggestedComment } from './types';
-import { adminDb, adminStorage } from './firebase-admin';
-// Import specific functions directly from firebase-admin/firestore
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  deleteDoc, 
-  updateDoc,
-  getDoc,
-  getDocs, 
-  runTransaction,
-  FieldValue // Keep FieldValue import for other actions that might use it
-} from 'firebase-admin/firestore';
+import { adminDb, adminStorage } from './firebase-admin'; // adminDb should provide compat API
+// Explicitly import FieldValue for actions that might still use it, but keep it away from approveSuggestion for now.
+import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
+import { collection, doc, addDoc, deleteDoc, updateDoc, getDoc, getDocs, runTransaction, query, where } from 'firebase-admin/firestore';
+
 
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
@@ -86,17 +78,14 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
         throw new Error('Daily upload limit reached. We are sorry, but at the moment, the site can\'t accept any new location submissions. Please try again tomorrow.');
       }
 
-      transaction.update(globalQuotaRef, { totalBytesUsed: FieldValue.increment(dataSizeBytes) });
-      transaction.update(dailyQuotaRef, { bytesUploadedToday: FieldValue.increment(dataSizeBytes) });
+      transaction.update(globalQuotaRef, { totalBytesUsed: AdminFieldValue.increment(dataSizeBytes) });
+      transaction.update(dailyQuotaRef, { bytesUploadedToday: AdminFieldValue.increment(dataSizeBytes) });
     });
 
     return { allowed: true };
 
   } catch (error: any) {
     console.error("Error in checkAndIncrementQuotas:", error);
-    // If FieldValue itself is an issue, this could also fail.
-    // For now, we assume FieldValue.increment works if checkAndIncrementQuotas is called,
-    // as the primary reported error is with FieldValue.serverTimestamp() or similar during approveSuggestion.
     return { allowed: false, message: error.message || "Failed to verify storage quotas." };
   }
 }
@@ -132,7 +121,7 @@ async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: numb
         throw new Error(`You have reached the daily limit of ${limit} submissions for this action. Please try again tomorrow.`);
       }
 
-      transaction.update(userLimitRef, { [countFieldName]: FieldValue.increment(1) });
+      transaction.update(userLimitRef, { [countFieldName]: AdminFieldValue.increment(1) });
     });
     return { allowed: true };
   } catch (error: any)
@@ -221,7 +210,7 @@ export async function submitSuggestion(
       suggesterName: dataForFirestore.suggesterName as string,
       imageUrl: dataForFirestore.imageUrl as string | null,
       status: 'pending' as const,
-      submittedAtFirestore: FieldValue.serverTimestamp(), // This use of FieldValue might also be problematic if the core issue is with FieldValue
+      submittedAtFirestore: AdminFieldValue.serverTimestamp(),
       coordinates: {
         lat: latitude,
         lng: longitude,
@@ -277,30 +266,33 @@ export async function approveSuggestion(
   }
 
   try {
-    const suggestionRef = doc(adminDb, 'suggestedLocations', suggestionId);
+    // Use compat API style directly on adminDb instance
+    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
     
     // VERY MINIMAL UPDATE FOR DIAGNOSIS:
-    // Only update the status.
-    // Temporarily removing FieldValue.serverTimestamp() for approvedAtFirestore.
-    await updateDoc(suggestionRef, {
+    // Only update the status. NO AdminFieldValue.serverTimestamp()
+    await suggestionRef.update({
       status: 'approved',
-      // approvedAtFirestore: FieldValue.serverTimestamp(), // Problematic line, temporarily removed
+      // approvedAtFirestore: AdminFieldValue.serverTimestamp(), // Still keeping this out
     });
 
     revalidatePath('/admin/suggestions');
 
     return {
-      message: `DIAGNOSTIC: Suggestion "${suggestionId}" status updated to 'approved'. Full publishing logic is BYPASSED. Please verify in Firestore. If this worked, FieldValue or transactions are the issue.`,
-      type: 'info', // Changed to info as it's a partial/diagnostic operation
+      message: `DIAGNOSTIC (Compat API): Suggestion "${suggestionId}" status *should be* updated to 'approved'. Full publishing logic is BYPASSED. Please verify in Firestore.`,
+      type: 'info', 
       suggestionId
     };
 
   } catch (error: any) {
-    console.error("Error in (VERY simplified) approveSuggestion action:", error);
-    let errorMessage = "Failed to update suggestion status (minimal attempt). Please check server logs.";
+    console.error("Error in (DIAGNOSTIC - Compat API) approveSuggestion action:", error);
+    let errorMessage = "DIAGNOSTIC (Compat API): Failed to update suggestion status. Please check server logs.";
      if (error instanceof Error && error.message) {
-      errorMessage = `Error: ${error.message}`;
+      errorMessage = `DIAGNOSTIC (Compat API) Error: ${error.message}`;
+    } else {
+      errorMessage = `DIAGNOSTIC (Compat API) Error: An unknown error occurred. Raw error: ${String(error)}`;
     }
+    console.error("Full error object:", JSON.stringify(error, null, 2));
     return {
       message: errorMessage,
       type: 'error',
@@ -308,6 +300,7 @@ export async function approveSuggestion(
     };
   }
 }
+
 
 export interface DeleteSuggestionFormState {
   message: string;
@@ -483,7 +476,7 @@ export async function addCommentToLocation(
       userName,
       commentText,
       status: 'pending',
-      submittedAtFirestore: FieldValue.serverTimestamp(), // This might also be an issue if FieldValue is globally problematic
+      submittedAtFirestore: AdminFieldValue.serverTimestamp(),
       ...(suggesterUid && { suggesterUid }),
     };
 
