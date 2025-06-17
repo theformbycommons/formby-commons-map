@@ -2,20 +2,18 @@
 'use server';
 
 import { z } from 'zod';
-import type { NewLocationSuggestion, Location, LocationComment, SuggestedComment } from './types';
+import type { NewLocationSuggestion, Location, SuggestedComment } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
-import { getLocationById } from './data';
+import { getLocationById } from './data'; // Assuming this uses client SDK and is fine for revalidation checks if needed elsewhere
 import { revalidatePath } from 'next/cache';
 import { 
   collection, 
   doc, 
-  query, 
-  where, 
   addDoc, 
   deleteDoc, 
   updateDoc,
   getDoc,
-  getDocs, // Import getDocs
+  getDocs, 
   runTransaction,
   FieldValue 
 } from 'firebase-admin/firestore';
@@ -237,7 +235,7 @@ export async function submitSuggestion(
       submittedSuggestionData: {
         id: newDocRef.id,
         ...suggestionForDb,
-        submittedAt: new Date().toISOString(), // client-side representation
+        submittedAt: new Date().toISOString(), 
       } as unknown as NewLocationSuggestion,
     };
 
@@ -275,7 +273,7 @@ export async function approveSuggestion(
 
   try {
     const suggestionRef = doc(adminDb, 'suggestedLocations', suggestionId);
-    const suggestionSnapForData = await getDoc(suggestionRef); // Get suggestion data outside transaction for town check
+    const suggestionSnapForData = await getDoc(suggestionRef);
 
     if (!suggestionSnapForData.exists()) {
       return { message: "Suggestion not found. It might have been deleted or already processed.", type: 'error', suggestionId };
@@ -286,32 +284,36 @@ export async function approveSuggestion(
       return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info', suggestionId };
     }
 
-    // Perform town lookup *before* the transaction
+    // Fetch ALL towns and filter in JavaScript
     const townsColRef = collection(adminDb, 'towns');
-    const townQueryInstance = query(townsColRef, where('name', '==', suggestionData.townName));
-    const townSnapshot = await getDocs(townQueryInstance);
+    const allTownsSnapshot = await getDocs(townsColRef);
 
-    if (townSnapshot.empty) {
-      // Town does not exist, instruct admin to create it manually.
+    let foundTownDoc: import('firebase-admin/firestore').QueryDocumentSnapshot | undefined = undefined;
+    for (const townLoopDoc of allTownsSnapshot.docs) { // Renamed 'doc' to 'townLoopDoc' to avoid conflict with 'doc' function
+        if (townLoopDoc.data().name === suggestionData.townName) {
+            foundTownDoc = townLoopDoc;
+            break;
+        }
+    }
+
+    if (!foundTownDoc) {
       return { 
-        message: `Town "${suggestionData.townName}" not found. Please create it manually in Firestore (towns collection) before approving this suggestion.`, 
+        message: `Town "${suggestionData.townName}" not found in the database. Please create it manually in Firestore (towns collection) before approving this suggestion. Ensure the town name matches exactly.`, 
         type: 'error', 
         suggestionId 
       };
     }
-    const townIdToUse = townSnapshot.docs[0].id;
+    const townIdToUse = foundTownDoc.id;
+    const townNameForRevalFromDb = foundTownDoc.data().name;
     
-    // Now proceed with the transaction
     const result = await runTransaction(adminDb, async (transaction) => {
-      const currentSuggestionSnap = await transaction.get(suggestionRef); // Re-get suggestion inside transaction for atomicity
+      const currentSuggestionSnap = await transaction.get(suggestionRef); 
 
       if (!currentSuggestionSnap.exists()) {
-        // Should ideally not happen if initial check passed, but good practice
         throw new Error("Suggestion disappeared during transaction. Please try again."); 
       }
       const currentSuggestionData = currentSuggestionSnap.data() as NewLocationSuggestion;
       if (currentSuggestionData.status !== 'pending') {
-         // Already processed by another request?
         return { 
             processedExternally: true as const, 
             currentStatus: currentSuggestionData.status 
@@ -322,7 +324,7 @@ export async function approveSuggestion(
       const newLocationRef = doc(newLocationCollectionRef); 
 
       const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: FieldValue } = {
-        townId: townIdToUse, // Use pre-fetched townId
+        townId: townIdToUse, 
         townName: suggestionData.townName,
         name: suggestionData.name,
         description: suggestionData.description,
@@ -345,7 +347,7 @@ export async function approveSuggestion(
         success: true as const,
         locationName: suggestionData.name,
         newLocationId: newLocationRef.id,
-        townNameForReval: suggestionData.townName,
+        townNameForReval: townNameForRevalFromDb,
       };
     });
 
@@ -372,7 +374,7 @@ export async function approveSuggestion(
     console.error("Error approving suggestion:", error);
     let errorMessage = error.message || "Failed to approve suggestion due to an unexpected error. Please check server logs.";
      if (error.message.startsWith("Town \"") && error.message.endsWith("not found. Please create it manually in Firestore (towns collection) before approving this suggestion.")) {
-      errorMessage = error.message; // Keep specific error message
+      errorMessage = error.message; 
     }
     return {
       message: errorMessage,
@@ -544,11 +546,11 @@ export async function addCommentToLocation(
       }
     }
 
-    const locationDataDoc = await getLocationById(locationId); 
-    if (!locationDataDoc) {
+    const locationDataDocSnap = await getDoc(doc(adminDb, 'locations', locationId)); 
+    if (!locationDataDocSnap.exists()) {
       return { message: "Location not found.", type: 'error' };
     }
-    const locationName = locationDataDoc.name;
+    const locationName = locationDataDocSnap.data()?.name || "Unknown Location";
 
     const newSuggestedComment: Omit<SuggestedComment, 'id' | 'submittedAt'> = {
       locationId,
@@ -580,3 +582,4 @@ export async function addCommentToLocation(
   }
 }
 
+    
