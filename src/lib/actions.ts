@@ -15,6 +15,7 @@ import {
   deleteDoc, 
   updateDoc,
   getDoc,
+  getDocs, // Import getDocs
   runTransaction,
   FieldValue 
 } from 'firebase-admin/firestore';
@@ -269,44 +270,59 @@ export async function approveSuggestion(
   const suggestionId = formData.get('suggestionId') as string;
 
   if (!suggestionId) {
-    return { message: "Suggestion ID is missing.", type: 'error' };
+    return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
   try {
     const suggestionRef = doc(adminDb, 'suggestedLocations', suggestionId);
+    const suggestionSnapForData = await getDoc(suggestionRef); // Get suggestion data outside transaction for town check
 
+    if (!suggestionSnapForData.exists()) {
+      return { message: "Suggestion not found. It might have been deleted or already processed.", type: 'error', suggestionId };
+    }
+    const suggestionData = suggestionSnapForData.data() as NewLocationSuggestion;
+
+    if (suggestionData.status !== 'pending') {
+      return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info', suggestionId };
+    }
+
+    // Perform town lookup *before* the transaction
+    const townsColRef = collection(adminDb, 'towns');
+    const townQueryInstance = query(townsColRef, where('name', '==', suggestionData.townName));
+    const townSnapshot = await getDocs(townQueryInstance);
+
+    if (townSnapshot.empty) {
+      // Town does not exist, instruct admin to create it manually.
+      return { 
+        message: `Town "${suggestionData.townName}" not found. Please create it manually in Firestore (towns collection) before approving this suggestion.`, 
+        type: 'error', 
+        suggestionId 
+      };
+    }
+    const townIdToUse = townSnapshot.docs[0].id;
+    
+    // Now proceed with the transaction
     const result = await runTransaction(adminDb, async (transaction) => {
-      const suggestionSnap = await transaction.get(suggestionRef);
+      const currentSuggestionSnap = await transaction.get(suggestionRef); // Re-get suggestion inside transaction for atomicity
 
-      if (!suggestionSnap.exists()) {
-        throw new Error("Suggestion not found.");
+      if (!currentSuggestionSnap.exists()) {
+        // Should ideally not happen if initial check passed, but good practice
+        throw new Error("Suggestion disappeared during transaction. Please try again."); 
+      }
+      const currentSuggestionData = currentSuggestionSnap.data() as NewLocationSuggestion;
+      if (currentSuggestionData.status !== 'pending') {
+         // Already processed by another request?
+        return { 
+            processedExternally: true as const, 
+            currentStatus: currentSuggestionData.status 
+        };
       }
 
-      const suggestionData = suggestionSnap.data() as NewLocationSuggestion;
-
-      if (suggestionData.status !== 'pending') {
-        return { message: `Suggestion is already ${suggestionData.status}.`, type: 'info' as const, suggestionId };
-      }
-
-      // Check if town exists
-      const townsColRef = collection(adminDb, 'towns');
-      const townQueryInstance = query(townsColRef, where('name', '==', suggestionData.townName));
-      const townSnapshot = await transaction.get(townQueryInstance); // Use transaction.get
-
-      if (townSnapshot.empty) {
-        // Town does not exist, instruct admin to create it manually.
-        // This is the key change: no automatic town creation here.
-        throw new Error(`Town "${suggestionData.townName}" not found. Please create it manually in Firestore (towns collection) before approving this suggestion.`);
-      }
-      
-      const townIdToUse = townSnapshot.docs[0].id;
-
-      // Proceed with creating the location as the town exists.
       const newLocationCollectionRef = collection(adminDb, 'locations');
-      const newLocationRef = doc(newLocationCollectionRef); // Auto-generate ID
+      const newLocationRef = doc(newLocationCollectionRef); 
 
       const newLocationData: Omit<Location, 'id' | 'createdAt'> & { createdAtFirestore: FieldValue } = {
-        townId: townIdToUse,
+        townId: townIdToUse, // Use pre-fetched townId
         townName: suggestionData.townName,
         name: suggestionData.name,
         description: suggestionData.description,
@@ -333,10 +349,10 @@ export async function approveSuggestion(
       };
     });
 
-    if (result && 'type' in result && result.type === 'info') {
-        return result; // If suggestion was already processed
+    if (result && 'processedExternally' in result && result.processedExternally) {
+        return { message: `Suggestion was already ${result.currentStatus} by another process.`, type: 'info', suggestionId };
     }
-
+    
     if (result && result.success) {
         revalidatePath('/admin/suggestions');
         revalidatePath(`/town/${encodeURIComponent(result.townNameForReval)}`);
@@ -349,21 +365,17 @@ export async function approveSuggestion(
             suggestionId
         };
     }
-    // This part should ideally not be reached if the transaction throws or returns an info state.
-    throw new Error("Transaction completed without expected success or info state. This indicates an unexpected flow in approveSuggestion.");
+    
+    throw new Error("Transaction completed without expected success or external processing state.");
 
   } catch (error: any) {
     console.error("Error approving suggestion:", error);
-    // Catch the specific error for town not found and relay it.
-    if (error.message.startsWith("Town \"") && error.message.endsWith("not found. Please create it manually in Firestore (towns collection) before approving this suggestion.")) {
-      return { message: error.message, type: 'error', suggestionId };
+    let errorMessage = error.message || "Failed to approve suggestion due to an unexpected error. Please check server logs.";
+     if (error.message.startsWith("Town \"") && error.message.endsWith("not found. Please create it manually in Firestore (towns collection) before approving this suggestion.")) {
+      errorMessage = error.message; // Keep specific error message
     }
-    if (error.message === "Suggestion not found.") {
-      return { message: "Suggestion not found. It might have been deleted.", type: 'error', suggestionId };
-    }
-    // Generic error for other issues
     return {
-      message: error.message || "Failed to approve suggestion due to an unexpected error. Please check server logs.",
+      message: errorMessage,
       type: 'error',
       suggestionId
     };
@@ -567,3 +579,4 @@ export async function addCommentToLocation(
     };
   }
 }
+
