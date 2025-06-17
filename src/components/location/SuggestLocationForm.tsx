@@ -14,16 +14,18 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
-import { locationCategories } from '@/lib/data'; // No longer importing mockTowns
+import { locationCategories } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
+import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon, ChevronDown } from 'lucide-react';
 import { resizeImage } from '@/lib/imageUtils';
-import { storage } from '@/lib/firebase'; 
+import { storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/AuthContext'; 
-import type { Town } from '@/lib/types'; // Import Town type for props
+import { useAuth } from '@/contexts/AuthContext';
+import type { Town } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
   ssr: false,
@@ -57,7 +59,7 @@ const initialState: SuggestionFormState = {
 };
 
 interface SuggestLocationFormProps {
-  towns: Pick<Town, 'id' | 'name'>[]; // Prop to receive towns list
+  towns: Pick<Town, 'id' | 'name'>[];
 }
 
 function SubmitButton() {
@@ -102,14 +104,14 @@ function SubmitButton() {
   );
 }
 
-export default function SuggestLocationForm({ towns }: SuggestLocationFormProps) { // Accept towns prop
+export default function SuggestLocationForm({ towns }: SuggestLocationFormProps) {
   const [state, formAction] = useActionState(submitSuggestion, initialState);
   const { toast } = useToast();
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const { user, loading: authLoading } = useAuth(); 
+  const { user, loading: authLoading } = useAuth();
 
-  const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError } = useForm<SuggestionFormData>({
+  const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError, watch } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormClientSchema),
     defaultValues: {
       name: '',
@@ -120,6 +122,8 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       pictureFile: undefined,
     }
   });
+
+  const townNameValue = watch('townName');
 
   const { onChange: rhfPictureFileOnChange, ...restPictureFileRegister } = register('pictureFile');
 
@@ -133,7 +137,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       if (state.type === 'success') {
         reset();
         setCurrentFile(null);
-        setSelectedMapCoords(null); 
+        setSelectedMapCoords(null);
         setValue('latitude', undefined as any, { shouldValidate: false });
         setValue('longitude', undefined as any, { shouldValidate: false });
         const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
@@ -154,7 +158,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
   }, [state, toast, reset, setError, setValue]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    rhfPictureFileOnChange(event); 
+    rhfPictureFileOnChange(event);
 
     if (event.target.files && event.target.files.length > 0) {
       setCurrentFile(event.target.files[0]);
@@ -169,8 +173,16 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       setValue('latitude', coords.lat, { shouldValidate: true });
       setValue('longitude', coords.lng, { shouldValidate: true });
     } else {
-      setValue('latitude', undefined as any, { shouldValidate: true }); 
-      setValue('longitude', undefined as any, { shouldValidate: true }); 
+      setValue('latitude', undefined as any, { shouldValidate: true });
+      setValue('longitude', undefined as any, { shouldValidate: true });
+    }
+  };
+
+  const handleTownSelection = (selectedTownName: string) => {
+    if (selectedTownName === "__NEW__") {
+      setValue('townName', '', { shouldValidate: true }); // Clear if "enter new" is chosen
+    } else if (selectedTownName) {
+      setValue('townName', selectedTownName, { shouldValidate: true });
     }
   };
 
@@ -274,16 +286,32 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
       </div>
 
-      <div>
-          <Label htmlFor="townName" className="font-medium">Town Name</Label>
-          <Input id="townName" {...register('townName')} className="mt-1" placeholder="e.g., Formby" list="town-suggestions" aria-invalid={errors.townName ? "true" : "false"} />
-          <datalist id="town-suggestions">
-            {towns.map(town => <option key={town.id} value={town.name} />)}
-          </datalist>
-          <p className="text-xs text-muted-foreground mt-1">Choose from existing towns or type a new one. If the town is new, it will be created upon approval of your suggestion.</p>
-          {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
+      <div className="space-y-2">
+        <Label htmlFor="townSelect" className="font-medium">Town</Label>
+        <Select onValueChange={handleTownSelection} value={towns.find(t => t.name === townNameValue) ? townNameValue : (townNameValue ? "__NEW__" : "")}>
+          <SelectTrigger id="townSelect" className="w-full">
+            <SelectValue placeholder="Select an existing town or enter new one below" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Select an existing town (optional)</SelectItem>
+            {towns.map(town => (
+              <SelectItem key={town.id} value={town.name}>{town.name}</SelectItem>
+            ))}
+            <SelectItem value="__NEW__">-- Or enter a new town name below --</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Input
+            id="townName"
+            {...register('townName')}
+            className="mt-1"
+            placeholder="Enter new town name here if not listed above"
+            aria-invalid={errors.townName ? "true" : "false"}
+        />
+        <p className="text-xs text-muted-foreground mt-1">Select a town from the list, or type a new town name directly in the text field above. If the town is new, it will be created upon approval of your suggestion.</p>
+        {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
       </div>
-      
+
       <div className="space-y-2">
         <Label htmlFor="locationMap" className="font-medium flex items-center gap-1">
             <MapPinIcon className="h-5 w-5 text-primary" /> Precise Location (Required)
@@ -333,8 +361,8 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
           id="pictureFile"
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          {...restPictureFileRegister} 
-          onChange={handleFileChange}   
+          {...restPictureFileRegister}
+          onChange={handleFileChange}
           className="mt-1 file:text-sm file:font-medium file:text-primary file:bg-primary-foreground/10 hover:file:bg-primary-foreground/20"
         />
         <p className="text-xs text-muted-foreground mt-1">Max 5MB (will be resized to ~200KB). JPG, PNG, or WEBP.</p>
@@ -375,3 +403,4 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
     </form>
   );
 }
+    
