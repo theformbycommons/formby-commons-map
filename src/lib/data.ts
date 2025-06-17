@@ -235,13 +235,11 @@ export const locationCategories = [
   "Landmark",
   "Viewpoint",
   "Gallery / Museum",
-  "Attraction",
-  "Historical Site",
-  "Accommodation",
   "Lovely spot",
   "Quirky",
   "Art",
   "Architecture",
+  "Street",
   "Other"
 ];
 
@@ -251,3 +249,4 @@ export const mockTowns: Pick<Town, 'id' | 'name'>[] = [
     { id: 'stives', name: 'St Ives' },
   ];
   
+

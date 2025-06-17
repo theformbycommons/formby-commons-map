@@ -10,19 +10,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
-import { submitSuggestion, type SuggestionFormState } from '@/lib/actions'; // Updated FormState type if needed
+import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
 import { locationCategories, mockTowns } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
 import { resizeImage } from '@/lib/imageUtils';
-import { storage } from '@/lib/firebase'; // Client-side storage
+import { storage } from '@/lib/firebase'; 
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext'; 
 
 const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
   ssr: false,
@@ -295,20 +295,27 @@ export default function SuggestLocationForm() {
 
       <div>
         <Label htmlFor="category" className="font-medium">Category</Label>
+        <p className="text-xs text-muted-foreground mt-1 mb-2">Please pick one category:</p>
         <Controller
           name="category"
           control={control}
           render={({ field }) => (
-            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || ""} aria-invalid={errors.category ? "true" : "false"}>
-              <SelectTrigger id="category" className="mt-1">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {locationCategories.map(cat => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <RadioGroup
+              onValueChange={field.onChange}
+              value={field.value || ""}
+              className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3"
+              aria-invalid={errors.category ? "true" : "false"}
+            >
+              {locationCategories.map(cat => {
+                const catId = `category-${cat.toLowerCase().replace(/\s+/g, '-')}`;
+                return (
+                  <div key={cat} className="flex items-center space-x-2">
+                    <RadioGroupItem value={cat} id={catId} />
+                    <Label htmlFor={catId} className="font-normal cursor-pointer">{cat}</Label>
+                  </div>
+                );
+              })}
+            </RadioGroup>
           )}
         />
         {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
@@ -362,3 +369,4 @@ export default function SuggestLocationForm() {
     </form>
   );
 }
+
