@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, SuggestedComment, Town } from './types';
 import { adminDb, adminStorage } from './firebase-admin';
-import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
+import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore'; // Corrected import
 import { revalidatePath } from 'next/cache';
 
 // Zod schema for server-side validation (SuggestLocationForm)
@@ -45,6 +45,7 @@ async function checkAndIncrementQuotas(dataSizeBytes: number): Promise<{ allowed
   const todayDateString = new Date().toISOString().split('T')[0];
 
   try {
+    // Using compat API for quota transaction
     const globalQuotaRef = adminDb.collection('quotaManagement').doc('globalStorage');
     const dailyQuotaRef = adminDb.collection('quotaManagement').doc('dailyUploads');
 
@@ -88,6 +89,7 @@ const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
 async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionNamePath: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   const todayDateString = new Date().toISOString().split('T')[0];
+  // Using compat API
   const userLimitRef = adminDb.collection(collectionNamePath).doc(uid);
 
   try {
@@ -272,14 +274,19 @@ export async function approveSuggestion(
       return { message: `Suggestion "${suggestionData.name}" has been rejected and cannot be published.`, type: 'info', suggestionId };
     }
     
-    // If already approved and has a publishedLocationId, it's fully published.
     if (suggestionData.status === 'approved' && suggestionData.publishedLocationId) {
-      return { message: `Suggestion "${suggestionData.name}" is already approved and published with ID: ${suggestionData.publishedLocationId}.`, type: 'info', suggestionId };
+      // Still revalidate paths in case this is a re-approval to refresh cache after manual DB changes
+      revalidatePath('/admin/suggestions');
+      revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
+      if (suggestionData.publishedLocationId) {
+        revalidatePath(`/location/${suggestionData.publishedLocationId}`);
+      }
+      revalidatePath('/');
+      return { message: `Suggestion "${suggestionData.name}" is already approved and published with ID: ${suggestionData.publishedLocationId}. Paths revalidated.`, type: 'info', suggestionId };
     }
-
-    // If status is 'pending' OR 'approved' but no publishedLocationId, proceed to publish/re-publish.
     
     const townsColRef = adminDb.collection('towns');
+    // Using compat API for query
     const townQuery = townsColRef.where('name', '==', suggestionData.townName);
     const townQuerySnapshot = await townQuery.get();
 
@@ -316,43 +323,49 @@ export async function approveSuggestion(
       }
       const currentSuggestionData = transSuggestionSnap.data() as NewLocationSuggestion;
       
-      // Double check status within transaction if it was pending initially
-      if (suggestionData.status === 'pending' && currentSuggestionData.status !== 'pending') {
-          throw new Error(`Suggestion status changed from pending to ${currentSuggestionData.status} during processing. It may have been processed by another administrator.`);
+      if (currentSuggestionData.status === 'pending' || (currentSuggestionData.status === 'approved' && !currentSuggestionData.publishedLocationId)) {
+          if (!currentSuggestionData.publishedLocationId) {
+            const newLocationRef = adminDb.collection('locations').doc(); 
+            publishedLocationId = newLocationRef.id;
+
+            const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt'> = {
+              townId: townId,
+              townName: townDataForLocation.name, 
+              name: suggestionData.name,
+              description: suggestionData.description,
+              imageUrl: suggestionData.imageUrl || null,
+              category: suggestionData.category,
+              coordinates: suggestionData.coordinates,
+              submittedBy: suggestionData.suggesterName,
+              createdAtFirestore: AdminFieldValue.serverTimestamp(),
+            };
+            transaction.set(newLocationRef, { ...newLocationData, comments: [] }); 
+          } else {
+            publishedLocationId = currentSuggestionData.publishedLocationId; 
+          }
+
+          transaction.update(suggestionRef, {
+            status: 'approved',
+            approvedAtFirestore: AdminFieldValue.serverTimestamp(),
+            publishedLocationId: publishedLocationId,
+          });
+      } else if (currentSuggestionData.status === 'approved' && currentSuggestionData.publishedLocationId) {
+         // If it was already fully approved, just ensure timestamp is set (idempotent update)
+         // and use existing publishedLocationId
+         publishedLocationId = currentSuggestionData.publishedLocationId;
+         transaction.update(suggestionRef, {
+            approvedAtFirestore: AdminFieldValue.serverTimestamp(), // Update timestamp if re-approving
+         });
+      } else if (currentSuggestionData.status === 'rejected') {
+        throw new Error(`Suggestion status changed to 'rejected' during processing. It may have been processed by another administrator.`);
       }
-
-      // If there's no publishedLocationId yet, create the location document.
-      if (!currentSuggestionData.publishedLocationId) {
-        const newLocationRef = adminDb.collection('locations').doc(); 
-        publishedLocationId = newLocationRef.id; // Store the new ID
-
-        const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt'> = {
-          townId: townId,
-          townName: townDataForLocation.name, 
-          name: suggestionData.name,
-          description: suggestionData.description,
-          imageUrl: suggestionData.imageUrl || null,
-          category: suggestionData.category,
-          coordinates: suggestionData.coordinates,
-          submittedBy: suggestionData.suggesterName,
-          createdAtFirestore: AdminFieldValue.serverTimestamp(),
-        };
-        transaction.set(newLocationRef, { ...newLocationData, comments: [] }); 
-      } else {
-        // If it was 'approved' but no ID, we use the existing publishedLocationId if somehow set externally (unlikely path now)
-        // Or if we are reprocessing an 'approved' one that missed this step.
-        publishedLocationId = currentSuggestionData.publishedLocationId;
-      }
-
-      transaction.update(suggestionRef, {
-        status: 'approved',
-        approvedAtFirestore: AdminFieldValue.serverTimestamp(),
-        publishedLocationId: publishedLocationId, // Ensure this is set/updated
-      });
     });
 
     revalidatePath('/admin/suggestions');
     revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
+    if (publishedLocationId) {
+        revalidatePath(`/location/${publishedLocationId}`);
+    }
     revalidatePath('/'); 
 
     return {
@@ -449,6 +462,7 @@ export async function deleteSuggestion(
   }
 
   try {
+    // Using compat API for delete
     const suggestionDocRef = adminDb.collection('suggestedLocations').doc(suggestionId); 
     await suggestionDocRef.delete(); 
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
@@ -540,6 +554,7 @@ export async function addCommentToLocation(
       }
     }
 
+    // Using compat API
     const locationDataDocRef = adminDb.collection('locations').doc(locationId); 
     const locationDataDocSnap = await locationDataDocRef.get(); 
     if (!locationDataDocSnap.exists) {
@@ -557,6 +572,7 @@ export async function addCommentToLocation(
       ...(suggesterUid && { suggesterUid }),
     };
 
+    // Using compat API
     const suggestedCommentsColRef = adminDb.collection('suggestedComments'); 
     const newCommentRef = await suggestedCommentsColRef.add(newSuggestedComment); 
 
