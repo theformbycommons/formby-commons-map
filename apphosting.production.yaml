@@ -4,17 +4,17 @@
 
 env:
   - variable: FIREBASE_ADMIN_PROJECT_ID
-    value: "community-80928" 
+    value: "act-local-glow"
     availability:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_CLIENT_EMAIL
-    value: "firebase-adminsdk-fbsvc@community-80928.iam.gserviceaccount.com" # Updated from your JSON
+    value: "firebase-adminsdk-fbsvc@act-local-glow.iam.gserviceaccount.com" # Updated from your JSON
     availability:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_PRIVATE_KEY
-    secret: firebase-admin-private-key # This should be the ID/name of the secret you created in Google Secret Manager
+    secret: act-local-glow-cloud-google-secret # This should be the ID/name of the secret you created in Google Secret Manager
     availability:
       - BUILD
       - RUNTIME
@@ -22,27 +22,27 @@ env:
   # NEXT_PUBLIC_ variables are safe to be here as their values are meant to be public.
   # Ensure these match your Firebase project configuration.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: "AIzaSyCA5vfVssd70Zx9lBPwp3fvTEo8iIeWI6o"
+    value: "AIzaSyCfeC-ZrvvWe1nSj-PZCr4nKVL8Q8_oY9M"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: "community-80928.firebaseapp.com"
+    value: "act-local-glow.firebaseapp.com"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: "community-80928"
+    value: "act-local-glow"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: "community-80928.firebasestorage.app" # Corrected from "community-80928.appspot.com" based on typical Firebase config
+    value: "act-local-glow.firebasestorage.app" # Corrected from "community-80928.appspot.com" based on typical Firebase config
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "334048805094"
+    value: "35181721817"
     availability:
       - BUILD
       - RUNTIME
@@ -51,6 +51,10 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:35181721817:web:8473ac1ac0ab1abdcba6c8"
+    availability:
+      - BUILD
   - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
     value: "G-LQK31G92E5"
     availability:
