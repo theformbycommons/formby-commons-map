@@ -211,7 +211,7 @@ export async function submitSuggestion(
     revalidatePath('/admin/suggestions');
 
     return {
-      message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received and is pending review.`,\n
+ message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received and is pending review.`,
       type: 'success',
       submittedSuggestionData: {
         id: newDocRef.id,

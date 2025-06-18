@@ -18,10 +18,7 @@ export default function AboutPage() {
           <div className="mx-auto bg-primary text-primary-foreground rounded-full p-4 w-fit mb-4 shadow-md">
             <BookOpenText className="h-10 w-10" />
           </div>
-          <CardTitle className="font-headline text-4xl text-primary">The Idea Behind Local Glow</CardTitle>
-          <p className="text-md text-muted-foreground mt-3 mx-auto max-w-xl">
-            A vibrant collection of what makes our towns uniquely lovable, seen through the eyes of those who call them home. Discover the everyday magic and cherished corners that define our communities, celebrating their spirit.
-          </p>
+          <CardTitle className="font-headline text-4xl text-primary">The Idea Behind Act Local Glow</CardTitle>
         </CardHeader>
         <CardContent className="pt-8 px-6 md:px-8 space-y-6 text-foreground/90 leading-relaxed">
           <section aria-labelledby="section-introduction">
@@ -29,61 +26,61 @@ export default function AboutPage() {
             <p className="mb-4">
               We live in an ever-changing world, where the places that shape us often feel like they're in flux, or even at risk of disappearing. But instead of focusing on what might be lost, imagine a space where we can celebrate the profound connections we have to our hometowns.
             </p>
-            <p>
-              This web project is born from a desire to foster positive reflection and build a community around the places that hold deep personal significance. It's about realizing that characteristics of the places we live in – the streets, parks, buildings, and natural landscapes – are deeply connected to our emotions and who we've become.
+ <p>Act Local Glow provides a constructive online space where communities can share their ideas, and turn visions into real local change. We believe that the most meaningful improvements often start at the grassroots level – with the people who know their local areas best and are driven to make them better.</p>
+ <p>Our communities aren't fixed; they're living, changing spaces shaped by the people who live in them. While top-down solutions often miss the mark, Act Local Glow champions a more direct, democratic approach, empowering citizens to explore community support.</p>
+ 
+          </section>
+
+          <section aria-labelledby="section-from-ideas-to-impact">
+            <h2 id="section-from-ideas-to-impact" className="font-headline text-2xl text-primary mb-3">From Ideas to Impact: Fostering Citizen Action</h2>
+            <p className="mb-4">
+ Act Local Glow builds on the foundation of celebrating local connections, much like our sister site, Local Glow (localglow.uk). While Local Glow highlights the valued aspects of our towns, Act Local Glow takes things in a slightly different direction: it's a space for action. This platform invites you to turn insights into initiatives, providing a public forum to share and gather support for projects that aim to improve our shared spaces and collective well-being.
+            </p>
+ <p>
+ Whether it's a proposal for a new community garden, a plan to revitalize a neglected public space, or a n idea for making key community spots easier to reach on foot or by bike, Act Local Glow helps these ideas gain traction. Users can upload and describe their proposed projects and, importantly, gather public votes of support. This public endorsement provides a clear measure of community backing, which can be a powerful tool for those considering formal petitions, seeking local government engagement, or directly launching projects. This approach aligns with the idea of local engagement, where community members actively shape their environment, rather than passively receiving change (Irvin & Stansbury, 2004).
             </p>
           </section>
 
-          <section aria-labelledby="section-sharing-stories">
-            <h2 id="section-sharing-stories" className="font-headline text-2xl text-primary mb-3">Sharing Stories, Building Community</h2>
+          <section aria-labelledby="section-cultivating-collective-strength">
+            <h2 id="section-cultivating-collective-strength" className="font-headline text-2xl text-primary mb-3">Cultivating Collective Strength and Bridging Divides</h2>
             <p className="mb-4">
-              This platform is an invitation to explore and share the unique corners of your hometown that resonate with your individual story. Whether it's the ancient oak in the town square where you first learned to ride a bike, the bustling market street where generations of your family have shopped, or the hidden riverbend where you found solace, with every location we share, we build a deeper, more vibrant community picture.
+ Our approach is based on the understanding that a sense of collective efficacy – the shared belief in a group's ability to successfully organize and carry out actions to achieve common goals – is vital for community development (Bandura, 1991). By offering a platform for direct engagement and visible support for local projects, Act Local Glow aims to foster this collective strength, showing that individual actions, amplified by community backing, can lead to significant positive change.
             </p>
             <p>
-              We believe that by collectively acknowledging and celebrating these personal geographies, we can build a shared base for community, fostering a sense of belonging among diverse individuals.
-            </p>
-          </section>
-
-          <section aria-labelledby="section-identity-place">
-            <h2 id="section-identity-place" className="font-headline text-2xl text-primary mb-3">Identity, Place, and Well-being</h2>
-            <p className="mb-4">
-              Our approach embraces the idea that identity is deeply intertwined with place, not in a rigid or exclusive way, but as a fluid and evolving relationship. As Richard Louv, author of "Last Child in the Woods," eloquently argues, our connection to place, particularly to nature, is fundamental to our well-being and sense of self. However, we extend this idea to encompass all aspects of our surroundings, recognizing that both urban environments and natural landscapes contribute equally to our personal narratives and collective identity.
-            </p>
-            <p>
-              The positive memories attached to an interesting building or a bench in a local residential neighbourhood are just as valid as the peace discovered in a local greenspace or natural area when it comes to forming our sense of self and belonging.
+ Furthermore, Act Local Glow seeks to bridge divides across different groups and viewpoints. By focusing on concrete, local improvements, the platform encourages collaborative thinking and helping to build a sense of shared purpose, moving beyond potential differences. It's about finding common ground in the desire for a better hometown, fostering a sense of shared ownership and responsibility for the local environment.
             </p>
           </section>
           
-          <section aria-labelledby="section-third-places">
-            <h2 id="section-third-places" className="font-headline text-2xl text-primary mb-3">The Spirit of "Third Places"</h2>
+          <section aria-labelledby="section-catalyst-for-democratic-innovation">
+            <h2 id="section-catalyst-for-democratic-innovation" className="font-headline text-2xl text-primary mb-3">A Catalyst for Democratic Innovation</h2>
             <p className="mb-4">
-              This project also resonates with the work of thinkers like sociologist Ray Oldenburg, who, in "The Great Good Place," emphasizes the importance of "third places"—informal gathering spots that are vital for community life and personal well-being, distinct from home and work.
+ This project demonstrates how digital tools can facilitate democratic innovation at the local level. While not replacing traditional forms of civic engagement, Act Local Glow complements them by providing an accessible, transparent, and user-friendly space for brainstorming and mobilization. It aligns with growing research on digital democracy and how online platforms can boost citizen participation and influence local governance (Susha & Janssen, 2017).
             </p>
             <p>
-              While our website isn't a physical third place, it aims to digitally capture and amplify the spirit of these meaningful locations, allowing users to share their own "great good places" and connect with others who feel similarly. By highlighting these personally relevant spots, we contribute to a collective understanding of what makes a place meaningful, fostering a deeper appreciation for the rich and varied environments that shape our identities and bind us together as a community.
+ Born from the same passion for place and community as Local Glow, Act Local Glow is a non-profit endeavour. It is free from advertising and commercial interests, driven solely by the desire to empower communities and facilitate positive change from the ground up. We believe that by providing a platform where local ideas can gain collective momentum, we can help create more responsive and democratic local communities.
             </p>
           </section>
 
           <section aria-labelledby="section-non-profit-mission">
-            <h2 id="section-non-profit-mission" className="font-headline text-2xl text-primary mb-3">A Passion Project</h2>
+            <h2 id="section-non-profit-mission" className="font-headline text-2xl text-primary mb-3">References</h2>
             <p className="mb-4">
-              At its heart, this web app is a passion non-profit project, created in Formby, Northwest England, within the lively Liverpool City Region. This endeavour has never been, nor will it ever be, about financial gain or commercial ventures.
+ <ul>
+ <li>
+ Bandura, A. (1991). Social cognitive theory of self-regulation. Organizational Behavior and Human Decision Processes, 50(2), 248-287.
+ </li>
+ <li>
+ Irvin, R. A., & Stansbury, J. (2004). Citizen participation in decision making: Is it worth the effort?. Public Administration Review, 64(1), 55-65.
+ </li>
+ <li>
+ Susha, I., & Janssen, M. (2017). Explaining the impact of open data: The case of digital democracy. Government Information Quarterly, 34(4), 743-755.
+ </li>
+ </ul>
             </p>
             <p>
               You won't find any advertising here, and it's not designed to be a tourist website or a platform for political agendas. Instead, it's driven purely by a deep love of place, a commitment to community building, and a desire to bridge divides across all age groups, from the young to the old.
             </p>
           </section>
 
-          <section aria-labelledby="section-vision">
-            <h2 id="section-vision" className="font-headline text-2xl text-primary mb-3">Our Vision for Stronger Communities</h2>
-            <p className="mb-4">
-              We believe in conserving and revitalizing the good things that foster strong local communities. This web project is a call for a vision where the best of our past can be combined with a future we actively shape together.
-            </p>
-            <p>
-              By embracing new ideas in a democratic, transparent, and community-oriented way, we can grow stronger, and this web project hopes to be a small but helpful mosaic piece supporting that view.
-            </p>
-          </section>
-          
           <div className="pt-6 text-center">
             <Button asChild variant="outline">
               <Link href="/">
