@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
-  title: 'Privacy Policy - Local Glow',
-  description: 'Privacy Policy for Local Glow.',
+  title: 'Privacy Policy - Act Local Glow',
+  description: 'Privacy Policy for Act Local Glow.',
 };
 
 export default function PrivacyPolicyPage() {
@@ -156,7 +156,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section aria-labelledby="section-contact">
-            <h2 id="section-contact" className="font-headline text-2xl text-primary mb-3">Contact Information</h2>
+            <h2 id="section-contact" className="font-headline text-2xl text-primary mb-3">Contact Information for Act Local Glow</h2>
             <p>
               localglow.uk (the "Site") is owned and operated by Felix Zajitschek (“owner of localglow.uk”; contact: <a href="mailto:localglowuk@gmail.com" className="text-accent hover:underline">localglowuk@gmail.com</a>).
             </p>

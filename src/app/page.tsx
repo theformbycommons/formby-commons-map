@@ -1,4 +1,3 @@
-
 import { getTowns } from '@/lib/data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import ClientUKMap from '@/components/map/ClientUKMap';
@@ -24,9 +23,9 @@ export default async function HomePage() {
         />
         <div className="relative z-10 flex flex-col items-center justify-center">
           <div className="bg-background/20 p-6 rounded-lg max-w-2xl w-full mx-auto shadow-xl backdrop-blur-sm space-y-4">
-            <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to Local Glow</h1>
+            <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to Act Local Glow</h1>
             <p className="text-lg font-bold text-accent mx-auto drop-shadow-sm">
-              Celebrating the Heart and Soul of Our Hometowns
+              Act and Support Change in Our Local Communities
             </p>
             <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8 sm:mt-10">
               <Link href="/about">
@@ -42,7 +41,7 @@ export default async function HomePage() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <Compass className="h-8 w-8 text-primary" />
-              <CardTitle className="font-headline text-2xl text-primary">How to Discover & Share Your Local Glow</CardTitle>
+              <CardTitle className="font-headline text-2xl text-primary">How to Discover & Share Your Act Local Glow</CardTitle>
             </div>
             <CardDescription>A quick guide to navigating the site and contributing your favorite spots.</CardDescription>
           </CardHeader>
@@ -57,7 +56,7 @@ export default async function HomePage() {
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
               <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Uncover Hidden Locations</h4>
+                <h4 className="font-semibold mb-1 text-primary/90">Uncover Hidden Act Local Glow</h4>
                 <p>Within each town, explore unique "Local Glow" locations revealed on the town's interactive map or listed beneath it.</p>
               </div>
             </div>
@@ -81,7 +80,7 @@ export default async function HomePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-primary">Towns with Local Glow</CardTitle>
+          <CardTitle className="font-headline text-2xl text-primary">Towns with Act Local Glow</CardTitle>
           <CardDescription>Click on a town marker to explore its unique locations, or see town cards below.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -17,7 +17,7 @@ import { useState, useEffect, useActionState } from 'react';
 import { useForm, Controller, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { addCommentToLocation, type AddCommentFormState } from '@/lib/actions';
+import { type AddCommentFormState, addCommentToLocation } from '@/lib/actions';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
@@ -214,47 +214,33 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
 
 
   return (
-    <Dialog>
-      <Card className="overflow-hidden shadow-xl">
-        <CardHeader className="p-0 relative">
-          <DialogTrigger asChild>
-            <div className="relative w-full h-64 md:h-80 bg-muted group cursor-pointer">
-              <Image
-                src={location.imageUrl || `https://placehold.co/800x400.png`}
-                alt={`Image of ${location.name}`}
-                layout="fill"
-                objectFit="cover"
-                className="transition-transform duration-300 group-hover:scale-105"
-                data-ai-hint={`${location.category} interior exterior`}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/10 to-transparent group-hover:from-black/10 group-hover:via-black/5 transition-colors" />
-              <div className="absolute top-2 right-2 p-2 bg-black/30 rounded-full group-hover:bg-accent transition-colors">
-                <Expand className="h-5 w-5 text-white" />
-              </div>
-            </div>
-          </DialogTrigger>
-          <div className="absolute bottom-0 left-0 p-6 w-full pointer-events-none">
-              <CardTitle className="font-headline text-3xl md:text-4xl text-white drop-shadow-lg">{location.name}</CardTitle>
-              <CardDescription className="text-lg text-primary-foreground/90 drop-shadow-sm">{location.townName}</CardDescription>
+    <Card className="overflow-hidden shadow-xl">
+      <CardContent className="p-6 space-y-6">
+        <div className="pb-4 border-b border-border">
+          <CardTitle className="font-headline text-3xl md:text-4xl text-primary">{location.name}</CardTitle>
+          <CardDescription className="text-lg text-muted-foreground">{location.townName}</CardDescription>
+        </div>
+
+        <div className="space-y-4 text-sm">
+
+          <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-md">
+            {getCategoryIcon(location.category)}
+            <span className="font-medium text-secondary-foreground">Category:</span>
+            <span>{location.category}</span>
           </div>
-        </CardHeader>
-
-        <CardContent className="p-6 space-y-6">
-          <div className="space-y-4 text-sm">
-
-            <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-md">
-              {getCategoryIcon(location.category)}
-              <span className="font-medium text-secondary-foreground">Category:</span>
-              <span>{location.category}</span>
-            </div>
 
 
-            <div className="p-3 bg-secondary/50 rounded-md space-y-1">
-              <div className="flex items-center gap-2">
+          <div className="p-3 bg-secondary/50 rounded-md space-y-1">
+            <div className="flex items-center gap-2">
+              {/* Using MapPin directly as getCategoryIcon is specific to tags */}
+              {/* <MapPin className="w-5 h-5 text-accent" /> Remove if you prefer the Tag icon above */}
+
+              {/* Re-added MapPin as it seems appropriate for coordinates */}
+
                 <MapPin className="w-5 h-5 text-accent" />
                 <span className="font-medium text-secondary-foreground">Coordinates:</span>
                 <span>{location.coordinates.lat.toFixed(3)}, {location.coordinates.lng.toFixed(3)}</span>
-                <Button
+                {/* <Button
                   variant="outline"
                   size="icon"
                   onClick={handleCopyCoordinates}
@@ -262,60 +248,59 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
                   aria-label="Copy Coordinates"
                 >
                   <Copy className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground pl-7">
-                These values can be copy and pasted into e.g. Google Maps.
-              </p>
+                </Button> */}
             </div>
+            <p className="text-xs text-muted-foreground pl-7">
+              These values can be copy and pasted into e.g. Google Maps.
+            </p>
           </div>
+        </div>
 
-          <div>
-            <h3 className="font-headline text-xl text-primary mb-2">Description</h3>
-            <p className="text-foreground/90 leading-relaxed whitespace-pre-wrap">{location.description}</p>
+        <div>
+          <h3 className="font-headline text-xl text-primary mb-2">Description</h3>
+          <p className="text-foreground/90 leading-relaxed whitespace-pre-wrap">{location.description}</p>
             <p className="text-sm text-muted-foreground mt-3">
               Have a photo that you feel captures the essence of this place even better? We encourage you to{' '}
               <Link href="/suggest-location" className="text-accent hover:underline">
-                share your perspective by suggesting it
+                share your perspective by suggesting it 
               </Link>! Your unique view helps enrich our collective Local Glow.
             </p>
           </div>
 
-          {sortedComments && sortedComments.length > 0 && (
-            <div>
-              <h3 className="font-headline text-xl text-primary mb-3 flex items-center gap-2">
-                <MessageSquare className="w-6 h-6" />
-                User Comments ({sortedComments.length})
-              </h3>
-              <div className="space-y-4">
-                {sortedComments.map((comment) => (
-                  <Card key={comment.id} className="bg-background/70 shadow-sm">
-                    <CardHeader className="pb-2 pt-3 px-4">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5 font-medium">
-                          <UserCircle className="w-4 h-4" />
-                          {comment.user}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <CalendarDays className="w-3.5 h-3.5" />
-                          {format(parseISO(comment.date), 'dd MMM yyyy, HH:mm')}
-                        </div>
+        {sortedComments && sortedComments.length > 0 && (
+          <div>
+            <h3 className="font-headline text-xl text-primary mb-3 flex items-center gap-2">
+              <MessageSquare className="w-6 h-6" />
+              User Comments ({sortedComments.length})
+            </h3>
+            <div className="space-y-4">
+              {sortedComments.map((comment) => (
+                <Card key={comment.id} className="bg-background/70 shadow-sm">
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <UserCircle className="w-4 h-4" />
+                        {comment.user}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        {format(parseISO(comment.date), 'dd MMM yyyy, HH:mm')}
                       </div>
                     </CardHeader>
-                    <CardContent className="pb-3 pt-1 px-4">
-                      <p className="text-sm text-foreground/90 whitespace-pre-wrap">{comment.comment}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                  <CardContent className="pb-3 pt-1 px-4">
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap">{comment.comment}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          <CommentForm locationId={location.id} />
+        <CommentForm locationId={location.id} />
 
-        </CardContent>
+      </CardContent>
 
-        <CardFooter className="p-6 border-t">
+      <CardFooter className="p-6 border-t">
           <Button asChild variant="outline">
             <Link href={`/town/${encodeURIComponent(location.townName)}`}>
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -323,30 +308,7 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
             </Link>
           </Button>
         </CardFooter>
-      </Card>
-      
-      <DialogContent className="max-w-3xl p-2 sm:p-4 md:p-6">
-        <div className="relative w-full aspect-video bg-muted">
-           {location.imageUrl && (
-            <Image
-                src={location.imageUrl}
-                alt={`Full view of ${location.name}`}
-                layout="fill"
-                objectFit="contain" // Ensures the whole image is visible
-                data-ai-hint={`${location.category} full view`}
-            />
-           )}
-           {!location.imageUrl && (
-             <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">No image available for this location.</p>
-             </div>
-           )}
-        </div>
-        <DialogClose asChild>
-            <Button variant="outline" className="mt-4 w-full sm:w-auto">Close</Button>
-        </DialogClose>
-      </DialogContent>
-    </Dialog>
+    </Card>
   );
 }
     

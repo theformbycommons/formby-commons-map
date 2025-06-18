@@ -19,6 +19,8 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
+console.log("Firebase API Key:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
 } else {

@@ -17,9 +17,6 @@ import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
 import { locationCategories } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
-import { resizeImage } from '@/lib/imageUtils';
-import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,11 +35,6 @@ const SuggestionFormClientSchema = z.object({
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
-  pictureFile: z.any().optional()
-    .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max original file size is 5MB.`)
-    .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
-      'Only .jpg, .png, .webp formats are supported for original upload.'
-    ),
   latitude: z.number({ required_error: "Please select a location on the map." })
             .min(-90, "Invalid latitude. Please select a location on the map.")
             .max(90, "Invalid latitude. Please select a location on the map."),
@@ -64,41 +56,29 @@ interface SuggestLocationFormProps {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
-  const [isResizing, setIsResizing] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
-    const handleImageResizeStart = () => setIsResizing(true);
-    const handleImageResizeEnd = () => setIsResizing(false);
-    const handleImageUploadStart = () => setIsUploadingImage(true);
-    const handleImageUploadEnd = () => setIsUploadingImage(false);
-
-    window.addEventListener('image-resize-start' as any, handleImageResizeStart);
-    window.addEventListener('image-resize-end' as any, handleImageResizeEnd);
-    window.addEventListener('image-upload-start' as any, handleImageUploadStart);
-    window.addEventListener('image-upload-end' as any, handleImageUploadEnd);
+    // Clean up any lingering image-related events if this component was previously used with image uploads
+    window.removeEventListener('image-resize-start' as any, () => {});
+    window.removeEventListener('image-resize-end' as any, () => {});
+    window.removeEventListener('image-upload-start' as any, () => {});
+    window.removeEventListener('image-upload-end' as any, () => {});
 
     return () => {
-      window.removeEventListener('image-resize-start' as any, handleImageResizeStart);
       window.removeEventListener('image-resize-end' as any, handleImageResizeEnd);
       window.removeEventListener('image-upload-start' as any, handleImageUploadStart);
       window.removeEventListener('image-upload-end' as any, handleImageUploadEnd);
     };
   }, []);
 
-  const isDisabled = pending || isResizing || isUploadingImage;
+  const isDisabled = pending;
   let buttonText = 'Submit Suggestion';
-  if (isResizing) {
-    buttonText = 'Resizing Image...';
-  } else if (isUploadingImage) {
-    buttonText = 'Uploading Image...';
-  } else if (pending) {
+  if (pending) {
     buttonText = 'Saving Suggestion...';
   }
-
   return (
     <Button type="submit" disabled={isDisabled} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-      {(pending || isResizing || isUploadingImage) && <Spinner size={20} className="mr-2" />}
+      {pending && <Spinner size={20} className="mr-2" />}
       {buttonText}
     </Button>
   );
@@ -107,10 +87,8 @@ function SubmitButton() {
 export default function SuggestLocationForm({ towns }: SuggestLocationFormProps) {
   const [state, formAction] = useActionState(submitSuggestion, initialState);
   const { toast } = useToast();
-  const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
   const { user, loading: authLoading } = useAuth();
-
   const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError, watch } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormClientSchema),
     defaultValues: {
@@ -119,21 +97,13 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       townName: '',
       category: '',
       suggesterName: '',
-      pictureFile: undefined,
     }
   });
 
   const townNameValue = watch('townName');
 
-  const { onChange: rhfPictureFileOnChange, ...restPictureFileRegister } = register('pictureFile');
-
   useEffect(() => {
     if (state?.message) {
-      toast({
-        title: state.type === 'success' ? 'Success!' : state.type === 'error' ? 'Error' : 'Info',
-        description: state.message,
-        variant: state.type === 'error' ? 'destructive' : 'default',
-      });
       if (state.type === 'success') {
         reset();
         setCurrentFile(null);
@@ -141,7 +111,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         setValue('latitude', undefined as any, { shouldValidate: false });
         setValue('longitude', undefined as any, { shouldValidate: false });
         const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
       } else if (state.type === 'error' && state.errors) {
         Object.entries(state.errors).forEach(([fieldName, fieldErrors]) => {
           if (fieldErrors && fieldErrors.length > 0) {
@@ -154,15 +123,15 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
           }
         });
       }
+      toast({
+        title: state.type === 'success' ? 'Success!' : state.type === 'error' ? 'Error' : 'Info',
+        description: state.message,
+        variant: state.type === 'error' ? 'destructive' : 'default',
+      });
     }
   }, [state, toast, reset, setError, setValue]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    rhfPictureFileOnChange(event);
-
-    if (event.target.files && event.target.files.length > 0) {
-      setCurrentFile(event.target.files[0]);
-    } else {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => { // Keep for now to prevent errors, but it does nothing
       setCurrentFile(null);
     }
   };
@@ -190,54 +159,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       return;
     }
 
-    let imageUrl: string | undefined = undefined;
-    let uploadedImageSize: number | undefined = undefined;
-    let fileToUpload: File | null = null;
-
-    const actualFileToProcess = data.pictureFile?.[0] || currentFile;
-
-    if (actualFileToProcess) {
-      window.dispatchEvent(new CustomEvent('image-resize-start'));
-      try {
-        const resized = await resizeImage(actualFileToProcess, 800, 600, 200, 'image/webp');
-        fileToUpload = (resized.size / 1024 > 250 && resized.type === 'image/webp')
-          ? await resizeImage(actualFileToProcess, 800, 600, 200, 'image/jpeg')
-          : resized;
-      } catch (error) {
-        console.error("Error resizing image:", error);
-        toast({ title: "Image Processing Error", description: "Could not resize image. Please try a different image or try again.", variant: "destructive" });
-        window.dispatchEvent(new CustomEvent('image-resize-end'));
-        return;
-      }
-      window.dispatchEvent(new CustomEvent('image-resize-end'));
-
-      if (fileToUpload) {
-        window.dispatchEvent(new CustomEvent('image-upload-start'));
-        try {
-          const safeFileName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, '');
-          const uniqueFileName = `${Date.now()}-${safeFileName}`;
-          const imagePath = `suggested_location_images/${uniqueFileName}`;
-          const imageStorageRef = storageRef(storage, imagePath);
-
-          const snapshot = await uploadBytes(imageStorageRef, fileToUpload);
-          imageUrl = await getDownloadURL(snapshot.ref);
-          uploadedImageSize = snapshot.metadata.size;
-        } catch (uploadError: any) {
-          console.error("Error uploading image:", uploadError);
-          let errorDesc = "Could not upload image. Please try again.";
-          if (uploadError.code === 'storage/unauthorized') {
-            errorDesc = "Upload failed: You are not authorized. Please check storage rules.";
-          } else if (uploadError.code === 'storage/canceled') {
-            errorDesc = "Upload canceled.";
-          }
-          toast({ title: "Image Upload Error", description: errorDesc, variant: "destructive" });
-          window.dispatchEvent(new CustomEvent('image-upload-end'));
-          return;
-        }
-        window.dispatchEvent(new CustomEvent('image-upload-end'));
-      }
-    }
-
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
       if (key !== 'pictureFile' && value !== undefined && value !== null) {
@@ -253,12 +174,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       formDataForServerAction.append('suggesterUid', user.uid);
     }
 
-    if (imageUrl) {
-      formDataForServerAction.append('imageUrl', imageUrl);
-    }
-    if (uploadedImageSize !== undefined) {
-      formDataForServerAction.append('uploadedImageSize', String(uploadedImageSize));
-    }
 
     startTransition(() => {
       formAction(formDataForServerAction);

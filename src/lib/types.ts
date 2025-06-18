@@ -28,7 +28,6 @@ export interface Location {
   townName: string; // Denormalized for convenience
   name: string;
   description: string;
-  imageUrl?: string | null; // Allow null
   category: string;
   coordinates: Coordinates;
   submittedBy: string; // From suggesterName
@@ -51,7 +50,6 @@ export interface NewLocationSuggestion {
   submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
   approvedAt?: string; // ISO date string, populated when suggestion is approved
   approvedAtFirestore?: any;
-  publishedLocationId?: string; // ID of the document created in 'locations' collection
   coordinates: Coordinates;
   imageUrl?: string | null; // For uploaded image URL, allow null
 }

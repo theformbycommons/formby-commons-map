@@ -13,8 +13,6 @@ const SuggestionFormSchemaServer = z.object({
   description: z.string().min(10, "Description must be at least 10 characters").max(1000),
   townName: z.string().min(2, "Town name is required").max(50),
   category: z.string().min(1, "Category is required"),
-  suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
-  imageUrl: z.string().url("Invalid image URL.").optional().nullable(),
   uploadedImageSize: z.preprocess(
     (val) => (val ? Number(val) : undefined),
     z.number().int().nonnegative("Image size must be a non-negative number.").optional().nullable()
@@ -28,6 +26,7 @@ const SuggestionFormSchemaServer = z.object({
     z.number().min(-180, "Invalid longitude. Please select a location on the map.").max(180, "Invalid longitude. Please select a location on the map.")
   ),
   suggesterUid: z.string().min(1, "User ID is missing.").optional(),
+  suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
 });
 
 export interface SuggestionFormState {
@@ -133,9 +132,7 @@ export async function submitSuggestion(
   formData: FormData
 ): Promise<SuggestionFormState> {
 
-  const imageUrlValue = formData.get('imageUrl');
   const uploadedImageSizeValue = formData.get('uploadedImageSize');
-  const suggesterUidValue = formData.get('suggesterUid');
 
   const rawFormData = {
     name: formData.get('name') as string,
@@ -143,11 +140,9 @@ export async function submitSuggestion(
     townName: formData.get('townName') as string,
     category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
-    imageUrl: imageUrlValue === null || String(imageUrlValue).trim() === '' ? undefined : String(imageUrlValue),
     uploadedImageSize: uploadedImageSizeValue === null || String(uploadedImageSizeValue).trim() === '' ? undefined : String(uploadedImageSizeValue),
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
-    suggesterUid: suggesterUidValue === null || String(suggesterUidValue).trim() === '' ? undefined : String(suggesterUidValue),
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
@@ -173,10 +168,6 @@ export async function submitSuggestion(
   const dataForFirestore: Record<string, any> = { ...dataFromValidation };
   delete dataForFirestore.uploadedImageSize;
 
-  if (dataForFirestore.imageUrl === undefined) {
-    dataForFirestore.imageUrl = null;
-  }
-
   try {
     if (suggesterUid) {
       const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid, ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT, 'userDailySuggestionLimits', 'lastSubmissionDate');
@@ -188,7 +179,7 @@ export async function submitSuggestion(
       }
     }
 
-    const dataSizeForQuota = (validatedFields.data.uploadedImageSize || 0) + APPROX_NON_IMAGE_DATA_SIZE;
+    const dataSizeForQuota = APPROX_NON_IMAGE_DATA_SIZE;
     const quotaCheckResult = await checkAndIncrementQuotas(dataSizeForQuota);
 
     if (!quotaCheckResult.allowed) {
@@ -204,7 +195,7 @@ export async function submitSuggestion(
       townName: dataForFirestore.townName as string,
       category: dataForFirestore.category as string,
       suggesterName: dataForFirestore.suggesterName as string,
-      imageUrl: dataForFirestore.imageUrl as string | null,
+      imageUrl: null, // Image upload removed
       status: 'pending' as const,
       submittedAtFirestore: AdminFieldValue.serverTimestamp(),
       coordinates: {
@@ -220,7 +211,7 @@ export async function submitSuggestion(
     revalidatePath('/admin/suggestions');
 
     return {
-      message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received${validatedFields.data.imageUrl ? ' with an image' : ''} and is pending review.`,
+      message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received and is pending review.`,\n
       type: 'success',
       submittedSuggestionData: {
         id: newDocRef.id,

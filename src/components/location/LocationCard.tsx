@@ -23,17 +23,6 @@ function getCategoryIcon(category: string) {
 export default function LocationCard({ location }: LocationCardProps) {
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300 overflow-hidden">
-      <CardHeader className="p-0">
-        <div className="relative w-full h-48">
-          <Image
-            src={location.imageUrl || `https://placehold.co/400x250.png`}
-            alt={`Image of ${location.name}`}
-            layout="fill"
-            objectFit="cover"
-            data-ai-hint={`${location.category} building`}
-          />
-        </div>
-      </CardHeader>
       <CardContent className="p-4 flex-grow">
         <CardTitle className="font-headline text-lg mb-1 text-primary">{location.name}</CardTitle>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
@@ -45,7 +34,7 @@ export default function LocationCard({ location }: LocationCardProps) {
       <CardFooter className="p-4 border-t">
         <Button asChild variant="outline" className="w-full border-accent text-accent hover:bg-accent hover:text-accent-foreground">
           <Link href={`/location/${location.id}`} className="flex items-center gap-2">
-             <Eye className="w-4 h-4" /> View Details
+ <Eye className="w-4 h-4" /> View Details
           </Link>
         </Button>
       </CardFooter>

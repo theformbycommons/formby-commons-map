@@ -47,14 +47,10 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: "1:334048805094:web:47283320973e3b635c3b27"
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: "1:35181721817:web:8473ac1ac0ab1abdcba6c8"
     availability:
       - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
     value: "G-LQK31G92E5"
     availability:

@@ -5,3 +5,7 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
+  # Command to run your application.
+  run: npm run dev
+  # Command to build your application.
+  build: npm run build

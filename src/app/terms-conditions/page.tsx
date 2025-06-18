@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
-  title: 'Terms and Conditions - Local Glow',
-  description: 'Terms and Conditions for using the Local Glow website.',
+  title: 'Terms and Conditions - Act Local Glow',
+  description: 'Terms and Conditions for using the Act Local Glow website.',
 };
 
 export default function TermsAndConditionsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <Card className="shadow-lg">
+      <Card className="shadow-lg" data-testid="terms-conditions-card">
         <CardHeader className="text-center border-b pb-6">
           <div className="mx-auto bg-primary text-primary-foreground rounded-full p-4 w-fit mb-4 shadow-md">
             <FileText className="h-10 w-10" />
