@@ -15,4 +15,3 @@ import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
 import { locationCategories } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import
