@@ -16,10 +16,10 @@ import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
 import { locationCategories } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Info, MapPin as MapPinIcon, File as FileIcon } from 'lucide-react';
-import { resizeImage } from '@/lib/imageUtils';
-import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { CheckCircle, XCircle, Info, MapPin as MapPinIcon } from 'lucide-react'; // FileIcon removed
+// import { resizeImage } from '@/lib/imageUtils'; // resizeImage import commented out
+// import { storage } from '@/lib/firebase'; // Firebase storage import commented out
+// import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Storage functions commented out
 import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,17 +38,18 @@ const SuggestionFormClientSchema = z.object({
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
   category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
-  pictureFile: z.any().optional()
-    .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max original file size is 5MB.`)
-    .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
-      'Only .jpg, .png, .webp formats are supported for original upload.'
-    ),
+  // pictureFile: z.any().optional() // pictureFile validation commented out
+    // .refine(files => !files || files.length === 0 || files[0].size <= 5 * 1024 * 1024, `Max original file size is 5MB.`)
+    // .refine(files => !files || files.length === 0 || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
+      // 'Only .jpg, .png, .webp formats are supported for original upload.'
+    // ),
   latitude: z.number({ required_error: "Please select a location on the map." })
             .min(-90, "Invalid latitude. Please select a location on the map.")
             .max(90, "Invalid latitude. Please select a location on the map."),
   longitude: z.number({ required_error: "Please select a location on the map." })
              .min(-180, "Invalid longitude. Please select a location on the map.")
              .max(180, "Invalid longitude. Please select a location on the map."),
+  // imageUrl: z.string().url("Invalid image URL").optional().nullable(), // imageUrl validation commented out
 });
 
 type SuggestionFormData = z.infer<typeof SuggestionFormClientSchema>;
@@ -64,41 +65,43 @@ interface SuggestLocationFormProps {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
-  const [isResizing, setIsResizing] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  // const [isResizing, setIsResizing] = useState(false); // Resizing state commented out
+  // const [isUploadingImage, setIsUploadingImage] = useState(false); // Uploading state commented out
 
-  useEffect(() => {
-    const handleImageResizeStart = () => setIsResizing(true);
-    const handleImageResizeEnd = () => setIsResizing(false);
-    const handleImageUploadStart = () => setIsUploadingImage(true);
-    const handleImageUploadEnd = () => setIsUploadingImage(false);
+  useEffect(() => { // Image related event listeners commented out
+    // const handleImageResizeStart = () => setIsResizing(true);
+    // const handleImageResizeEnd = () => setIsResizing(false);
+    // const handleImageUploadStart = () => setIsUploadingImage(true);
+    // const handleImageUploadEnd = () => setIsUploadingImage(false);
 
-    window.addEventListener('image-resize-start' as any, handleImageResizeStart);
-    window.addEventListener('image-resize-end' as any, handleImageResizeEnd);
-    window.addEventListener('image-upload-start' as any, handleImageUploadStart);
-    window.addEventListener('image-upload-end' as any, handleImageUploadEnd);
+    // window.addEventListener('image-resize-start' as any, handleImageResizeStart);
+    // window.addEventListener('image-resize-end' as any, handleImageResizeEnd);
+    // window.addEventListener('image-upload-start' as any, handleImageUploadStart);
+    // window.addEventListener('image-upload-end' as any, handleImageUploadEnd);
 
-    return () => {
-      window.removeEventListener('image-resize-start' as any, handleImageResizeStart);
-      window.removeEventListener('image-resize-end' as any, handleImageResizeEnd);
-      window.removeEventListener('image-upload-start' as any, handleImageUploadStart);
-      window.removeEventListener('image-upload-end' as any, handleImageUploadEnd);
-    };
+    // return () => {
+      // window.removeEventListener('image-resize-start' as any, handleImageResizeStart);
+      // window.removeEventListener('image-resize-end' as any, handleImageResizeEnd);
+      // window.removeEventListener('image-upload-start' as any, handleImageUploadStart);
+      // window.removeEventListener('image-upload-end' as any, handleImageUploadEnd);
+    // };
   }, []);
 
-  const isDisabled = pending || isResizing || isUploadingImage;
+  // const isDisabled = pending || isResizing || isUploadingImage; // Simplified isDisabled
+  const isDisabled = pending;
   let buttonText = 'Submit Suggestion';
-  if (isResizing) {
-    buttonText = 'Resizing Image...';
-  } else if (isUploadingImage) {
-    buttonText = 'Uploading Image...';
-  } else if (pending) {
+  // if (isResizing) { // Logic for button text during image processing commented out
+    // buttonText = 'Resizing Image...';
+  // } else if (isUploadingImage) {
+    // buttonText = 'Uploading Image...';
+  // } else
+  if (pending) {
     buttonText = 'Saving Suggestion...';
   }
 
   return (
     <Button type="submit" disabled={isDisabled} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-      {(pending || isResizing || isUploadingImage) && <Spinner size={20} className="mr-2" />}
+      {pending && <Spinner size={20} className="mr-2" />}
       {buttonText}
     </Button>
   );
@@ -107,7 +110,7 @@ function SubmitButton() {
 export default function SuggestLocationForm({ towns }: SuggestLocationFormProps) {
   const [state, formAction] = useActionState(submitSuggestion, initialState);
   const { toast } = useToast();
-  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  // const [currentFile, setCurrentFile] = useState<File | null>(null); // currentFile state commented out
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
   const { user, loading: authLoading } = useAuth();
 
@@ -119,13 +122,14 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       townName: '',
       category: '',
       suggesterName: '',
-      pictureFile: undefined,
+      // pictureFile: undefined, // pictureFile default commented out
+      // imageUrl: undefined, // imageUrl default commented out
     }
   });
 
   const townNameValue = watch('townName');
 
-  const { onChange: rhfPictureFileOnChange, ...restPictureFileRegister } = register('pictureFile');
+  // const { onChange: rhfPictureFileOnChange, ...restPictureFileRegister } = register('pictureFile'); // pictureFile registration commented out
 
   useEffect(() => {
     if (state?.message) {
@@ -136,12 +140,12 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       });
       if (state.type === 'success') {
         reset();
-        setCurrentFile(null);
+        // setCurrentFile(null); // setCurrentFile reset commented out
         setSelectedMapCoords(null);
         setValue('latitude', undefined as any, { shouldValidate: false });
         setValue('longitude', undefined as any, { shouldValidate: false });
-        const fileInput = document.getElementById('pictureFile') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
+        // const fileInput = document.getElementById('pictureFile') as HTMLInputElement; // fileInput reset commented out
+        // if (fileInput) fileInput.value = ''; // fileInput reset commented out
       } else if (state.type === 'error' && state.errors) {
         Object.entries(state.errors).forEach(([fieldName, fieldErrors]) => {
           if (fieldErrors && fieldErrors.length > 0) {
@@ -157,15 +161,14 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
     }
   }, [state, toast, reset, setError, setValue]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    rhfPictureFileOnChange(event);
-
-    if (event.target.files && event.target.files.length > 0) {
-      setCurrentFile(event.target.files[0]);
-    } else {
-      setCurrentFile(null);
-    }
-  };
+  // const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => { // handleFileChange commented out
+    // rhfPictureFileOnChange(event);
+    // if (event.target.files && event.target.files.length > 0) {
+      // setCurrentFile(event.target.files[0]);
+    // } else {
+      // setCurrentFile(null);
+    // }
+  // };
 
   const handleCoordinatesChange = (coords: { lat: number; lng: number } | null) => {
     setSelectedMapCoords(coords);
@@ -179,8 +182,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
   };
 
   const handleTownSelection = (selectedTownName: string) => {
-    // If "__NEW__" is selected, clear the townName input for manual entry.
-    // Otherwise, populate it with the selected town name.
     setValue('townName', selectedTownName === "__NEW__" ? "" : selectedTownName, { shouldValidate: true });
   };
 
@@ -190,6 +191,8 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       return;
     }
 
+    // Image processing and upload logic commented out
+    /*
     let imageUrl: string | undefined = undefined;
     let uploadedImageSize: number | undefined = undefined;
     let fileToUpload: File | null = null;
@@ -237,10 +240,12 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         window.dispatchEvent(new CustomEvent('image-upload-end'));
       }
     }
+    */
 
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
-      if (key !== 'pictureFile' && value !== undefined && value !== null) {
+      // if (key !== 'pictureFile' && key !== 'imageUrl' && value !== undefined && value !== null) { // imageUrl also excluded
+      if (value !== undefined && value !== null) { // Simplified as pictureFile and imageUrl are removed from schema
         if (String(value).trim() !== '' || typeof value === 'number' ) {
              formDataForServerAction.append(key, String(value));
         } else if ( (key === 'suggesterName' || key === 'name' || key === 'description' || key === 'townName' || key === 'category') && String(value).trim() === '' ) {
@@ -253,24 +258,20 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       formDataForServerAction.append('suggesterUid', user.uid);
     }
 
-    if (imageUrl) {
-      formDataForServerAction.append('imageUrl', imageUrl);
-    }
-    if (uploadedImageSize !== undefined) {
-      formDataForServerAction.append('uploadedImageSize', String(uploadedImageSize));
-    }
+    // if (imageUrl) { // imageUrl logic commented out
+      // formDataForServerAction.append('imageUrl', imageUrl);
+    // }
+    // if (uploadedImageSize !== undefined) { // uploadedImageSize logic commented out
+      // formDataForServerAction.append('uploadedImageSize', String(uploadedImageSize));
+    // }
 
     startTransition(() => {
       formAction(formDataForServerAction);
     });
   };
 
-  // Determine the value for the Select component.
-  // If townNameValue is one of the existing towns, use that.
-  // If townNameValue is empty (user selected "__NEW__" or cleared it), the Select's value prop will be "" which shows the placeholder.
-  // If townNameValue is something else (manually typed, not in list), Select value will be "__NEW__" to indicate manual entry mode.
-  const selectValue = towns.find(t => t.name === townNameValue) 
-    ? townNameValue 
+  const selectValue = towns.find(t => t.name === townNameValue)
+    ? townNameValue
     : (townNameValue === "" ? "" : "__NEW__");
 
 
@@ -295,15 +296,14 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
 
       <div className="space-y-2">
         <Label htmlFor="townSelect" className="font-medium">Town</Label>
-        <Select 
-          onValueChange={handleTownSelection} 
-          value={selectValue} // Use the calculated selectValue
+        <Select
+          onValueChange={handleTownSelection}
+          value={selectValue}
         >
           <SelectTrigger id="townSelect" className="w-full">
             <SelectValue placeholder="Select an existing town or enter new one below" />
           </SelectTrigger>
           <SelectContent>
-            {/* Removed the SelectItem with value="" that caused the error */}
             {towns.map(town => (
               <SelectItem key={town.id} value={town.name}>{town.name}</SelectItem>
             ))}
@@ -365,6 +365,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
       </div>
 
+      {/* Picture input field commented out
       <div>
         <Label htmlFor="pictureFile" className="font-medium">Picture (Optional, max 5MB original)</Label>
         <Input
@@ -384,6 +385,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         )}
         {errors.pictureFile && <p className="text-sm text-destructive mt-1">{errors.pictureFile.message as string}</p>}
       </div>
+      */}
 
       <div>
         <Label htmlFor="suggesterName" className="font-medium">Your Name</Label>
@@ -413,4 +415,3 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
     </form>
   );
 }
-    

@@ -2,7 +2,7 @@
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-// Removed: import { getStorage } from 'firebase-admin/storage';
+// Firebase Storage admin SDK (adminStorage) import and initialization removed.
 
 let app: App;
 const existingApps = getApps();
@@ -27,6 +27,7 @@ if (!existingApps.length) {
       clientEmail: clientEmail,
       privateKey: formattedPrivateKey,
     }),
+    // storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET // Removed, not needed if adminStorage is not used
   });
 } else {
   app = existingApps[0];
@@ -34,5 +35,5 @@ if (!existingApps.length) {
 
 export const adminAuth = getAuth(app);
 export const adminDb = getFirestore(app);
-// export const adminStorage = getStorage(app); // Storage initialization removed
+// export const adminStorage = getStorage(app); // adminStorage export removed
 export default app;
