@@ -2,7 +2,7 @@
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+// Removed: import { getStorage } from 'firebase-admin/storage';
 
 let app: App;
 const existingApps = getApps();
@@ -34,5 +34,5 @@ if (!existingApps.length) {
 
 export const adminAuth = getAuth(app);
 export const adminDb = getFirestore(app);
-export const adminStorage = getStorage(app);
+// export const adminStorage = getStorage(app); // Storage initialization removed
 export default app;
