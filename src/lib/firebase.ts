@@ -11,30 +11,23 @@ console.log(`Current NODE_ENV: ${nodeEnv}`);
 
 if (typeof window !== 'undefined' && nodeEnv === 'development') {
   console.warn("IMPORTANT: Running in local development. Firebase config below should be loaded from '.env.local' in your project root.");
-  if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-    const message = "CRITICAL LOCAL DEV WARNING: NEXT_PUBLIC_FIREBASE_API_KEY is missing or undefined. Firebase will fail to initialize correctly. Ensure this variable is set in your .env.local file and that you have restarted your Next.js development server.";
-    console.error(message);
-    // You might see a Firebase 'auth/invalid-api-key' error shortly after this log.
-  }
 }
-// --- End Enhanced Debugging ---
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, // Config object expects this key even if storage service isn't actively used.
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Log effective environment variable values more comprehensively
 console.log("--- Firebase Client Config Values Being Used (src/lib/firebase.ts) ---");
 console.log("NEXT_PUBLIC_FIREBASE_API_KEY:", firebaseConfig.apiKey ? `SET (Value starts with: ${firebaseConfig.apiKey.substring(0, Math.min(5, firebaseConfig.apiKey.length))}...)` : "NOT SET - THIS IS THE LIKELY CAUSE OF 'auth/invalid-api-key'!");
 console.log("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:", firebaseConfig.authDomain ? `SET (Value: ${firebaseConfig.authDomain})` : "NOT SET");
 console.log("NEXT_PUBLIC_FIREBASE_PROJECT_ID:", firebaseConfig.projectId ? `SET (Value: ${firebaseConfig.projectId})` : "NOT SET");
-console.log("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:", firebaseConfig.storageBucket ? `SET (Value: ${firebaseConfig.storageBucket})` : "NOT SET (but config object expects it for potential future use or full SDK compatibility)");
+console.log("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:", firebaseConfig.storageBucket ? `SET (Value: ${firebaseConfig.storageBucket})` : "NOT SET (Note: Storage SDK init removed)");
 console.log("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:", firebaseConfig.messagingSenderId ? `SET (Value: ${firebaseConfig.messagingSenderId})` : "NOT SET");
 console.log("NEXT_PUBLIC_FIREBASE_APP_ID:", firebaseConfig.appId ? `SET (Value: ${firebaseConfig.appId})` : "NOT SET");
 console.log("NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID:", firebaseConfig.measurementId ? `SET (Optional - Value: ${firebaseConfig.measurementId})` : "NOT SET (Optional)");
@@ -45,14 +38,27 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 
+// **Critical check for API Key before initialization**
 if (!firebaseConfig.apiKey) {
-  console.error("Firebase API Key is missing in the final firebaseConfig object. Firebase initialization will fail. Please check your '.env.local' file and ensure your Next.js development server was restarted after any changes to it.");
-  // Throw an error or handle this more gracefully if needed,
-  // but the console error should be prominent.
+  const errorMessage = `
+    CRITICAL ERROR: Firebase API Key (NEXT_PUBLIC_FIREBASE_API_KEY) is missing!
+    Firebase cannot be initialized.
+
+    Please ensure:
+    1. You have a '.env.local' file in the ROOT of your project.
+    2. This '.env.local' file contains the line: NEXT_PUBLIC_FIREBASE_API_KEY="YOUR_ACTUAL_API_KEY_HERE"
+       (Replace with your actual key from apphosting.production.yaml or Firebase console).
+    3. You have RESTARTED your Next.js development server (e.g., 'npm run dev') after creating or modifying '.env.local'.
+
+    The application will not work until this is resolved.
+  `;
+  console.error(errorMessage);
+  // This error will be thrown and should be visible in the browser and server console
+  // It will stop execution before Firebase tries to initialize with a bad key.
+  throw new Error(errorMessage); 
 }
 
 if (getApps().length === 0) {
-  // This will throw the 'auth/invalid-api-key' if apiKey is indeed missing/invalid here.
   app = initializeApp(firebaseConfig);
 } else {
   app = getApps()[0];
