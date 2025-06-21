@@ -36,6 +36,9 @@ const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
 async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionNamePath: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   const adminDb = getAdminDb();
+  if (!adminDb) {
+      return { allowed: false, message: 'Server is not configured for this action. Could not check daily limits.' };
+  }
   const todayDateString = new Date().toISOString().split('T')[0];
   const userLimitRef = adminDb.collection(collectionNamePath).doc(uid);
 
@@ -107,6 +110,14 @@ export async function submitSuggestion(
       errors: flatErrors.fieldErrors,
     };
   }
+  
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+      return {
+          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
+          type: 'error',
+      };
+  }
 
   const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
 
@@ -140,7 +151,6 @@ export async function submitSuggestion(
       ...(suggesterUid && { suggesterUid }),
     };
 
-    const adminDb = getAdminDb();
     const suggestedLocationsColRef = adminDb.collection('suggestedLocations');
     const newDocRef = await suggestedLocationsColRef.add(suggestionForDb);
 
@@ -189,8 +199,16 @@ export async function approveSuggestion(
     return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+      return {
+          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
+          type: 'error',
+          suggestionId,
+      };
+  }
+
   try {
-    const adminDb = getAdminDb();
     const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
     const suggestionSnap = await suggestionRef.get();
 
@@ -332,29 +350,31 @@ export async function deleteSuggestion(
 ): Promise<DeleteSuggestionFormState> {
   const suggestionId = formData.get('suggestionId') as string;
   
-  let finalMessage = "";
-  let finalType: 'success' | 'error' | 'info' = 'info';
-
   if (!suggestionId) {
     return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+      return {
+          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
+          type: 'error',
+          suggestionId,
+      };
+  }
+
   try {
-    const adminDb = getAdminDb();
     const suggestionDocRef = adminDb.collection('suggestedLocations').doc(suggestionId);
     await suggestionDocRef.delete();
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
     revalidatePath('/admin/actions'); // Also revalidate new path
 
-    finalMessage = "Suggestion document deleted successfully.";
-    finalType = 'success';
-    return { message: finalMessage, type: finalType, suggestionId };
+    return { message: "Suggestion document deleted successfully.", type: 'success', suggestionId };
 
   } catch (firestoreError: any) {
     console.error(`[Admin Action] Failed to delete Firestore document '${suggestionId}':`, firestoreError);
-    let message = `Failed to delete suggestion document: ${firestoreError.message}.`;
-    return { message, type: 'error', suggestionId };
+    return { message: `Failed to delete suggestion document: ${firestoreError.message}.`, type: 'error', suggestionId };
   }
 }
 
@@ -395,6 +415,14 @@ export async function addCommentToLocation(
     };
   }
 
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+      return {
+          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
+          type: 'error',
+      };
+  }
+
   const { locationId, userName, commentText, suggesterUid } = validatedFields.data;
 
   try {
@@ -413,7 +441,6 @@ export async function addCommentToLocation(
       }
     }
 
-    const adminDb = getAdminDb();
     const locationDataDocRef = adminDb.collection('locations').doc(locationId);
     const locationDataDocSnap = await locationDataDocRef.get();
     if (!locationDataDocSnap.exists) {
@@ -490,8 +517,17 @@ export async function castVote(
   const { locationId, voteType } = validatedFields.data;
   const fieldToIncrement = `votes.${voteType}`;
 
+  const adminDb = getAdminDb();
+  if (!adminDb) {
+    return {
+      message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
+      type: 'error',
+      locationId,
+      voteType,
+    };
+  }
+
   try {
-    const adminDb = getAdminDb();
     const locationRef = adminDb.collection('locations').doc(locationId);
 
     await adminDb.runTransaction(async (transaction) => {

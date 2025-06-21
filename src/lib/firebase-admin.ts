@@ -6,16 +6,17 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 let app: App | null = null;
 let adminAuthInstance: Auth | null = null;
 let adminDbInstance: Firestore | null = null;
+let initFailed = false; // Add a flag to prevent re-attempts
 
-function initializeAdmin() {
-  // This function is now idempotent, it will only initialize the app once.
-  if (app) {
-    return;
-  }
+function initializeAdmin(): boolean {
+  if (app) return true; // Already initialized successfully
+  if (initFailed) return false; // Don't re-attempt a failed initialization
 
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error('SERVER-SIDE ERROR: The FIREBASE_ADMIN_PRIVATE_KEY environment variable is not set. This is required for admin actions (like voting, suggesting, approving). Please ensure it is set in your local .env.local file or server environment.');
+    console.error('SERVER-SIDE CONFIG ERROR: The FIREBASE_ADMIN_PRIVATE_KEY environment variable is not set. Admin actions will fail.');
+    initFailed = true;
+    return false;
   }
   const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
 
@@ -23,36 +24,45 @@ function initializeAdmin() {
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 
   if (!projectId || !clientEmail) {
-    throw new Error('SERVER-SIDE ERROR: FIREBASE_ADMIN_PROJECT_ID or FIREBASE_ADMIN_CLIENT_EMAIL environment variables are not set.');
+    console.error('SERVER-SIDE CONFIG ERROR: FIREBASE_ADMIN_PROJECT_ID or FIREBASE_ADMIN_CLIENT_EMAIL environment variables are not set. Admin actions will fail.');
+    initFailed = true;
+    return false;
   }
 
-  const existingApps = getApps();
-  if (existingApps.length) {
-    app = existingApps[0];
-  } else {
-    app = initializeApp({
-      credential: cert({
-        projectId: projectId,
-        clientEmail: clientEmail,
-        privateKey: formattedPrivateKey,
-      }),
-    });
-  }
+  try {
+    const existingApps = getApps();
+    if (existingApps.length) {
+      app = existingApps[0];
+    } else {
+      app = initializeApp({
+        credential: cert({
+          projectId: projectId,
+          clientEmail: clientEmail,
+          privateKey: formattedPrivateKey,
+        }),
+      });
+    }
 
-  adminAuthInstance = getAuth(app);
-  adminDbInstance = getFirestore(app);
+    adminAuthInstance = getAuth(app);
+    adminDbInstance = getFirestore(app);
+    return true; // Success
+  } catch (error) {
+    console.error("Firebase Admin SDK initialization failed:", error);
+    initFailed = true;
+    return false; // Failure
+  }
 }
 
-export function getAdminAuth(): Auth {
-  if (!adminAuthInstance) {
-    initializeAdmin();
+export function getAdminAuth(): Auth | null {
+  if (!adminAuthInstance && !initializeAdmin()) {
+    return null;
   }
-  return adminAuthInstance!;
+  return adminAuthInstance;
 }
 
-export function getAdminDb(): Firestore {
-  if (!adminDbInstance) {
-    initializeAdmin();
+export function getAdminDb(): Firestore | null {
+  if (!adminDbInstance && !initializeAdmin()) {
+    return null;
   }
-  return adminDbInstance!;
+  return adminDbInstance;
 }

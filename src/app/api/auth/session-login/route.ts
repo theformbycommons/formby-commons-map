@@ -17,6 +17,12 @@ export async function POST(request: NextRequest) {
     }
 
     const adminAuth = getAdminAuth();
+    
+    if (!adminAuth) {
+      console.error('CRITICAL: Firebase Admin SDK failed to initialize. Check server-side environment variables.');
+      return NextResponse.json({ error: 'Server not configured for authentication. Firebase Admin SDK initialization failed.' }, { status: 500 });
+    }
+
 
     // Verify the ID token
     const decodedIdToken = await adminAuth.verifyIdToken(idToken);
