@@ -70,8 +70,8 @@ export default async function HomePage() {
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">4</div>
               <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Join the Conversation</h4>
-                <p>Share your thoughts by commenting on individual locations using the form found on each location's page. All suggestions and comments are thoughtfully reviewed before they shine on the site.</p>
+                <h4 className="font-semibold mb-1 text-primary/90">Evaluate individual actions</h4>
+                <p>Vote on individual acctions by selecting the negative, neutral, or positive symbol.</p>
               </div>
             </div>
           </CardContent>
