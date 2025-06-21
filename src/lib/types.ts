@@ -49,12 +49,12 @@ export interface NewLocationSuggestion {
   townName: string;
   category: string;
   suggesterName: string;
-  // suggesterComment?: string; // This field is not in the type, but was referenced in admin-data.ts. Keeping it out for now.
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string; // ISO date string
   submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
   approvedAt?: string; // ISO date string, populated when suggestion is approved
   approvedAtFirestore?: any;
+  publishedLocationId?: string; // ID of the location document created from this suggestion
   coordinates: Coordinates;
   imageUrl?: string | null; // For uploaded image URL, allow null
 }

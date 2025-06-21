@@ -141,11 +141,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
     const formDataForServerAction = new FormData();
     Object.entries(data).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        if (String(value).trim() !== '' || typeof value === 'number' ) {
-             formDataForServerAction.append(key, String(value));
-        } else if ( (key === 'suggesterName' || key === 'name' || key === 'description' || key === 'townName' || key === 'category') && String(value).trim() === '' ) {
-             formDataForServerAction.append(key, "");
-        }
+        formDataForServerAction.append(key, String(value));
       }
     });
 

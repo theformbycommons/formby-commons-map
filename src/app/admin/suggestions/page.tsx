@@ -295,5 +295,3 @@ export default function AdminSuggestionsPage() {
     </div>
   );
 }
-
-const ImageLayoutFix = () => <Image src="https://placehold.co/100x100.png" alt="fix" layout="fill" objectFit="cover" />;
