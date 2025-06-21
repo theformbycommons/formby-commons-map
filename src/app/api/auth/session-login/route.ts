@@ -1,6 +1,6 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebase-admin'; // Admin SDK
+import { getAdminAuth } from '@/lib/firebase-admin'; // Admin SDK
 import { cookies } from 'next/headers';
 
 const SESSION_COOKIE_NAME = 'admin-session';
@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
     if (!idToken) {
       return NextResponse.json({ error: 'ID token is required.' }, { status: 400 });
     }
+
+    const adminAuth = getAdminAuth();
 
     // Verify the ID token
     const decodedIdToken = await adminAuth.verifyIdToken(idToken);

@@ -1,16 +1,23 @@
 
+'use server';
+
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
-// Firebase Storage admin SDK (adminStorage) import and initialization removed.
+import { getAuth, type Auth } from 'firebase-admin/auth';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
-let app: App;
-const existingApps = getApps();
+let app: App | null = null;
+let adminAuthInstance: Auth | null = null;
+let adminDbInstance: Firestore | null = null;
 
-if (!existingApps.length) {
+function initializeAdmin() {
+  // This function is now idempotent, it will only initialize the app once.
+  if (app) {
+    return;
+  }
+
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error('FIREBASE_ADMIN_PRIVATE_KEY environment variable is not set.');
+    throw new Error('SERVER-SIDE ERROR: The FIREBASE_ADMIN_PRIVATE_KEY environment variable is not set. This is required for admin actions (like voting, suggesting, approving). Please ensure it is set in your local .env.local file or server environment.');
   }
   const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
 
@@ -18,22 +25,36 @@ if (!existingApps.length) {
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 
   if (!projectId || !clientEmail) {
-    throw new Error('FIREBASE_ADMIN_PROJECT_ID or FIREBASE_ADMIN_CLIENT_EMAIL environment variables are not set.');
+    throw new Error('SERVER-SIDE ERROR: FIREBASE_ADMIN_PROJECT_ID or FIREBASE_ADMIN_CLIENT_EMAIL environment variables are not set.');
   }
 
-  app = initializeApp({
-    credential: cert({
-      projectId: projectId,
-      clientEmail: clientEmail,
-      privateKey: formattedPrivateKey,
-    }),
-    // storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET // Removed, not needed if adminStorage is not used
-  });
-} else {
-  app = existingApps[0];
+  const existingApps = getApps();
+  if (existingApps.length) {
+    app = existingApps[0];
+  } else {
+    app = initializeApp({
+      credential: cert({
+        projectId: projectId,
+        clientEmail: clientEmail,
+        privateKey: formattedPrivateKey,
+      }),
+    });
+  }
+
+  adminAuthInstance = getAuth(app);
+  adminDbInstance = getFirestore(app);
 }
 
-export const adminAuth = getAuth(app);
-export const adminDb = getFirestore(app);
-// export const adminStorage = getStorage(app); // adminStorage export removed
-export default app;
+export function getAdminAuth(): Auth {
+  if (!adminAuthInstance) {
+    initializeAdmin();
+  }
+  return adminAuthInstance!;
+}
+
+export function getAdminDb(): Firestore {
+  if (!adminDbInstance) {
+    initializeAdmin();
+  }
+  return adminDbInstance!;
+}
