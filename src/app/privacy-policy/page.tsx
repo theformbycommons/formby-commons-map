@@ -157,7 +157,7 @@ export default function PrivacyPolicyPage() {
           <section aria-labelledby="section-contact">
             <h2 id="section-contact" className="font-headline text-2xl text-primary mb-3">Contact Information for Act Local Glow</h2>
             <p>
-              localglow.uk (the "Site") is owned and operated by Felix Zajitschek (“owner of localglow.uk”; contact: <a href="mailto:localglowuk@gmail.com" className="text-accent hover:underline">localglowuk@gmail.com</a>).
+              act.localglow.uk (the "Site") is owned and operated by Felix Zajitschek (“owner of act.localglow.uk”; contact: <a href="mailto:localglowuk@gmail.com" className="text-accent hover:underline">localglowuk@gmail.com</a>).
             </p>
           </section>
 
