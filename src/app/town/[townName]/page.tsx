@@ -68,8 +68,8 @@ export default async function TownPage({ params }: TownPageProps) {
       
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-primary">Locations in {town.name}</CardTitle>
-          <CardDescription>Discover interesting places submitted by our community.</CardDescription>
+          <CardTitle className="font-headline text-2xl text-primary">Actions in {town.name}</CardTitle>
+          <CardDescription>Discover proposed Actions submitted by our community.</CardDescription>
         </CardHeader>
         <CardContent>
           <ClientTownMap locations={locations} town={town} />
