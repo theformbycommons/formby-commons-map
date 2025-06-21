@@ -53,7 +53,7 @@ export default async function TownPage({ params }: TownPageProps) {
             </div>
             <Button asChild variant="outline" className="mt-4 md:mt-0 border-accent text-accent hover:bg-accent hover:text-accent-foreground bg-background/70 hover:bg-accent/90 backdrop-blur-sm">
               <Link href="/suggest-location">
-                <PlusCircle className="mr-2 h-4 w-4" /> Suggest a Location
+                <PlusCircle className="mr-2 h-4 w-4" /> Suggest an Action
               </Link>
             </Button>
           </div>
