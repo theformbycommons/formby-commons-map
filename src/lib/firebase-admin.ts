@@ -12,19 +12,12 @@ function initializeAdmin(): boolean {
   if (app) return true; // Already initialized successfully
   if (initFailed) return false; // Don't re-attempt a failed initialization
 
-  console.log("--- Firebase Admin SDK Initialization Attempt ---");
-
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
-  // Log status of each variable
-  console.log("Verifying FIREBASE_ADMIN_PROJECT_ID:", projectId ? "Found" : "MISSING");
-  console.log("Verifying FIREBASE_ADMIN_CLIENT_EMAIL:", clientEmail ? "Found" : "MISSING");
-  console.log("Verifying FIREBASE_ADMIN_PRIVATE_KEY:", privateKey ? "Found" : "MISSING");
-
   if (!privateKey || !projectId || !clientEmail) {
-    console.error('SERVER-SIDE CONFIG ERROR: One or more required Firebase Admin environment variables are not set in your .env.local file. Admin actions will fail.');
+    console.error('SERVER-SIDE CONFIG ERROR: One or more required Firebase Admin environment variables are not set. Admin actions will fail.');
     initFailed = true;
     return false;
   }
@@ -47,10 +40,9 @@ function initializeAdmin(): boolean {
 
     adminAuthInstance = getAuth(app);
     adminDbInstance = getFirestore(app);
-    console.log("--- Firebase Admin SDK Initialization SUCCESSFUL ---");
     return true; // Success
   } catch (error) {
-    console.error("--- Firebase Admin SDK Initialization FAILED ---", error);
+    console.error("Firebase Admin SDK Initialization FAILED:", error);
     initFailed = true;
     return false; // Failure
   }
