@@ -57,7 +57,6 @@ export default async function TownPage({ params }: TownPageProps) {
               </Link>
             </Button>
           </div>
-          <p className="text-md text-foreground max-w-3xl mb-4 bg-background/70 p-3 rounded-md shadow backdrop-blur-sm">{town.description}</p>
           
           <Button asChild variant="link" className="px-0 text-accent bg-background/70 hover:bg-accent/10 rounded-md p-2 backdrop-blur-sm">
             <Link href="/">
