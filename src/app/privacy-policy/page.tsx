@@ -26,7 +26,7 @@ export default function PrivacyPolicyPage() {
           <section aria-labelledby="section-type">
             <h2 id="section-type" className="font-headline text-2xl text-primary mb-3">Type of website</h2>
             <p>
-              A not-for-profit community project that lets users submit and view descriptions and pictures/photos of locations in the UK.
+              A not-for-profit community project that lets users submit and view descriptions of proposed local Actions in the UK.
             </p>
           </section>
 
