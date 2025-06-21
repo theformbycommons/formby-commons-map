@@ -85,7 +85,7 @@ export default function TermsAndConditionsPage() {
           <section aria-labelledby="section-indemnity">
             <h2 id="section-indemnity" className="font-headline text-2xl text-primary mb-3">Indemnity</h2>
             <p>
-              Except where prohibited by law, by using this Site you indemnify and hold harmless the owner of localglow.uk from any actions, claims, losses, damages, liabilities and expenses including legal fees arising out of your use of our Site or your violation of these Terms and Conditions.
+              Except where prohibited by law, by using this Site you indemnify and hold harmless the owner of act.localglow.uk from any actions, claims, losses, damages, liabilities and expenses including legal fees arising out of your use of our Site or your violation of these Terms and Conditions.
             </p>
           </section>
 
