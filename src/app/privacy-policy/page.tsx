@@ -133,7 +133,7 @@ export default function PrivacyPolicyPage() {
           <section aria-labelledby="section-children">
             <h2 id="section-children" className="font-headline text-2xl text-primary mb-3">Children</h2>
             <p>
-              We do not knowingly collect or use personal data from children under 16 years of age. If we learn that we have collected personal data from a child under 16 years of age, the personal data will be deleted as soon as possible. If a child under 16 years of age has provided us with personal data their parent or guardian may contact the owner of localglow.uk.
+              We do not knowingly collect or use personal data from children under 16 years of age. If we learn that we have collected personal data from a child under 16 years of age, the personal data will be deleted as soon as possible. If a child under 16 years of age has provided us with personal data their parent or guardian may contact the owner of act.localglow.uk.
             </p>
           </section>
 

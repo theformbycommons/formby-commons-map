@@ -79,7 +79,7 @@ export default function TermsAndConditionsPage() {
           <section aria-labelledby="section-limitation-liability">
             <h2 id="section-limitation-liability" className="font-headline text-2xl text-primary mb-3">Limitation of Liability</h2>
             <p>
-              The owner of localglow.uk will not be liable for any actions, claims, losses, damages, liabilities, and expenses (including reasonable legal fees) arising from your use of this Site.
+              The owner of act.localglow.uk will not be liable for any actions, claims, losses, damages, liabilities, and expenses (including reasonable legal fees) arising from your use of this Site.
             </p>
           </section>
 
