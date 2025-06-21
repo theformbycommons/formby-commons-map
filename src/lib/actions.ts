@@ -90,7 +90,7 @@ export async function submitSuggestion(
     suggesterName: formData.get('suggesterName') as string,
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
-    suggesterUid: formData.get('suggesterUid') as string | undefined, // Get suggesterUid
+    suggesterUid: formData.get('suggesterUid') as string | undefined,
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
@@ -121,9 +121,6 @@ export async function submitSuggestion(
 
   const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
 
-  const dataForFirestore: Record<string, any> = { ...dataFromValidation };
-
-
   try {
     if (suggesterUid) {
       const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid, ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT, 'userDailySuggestionLimits', 'lastSubmissionDate');
@@ -136,12 +133,12 @@ export async function submitSuggestion(
     }
 
     const suggestionForDb = {
-      name: dataForFirestore.name as string,
-      description: dataForFirestore.description as string,
-      townName: dataForFirestore.townName as string,
-      category: dataForFirestore.category as string,
-      suggesterName: dataForFirestore.suggesterName as string,
-      imageUrl: null, // Set imageUrl to null as we are removing image uploads
+      name: dataFromValidation.name,
+      description: dataFromValidation.description,
+      townName: dataFromValidation.townName,
+      category: dataFromValidation.category,
+      suggesterName: dataFromValidation.suggesterName,
+      imageUrl: null,
       status: 'pending' as const,
       submittedAtFirestore: AdminFieldValue.serverTimestamp(),
       coordinates: {
@@ -155,10 +152,10 @@ export async function submitSuggestion(
     const newDocRef = await suggestedLocationsColRef.add(suggestionForDb);
 
     revalidatePath('/admin/suggestions');
-    revalidatePath('/admin/actions'); // Also revalidate the new path if it exists
+    revalidatePath('/admin/actions');
 
     return {
- message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received and is pending review.`,
+      message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received and is pending review.`,
       type: 'success',
       submittedSuggestionData: {
         id: newDocRef.id,
@@ -278,7 +275,7 @@ export async function approveSuggestion(
               townName: townDataForLocation.name,
               name: suggestionData.name,
               description: suggestionData.description,
-              imageUrl: suggestionData.imageUrl || null, // imageUrl will be passed as is (likely null now)
+              imageUrl: suggestionData.imageUrl || null,
               category: suggestionData.category,
               coordinates: suggestionData.coordinates,
               submittedBy: suggestionData.suggesterName,
@@ -368,7 +365,7 @@ export async function deleteSuggestion(
     await suggestionDocRef.delete();
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
-    revalidatePath('/admin/actions'); // Also revalidate new path
+    revalidatePath('/admin/actions');
 
     return { message: "Suggestion document deleted successfully.", type: 'success', suggestionId };
 
@@ -462,7 +459,7 @@ export async function addCommentToLocation(
     const newCommentRef = await suggestedCommentsColRef.add(newSuggestedComment);
 
     revalidatePath(`/location/${locationId}`);
-    revalidatePath(`/action/${locationId}`); // If using new action path
+    revalidatePath(`/action/${locationId}`);
 
     return {
       message: "Thank you! Your comment has been submitted and is now pending review.",
@@ -536,7 +533,6 @@ export async function castVote(
             throw new Error("Location not found.");
         }
         
-        // If votes map doesn't exist, initialize it before incrementing.
         const locationData = locationDoc.data();
         if (!locationData?.votes) {
             transaction.update(locationRef, {
@@ -544,7 +540,6 @@ export async function castVote(
             });
         }
         
-        // Increment the vote count. The dot notation is used to update a field within a map.
         transaction.update(locationRef, {
             [fieldToIncrement]: AdminFieldValue.increment(1)
         });

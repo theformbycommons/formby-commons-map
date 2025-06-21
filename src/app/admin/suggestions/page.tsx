@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-// Removed: import { useRouter } from 'next/navigation'; // No longer needed here
 import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2, Home, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
@@ -18,7 +17,6 @@ import {
 } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useActionState, startTransition } from 'react';
-// Removed: import { auth } from '@/lib/firebase'; // Logout handled by dashboard now
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,7 +89,7 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
   );
 }
 
-function DeleteSuggestionButton({ suggestionId, suggestionName, imageUrl }: { suggestionId: string, suggestionName: string, imageUrl?: string | null }) {
+function DeleteSuggestionButton({ suggestionId, suggestionName }: { suggestionId: string, suggestionName: string }) {
   const { toast } = useToast();
   const [state, formAction, isPending] = useActionState(deleteSuggestion, initialDeleteState);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -128,12 +126,11 @@ function DeleteSuggestionButton({ suggestionId, suggestionName, imageUrl }: { su
       <AlertDialogContent>
         <form onSubmit={handleSubmit}> 
           <input type="hidden" name="suggestionId" value={suggestionId} />
-          {imageUrl && <input type="hidden" name="imageUrl" value={imageUrl} />}
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action will permanently delete the suggestion for <strong className="text-foreground">{suggestionName}</strong>.
-              {imageUrl && " The associated image will also be deleted."} This cannot be undone.
+              This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -154,8 +151,9 @@ export default function AdminSuggestionsPage() {
   const [suggestions, setSuggestions] = useState<NewLocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  // Removed: const router = useRouter(); // No longer used here
-
+  
+  // This state is used to trigger a re-fetch when an action completes.
+  // It relies on the fact that useActionState causes a re-render of the parent.
   const [actionState] = useActionState(() => Promise.resolve({ message: '', type: 'info' }), { message: '', type: 'info' });
 
 
@@ -200,7 +198,6 @@ export default function AdminSuggestionsPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="font-headline text-3xl text-primary">Manage Location Suggestions</CardTitle>
-            {/* Logout button removed, now on dashboard */}
           </div>
           <CardDescription>
             Review new submissions. Use 'Approve & Publish' to make them live. 
@@ -276,7 +273,6 @@ export default function AdminSuggestionsPage() {
                             <DeleteSuggestionButton 
                                 suggestionId={suggestion.id} 
                                 suggestionName={suggestion.name}
-                                imageUrl={suggestion.imageUrl} 
                             />
                            )}
                         </div>
