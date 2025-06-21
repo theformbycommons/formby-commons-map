@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useActionState } from 'react';
+import { useState, useEffect, useActionState, startTransition } from 'react';
 import type { Location } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -109,7 +108,9 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
     const formData = new FormData();
     formData.append('locationId', locationId);
     formData.append('voteType', voteType);
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
   
   return (
