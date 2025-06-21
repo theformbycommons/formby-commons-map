@@ -5,10 +5,6 @@ import type { Location, Town } from '@/lib/types';
 import LocationCard from '@/components/location/LocationCard';
 import L, { type Map as LeafletMapClass } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-// Removed problematic local image imports
-// import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-// import iconUrl from 'leaflet/dist/images/marker-icon.png';
-// import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import React, { useEffect, useRef } from 'react';
 
 interface TownMapProps {
@@ -65,13 +61,6 @@ export default function TownMap({ locations, town }: TownMapProps) {
         .bindPopup(`<strong style="font-family: 'PT Sans', sans-serif; color: hsl(var(--primary));">${town.name} Town Center</strong>`);
 
     }
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
   }, [locations, town]);
 
   return (
