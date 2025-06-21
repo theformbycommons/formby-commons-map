@@ -141,7 +141,6 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         name: data.name,
         description: data.description,
         imageUrl: data.imageUrl || null,
-        category: data.category,
         coordinates: data.coordinates,
         submittedBy: data.submittedBy,
         comments: uniqueComments,
@@ -206,7 +205,6 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       name: data.name,
       description: data.description,
       imageUrl: data.imageUrl || null,
-      category: data.category,
       coordinates: data.coordinates,
       submittedBy: data.submittedBy,
       comments: uniqueComments,
@@ -219,23 +217,3 @@ export async function getLocationById(id: string): Promise<Location | undefined>
     return undefined;
   }
 }
-
-
-export const locationCategories = [
-  "Park",
-  "Nature Spot",
-  "Cafe",
-  "Pub / Restaurant",
-  "Shop",
-  "Landmark",
-  "Viewpoint",
-  "Gallery / Museum",
-  "Lovely spot",
-  "Quirky",
-  "Art",
-  "Architecture",
-  "Street",
-  "Other"
-];
-  
-// mockTowns removed

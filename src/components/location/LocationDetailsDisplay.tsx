@@ -5,22 +5,13 @@ import type { Location } from '@/lib/types';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Tag } from 'lucide-react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 import VoteControl from './VoteControl';
 
 
 interface LocationDetailsDisplayProps {
   location: Location;
 }
-
-function getCategoryIcon(category: string) {
-  const lowerCategory = category.toLowerCase();
-  if (lowerCategory.includes('park') || lowerCategory.includes('nature')) return <Tag className="w-5 h-5 text-green-600" />;
-  if (lowerCategory.includes('cafe') || lowerCategory.includes('coffee')) return <Tag className="w-5 h-5 text-yellow-700" />;
-  if (lowerCategory.includes('landmark') || lowerCategory.includes('historical')) return <Tag className="w-5 h-5 text-blue-600" />;
-  return <Tag className="w-5 h-5 text-gray-600" />;
-}
-
 
 export default function LocationDetailsDisplay({ location }: LocationDetailsDisplayProps) {
 
@@ -33,14 +24,6 @@ export default function LocationDetailsDisplay({ location }: LocationDetailsDisp
         </div>
 
         <div className="space-y-4 text-sm">
-
-          <div className="flex items-center gap-2 p-3 bg-secondary/50 rounded-md">
-            {getCategoryIcon(location.category)}
-            <span className="font-medium text-secondary-foreground">Category:</span>
-            <span>{location.category}</span>
-          </div>
-
-
           <div className="p-3 bg-secondary/50 rounded-md space-y-1">
             <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-accent" />

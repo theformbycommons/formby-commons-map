@@ -237,7 +237,7 @@ export default function AdminSuggestionsPage() {
                         <div className="flex justify-between items-start">
                           <div>
                             <h3 className="font-headline text-xl text-primary">{suggestion.name}</h3>
-                            <p className="text-sm text-muted-foreground">{suggestion.townName} - {suggestion.category}</p>
+                            <p className="text-sm text-muted-foreground">{suggestion.townName}</p>
                           </div>
                           <StatusBadge status={suggestion.status} approvedAt={suggestion.approvedAt} />
                         </div>

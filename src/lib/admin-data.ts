@@ -51,9 +51,7 @@ export async function getSuggestedLocations(): Promise<NewLocationSuggestion[]> 
         name: data.name,
         description: data.description,
         townName: data.townName,
-        category: data.category,
         suggesterName: data.suggesterName,
-        // suggesterComment: data.suggesterComment, // suggesterComment not part of NewLocationSuggestion type
         status: data.status,
         submittedAt: submittedAtString || new Date(0).toISOString(), // Fallback if submittedAtString is undefined
         ...(approvedAtString && { approvedAt: approvedAtString }), 

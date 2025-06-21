@@ -3,18 +3,16 @@
 
 import { useActionState, startTransition, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller, type FieldPath } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { useFormStatus } from 'react-dom';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { submitSuggestion, type SuggestionFormState } from '@/lib/actions';
-import { locationCategories } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, Info, MapPin as MapPinIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -33,7 +31,6 @@ const SuggestionFormClientSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
   description: z.string().min(10, "Description must be at least 10 characters long.").max(1000, "Description must be 1000 characters or less."),
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
-  category: z.string().min(1, "Please select a category."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   latitude: z.number({ required_error: "Please select a location on the map." })
             .min(-90, "Invalid latitude. Please select a location on the map.")
@@ -82,7 +79,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       name: '',
       description: '',
       townName: '',
-      category: '',
       suggesterName: '',
     }
   });
@@ -219,34 +215,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
                 {errors.latitude?.message || errors.longitude?.message || "Please select a valid location on the map."}
             </p>
         )}
-      </div>
-
-      <div>
-        <Label htmlFor="category" className="font-medium">Category</Label>
-        <p className="text-xs text-muted-foreground mt-1 mb-2">Please pick one category:</p>
-        <Controller
-          name="category"
-          control={control}
-          render={({ field }) => (
-            <RadioGroup
-              onValueChange={field.onChange}
-              value={field.value || ""}
-              className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3"
-              aria-invalid={errors.category ? "true" : "false"}
-            >
-              {locationCategories.map(cat => {
-                const catId = `category-${cat.toLowerCase().replace(/\s+/g, '-')}`;
-                return (
-                  <div key={cat} className="flex items-center space-x-2">
-                    <RadioGroupItem value={cat} id={catId} />
-                    <Label htmlFor={catId} className="font-normal cursor-pointer">{cat}</Label>
-                  </div>
-                );
-              })}
-            </RadioGroup>
-          )}
-        />
-        {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
       </div>
 
       <div>

@@ -12,7 +12,6 @@ const SuggestionFormSchemaServer = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
   description: z.string().min(10, "Description must be at least 10 characters").max(1000),
   townName: z.string().min(2, "Town name is required").max(50),
-  category: z.string().min(1, "Category is required"),
   latitude: z.preprocess(
     (val) => Number(val),
     z.number().min(-90, "Invalid latitude. Please select a location on the map.").max(90, "Invalid latitude. Please select a location on the map.")
@@ -86,7 +85,6 @@ export async function submitSuggestion(
     name: formData.get('name') as string,
     description: formData.get('description') as string,
     townName: formData.get('townName') as string,
-    category: formData.get('category') as string,
     suggesterName: formData.get('suggesterName') as string,
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
@@ -136,7 +134,6 @@ export async function submitSuggestion(
       name: dataFromValidation.name,
       description: dataFromValidation.description,
       townName: dataFromValidation.townName,
-      category: dataFromValidation.category,
       suggesterName: dataFromValidation.suggesterName,
       imageUrl: null,
       status: 'pending' as const,
@@ -270,13 +267,12 @@ export async function approveSuggestion(
             const newLocationRef = adminDb.collection('locations').doc();
             publishedLocationId = newLocationRef.id;
 
-            const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt' | 'votes'> = {
+            const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt' | 'votes' | 'imageUrl'> & { imageUrl: string | null } = {
               townId: townId,
               townName: townDataForLocation.name,
               name: suggestionData.name,
               description: suggestionData.description,
               imageUrl: suggestionData.imageUrl || null,
-              category: suggestionData.category,
               coordinates: suggestionData.coordinates,
               submittedBy: suggestionData.suggesterName,
               createdAtFirestore: AdminFieldValue.serverTimestamp(),

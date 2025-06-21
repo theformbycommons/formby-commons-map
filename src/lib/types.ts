@@ -28,7 +28,6 @@ export interface Location {
   townName: string; // Denormalized for convenience
   name: string;
   description: string;
-  category: string;
   coordinates: Coordinates;
   submittedBy: string; // From suggesterName
   comments: LocationComment[]; // Array of APPROVED comments
@@ -39,6 +38,7 @@ export interface Location {
     positive: number;
     fantastic: number;
   };
+  imageUrl?: string | null;
 }
 
 // For form validation and submission to 'suggestedLocations'
@@ -47,7 +47,6 @@ export interface NewLocationSuggestion {
   name: string;
   description: string;
   townName: string;
-  category: string;
   suggesterName: string;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string; // ISO date string
