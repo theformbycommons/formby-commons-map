@@ -43,7 +43,7 @@ export default async function HomePage() {
               <Compass className="h-8 w-8 text-primary" />
               <CardTitle className="font-headline text-2xl text-primary">How to Discover & Share Your Act Local Glow</CardTitle>
             </div>
-            <CardDescription>A quick guide to navigating the site and contributing your favorite spots.</CardDescription>
+            <CardDescription>A quick guide to navigating the site and contributing your proposed Actions.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-foreground/90">
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
