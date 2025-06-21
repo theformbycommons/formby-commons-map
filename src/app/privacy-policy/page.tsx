@@ -87,9 +87,8 @@ export default function PrivacyPolicyPage() {
               We may also collect the following data when you perform certain functions on our Site:
             </p>
             <ul className="list-disc list-inside pl-4 space-y-1 mt-2">
-              <li>Photo/picture; and</li>
-              <li>Location description and comments; and</li>
-              <li>User-created username that will appear with the location description (full names will be initialized or changed to a random, unrelated, fictional name)</li>
+              <li>Action description; and</li>
+              <li>Sser vote on individual Actions</li>
             </ul>
             <p className="mt-2">
               This data may be collected using the provided online submission form.
