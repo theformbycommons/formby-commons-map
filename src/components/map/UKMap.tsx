@@ -105,7 +105,7 @@ export default function UKMap({ towns }: UKMapProps) {
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
                   <a href={`/town/${encodeURIComponent(town.name)}`} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
-                    Explore {town.name} ({town.locationCount || 0} Locations)
+                    Explore {town.name} ({town.locationCount || 0} Actions)
                   </a>
                 </Button>
               </CardFooter>
