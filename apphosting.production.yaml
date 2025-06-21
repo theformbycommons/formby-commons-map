@@ -18,11 +18,6 @@ env:
     availability:
       - BUILD
       - RUNTIME
-  - variable: GEMINI_API_KEY
-    secret: act-local-glow-gemini-api-key # You will need to create this secret
-    availability:
-      - BUILD
-      - RUNTIME
 
   # NEXT_PUBLIC_ variables are safe to be here as their values are meant to be public.
   # Ensure these match your Firebase project configuration.
