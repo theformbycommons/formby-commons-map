@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Town } from '@/lib/types';
@@ -78,17 +79,14 @@ export default function UKMap({ towns }: UKMapProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {towns.map((town) => (
             <Card key={town.id} className="flex flex-col hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="p-4">
+              <CardHeader className="p-4 flex-grow">
                 <CardTitle className="font-headline text-xl text-primary flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-accent" />
                   {town.name}
                 </CardTitle>
                 <CardDescription>{town.county}, {town.country}</CardDescription>
               </CardHeader>
-              <CardContent className="p-4 pt-0 flex-grow">
-                <p className="text-sm text-muted-foreground line-clamp-3">{town.description}</p>
-              </CardContent>
-              <CardFooter className="p-4">
+              <CardFooter className="p-4 mt-auto">
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
                   <a href={`/town/${encodeURIComponent(town.name)}`} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
