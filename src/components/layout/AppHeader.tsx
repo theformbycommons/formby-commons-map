@@ -20,7 +20,7 @@ export default function AppHeader() {
           <Button variant="default" size="sm" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
             <Link href="/suggest-location" className="flex items-center gap-1.5">
               <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="hidden sm:inline">Suggest Location</span>
+              <span className="hidden sm:inline">Suggest Action</span>
               <span className="sm:hidden">Suggest</span>
             </Link>
           </Button>
