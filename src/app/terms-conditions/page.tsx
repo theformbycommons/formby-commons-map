@@ -23,7 +23,7 @@ export default function TermsAndConditionsPage() {
         </CardHeader>
         <CardContent className="pt-8 px-6 md:px-8 space-y-6 text-foreground/90 leading-relaxed">
           <p>
-            These terms and conditions (the "Terms and Conditions") govern the use of localglow.uk (the "Site"). This Site is owned and operated by Felix Zajitschek (“owner of localglow.uk”). This Site is a not-for-profit community project that lets users submit and view descriptions of local Actions in the UK.
+            These terms and conditions (the "Terms and Conditions") govern the use of act.localglow.uk (the "Site"). This Site is owned and operated by Felix Zajitschek (“owner of act.localglow.uk”). This Site is a not-for-profit community project that lets users submit and view descriptions of local Actions in the UK.
           </p>
           <p>
             By using this Site, you indicate that you have read and understand these Terms and Conditions and agree to abide by them at all times.
