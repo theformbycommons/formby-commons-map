@@ -58,9 +58,8 @@ export default function TermsAndConditionsPage() {
               Users may submit the following information on our Site (“User Submissions"):
             </p>
             <ul className="list-disc list-inside pl-4 space-y-1 mt-2">
-              <li>Photos/Pictures; and</li>
-              <li>Location/photo/picture descriptions; and</li>
-              <li>Public comments.</li>
+              <li>Action descriptions; and</li>
+              <li>User votes on Actions</li>
             </ul>
             <p className="mt-2">
               By submitting information to our Site, you agree not to act illegally or violate these Terms and Conditions.
