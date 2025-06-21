@@ -29,7 +29,7 @@ export default async function HomePage() {
             </p>
             <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8 sm:mt-10">
               <Link href="/about">
-                <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind Local Glow
+                <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind Act Local Glow
               </Link>
             </Button>
           </div>
