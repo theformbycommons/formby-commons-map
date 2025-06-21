@@ -81,7 +81,7 @@ export default async function HomePage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline text-2xl text-primary">Towns with Act Local Glow</CardTitle>
-          <CardDescription>Click on a town marker to explore its unique locations, or see town cards below.</CardDescription>
+          <CardDescription>Click on a town marker to explore its unique Actions, or see town cards below.</CardDescription>
         </CardHeader>
         <CardContent>
           <ClientUKMap towns={towns} />
