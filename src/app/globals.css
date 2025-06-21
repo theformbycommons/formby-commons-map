@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,97 +9,98 @@ body {
 
 @layer base {
   :root {
-    /* New Warm & Vivid Theme: Sunset Glow */
-    --background: 30 100% 97%; /* Pale Orange White */
-    --foreground: 30 20% 25%; /* Dark Warm Brown */
+    /* New "Community Canvas & Growth Green" Theme */
+    --background: 210 25% 96%; /* Pale Grey */
+    --foreground: 210 20% 20%; /* Dark Slate Grey */
 
-    --card: 30 80% 95%; /* Slightly more saturated pale orange white for cards */
-    --card-foreground: 30 20% 25%;
+    --card: 210 25% 99%; /* Almost White */
+    --card-foreground: 210 20% 20%;
 
-    --popover: 30 80% 95%;
-    --popover-foreground: 30 20% 25%;
+    --popover: 210 25% 99%;
+    --popover-foreground: 210 20% 20%;
 
-    --primary: 25 95% 60%; /* Vibrant Orange (e.g., #ff8c42) */
-    --primary-foreground: 30 100% 98%; /* Off-white for text on primary */
+    --primary: 210 28% 41%; /* Slate Blue */
+    --primary-foreground: 210 20% 98%; /* Off-white for text on primary */
 
-    --secondary: 30 90% 80%; /* Light Peachy Orange */
-    --secondary-foreground: 30 20% 30%; /* Medium-dark warm brown for text on secondary */
+    --secondary: 210 30% 90%; /* Light Slate Blue */
+    --secondary-foreground: 210 28% 31%;
 
-    --muted: 30 70% 90%; /* Very Pale Peach */
-    --muted-foreground: 30 20% 45%; /* Muted warm brown text */
+    --muted: 210 25% 94%; /* Light Grey */
+    --muted-foreground: 210 20% 45%; /* Muted slate text */
 
-    --accent: 330 85% 55%; /* Vivid Magenta/Pink (e.g., #e61e7c) */
-    --accent-foreground: 30 100% 98%; /* Off-white for text on accent */
+    --accent: 168 76% 42%; /* Teal Green */
+    --accent-foreground: 168 50% 98%; /* Off-white for text on accent */
 
-    --destructive: 0 84.2% 60.2%; /* Default red for destructive actions */
+    --destructive: 0 84.2% 60.2%; /* Default red */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 30 20% 88%; /* Pale warm border */
-    --input: 30 50% 94%; /* Pale warm input background */
-    --ring: 25 95% 60%; /* Vibrant Orange for rings (matches primary) */
+    --border: 210 20% 88%; /* Pale slate border */
+    --input: 210 20% 92%; /* Pale slate input background */
+    --ring: 168 76% 42%; /* Teal Green for rings (matches accent) */
     
-    --chart-1: 25 95% 60%; /* primary - Vibrant Orange */
-    --chart-2: 330 85% 55%; /* accent - Vivid Magenta/Pink */
-    --chart-3: 45 100% 55%; /* vivid warm yellow */
-    --chart-4: 10 80% 50%;  /* deep warm red */
-    --chart-5: 15 90% 65%;  /* coral/salmon */
+    --chart-1: 210 28% 41%; /* primary - Slate Blue */
+    --chart-2: 168 76% 42%; /* accent - Teal Green */
+    --chart-3: 45 90% 60%; /* Gentle Yellow */
+    --chart-4: 260 50% 65%; /* Soft Purple */
+    --chart-5: 150 60% 40%; /* Another shade of green */
     --radius: 0.5rem;
 
-    /* Sidebar specific colors - adjust to match new theme */
-    --sidebar-background: 30 70% 92%; /* A bit more saturated light peach */
-    --sidebar-foreground: 30 20% 25%;
-    --sidebar-primary: 25 95% 60%; 
-    --sidebar-primary-foreground: 30 100% 98%;
-    --sidebar-accent: 330 85% 55%;
-    --sidebar-accent-foreground: 30 100% 98%;
-    --sidebar-border: 30 20% 85%; 
-    --sidebar-ring: 25 95% 60%; 
+    /* Sidebar specific colors */
+    --sidebar-background: 210 20% 93%;
+    --sidebar-foreground: 210 20% 20%;
+    --sidebar-primary: 210 28% 41%;
+    --sidebar-primary-foreground: 210 20% 98%;
+    --sidebar-accent: 168 76% 42%;
+    --sidebar-accent-foreground: 168 50% 98%;
+    --sidebar-border: 210 20% 85%;
+    --sidebar-ring: 168 76% 42%;
   }
 
   .dark {
-    /* Dark Warm & Vivid Theme */
-    --background: 30 10% 15%; /* Dark Warm Brown */
-    --foreground: 30 20% 85%; /* Light Cream text */
+    /* Dark "Community Canvas & Growth Green" Theme */
+    --background: 210 20% 12%; /* Dark Slate Blue */
+    --foreground: 210 20% 85%; /* Light Grey text */
 
-    --card: 30 10% 18%; 
-    --card-foreground: 30 20% 85%;
+    --card: 210 20% 15%; 
+    --card-foreground: 210 20% 85%;
 
-    --popover: 30 10% 18%;
-    --popover-foreground: 30 20% 85%;
+    --popover: 210 20% 15%;
+    --popover-foreground: 210 20% 85%;
 
-    --primary: 25 90% 70%; /* Brighter Vibrant Orange for dark mode */
-    --primary-foreground: 30 20% 10%; /* Very Dark Brown for text on primary */
+    --primary: 210 40% 65%; /* Lighter Slate Blue for dark mode */
+    --primary-foreground: 210 30% 15%; /* Very Dark Blue for text on primary */
 
-    --secondary: 30 15% 30%; /* Muted Warm Brown for secondary elements */
-    --secondary-foreground: 30 20% 80%; /* Light cream text on secondary */
+    --secondary: 210 25% 25%; /* Muted Slate Blue for secondary elements */
+    --secondary-foreground: 210 20% 80%; /* Light grey text on secondary */
 
-    --muted: 30 10% 22%; /* Darker Muted Brown */
-    --muted-foreground: 30 15% 60%; /* Lighter Muted warm brown text */
+    --muted: 210 20% 20%; /* Darker Muted Slate */
+    --muted-foreground: 210 20% 60%; /* Lighter Muted slate text */
 
-    --accent: 330 80% 65%; /* Brighter Vivid Magenta/Pink for dark mode */
-    --accent-foreground: 30 100% 98%; /* Off-white for text on accent */
+    --accent: 168 70% 55%; /* Brighter Teal Green for dark mode */
+    --accent-foreground: 168 80% 10%; /* Dark color for text on accent */
 
     --destructive: 0 75% 55%; /* Default red for destructive actions - dark */
     --destructive-foreground: 0 0% 95%;
 
-    --border: 30 10% 30%; /* Dark warm border */
-    --input: 30 10% 25%; /* Dark warm input background */
-    --ring: 25 90% 70%; /* Brighter Orange for rings (matches dark primary) */
+    --border: 210 20% 25%; /* Dark slate border */
+    --input: 210 20% 22%; /* Dark slate input background */
+    --ring: 168 70% 55%; /* Brighter Teal for rings (matches dark accent) */
 
-    --chart-1: 25 90% 70%;
-    --chart-2: 330 80% 65%;
-    --chart-3: 45 95% 65%; /* brighter yellow for dark */
-    --chart-4: 10 75% 60%;  /* brighter warm red for dark */
-    --chart-5: 15 85% 70%;  /* brighter coral for dark */
+    --chart-1: 210 40% 65%;
+    --chart-2: 168 70% 55%;
+    --chart-3: 45 80% 70%;
+    --chart-4: 260 45% 70%;
+    --chart-5: 150 50% 50%;
     
-    --sidebar-background: 30 10% 12%; /* Darker than main dark bg */
-    --sidebar-foreground: 30 20% 85%;
-    --sidebar-primary: 25 90% 70%;
-    --sidebar-primary-foreground: 30 20% 10%;
-    --sidebar-accent: 330 80% 65%;
-    --sidebar-accent-foreground: 30 100% 98%;
-    --sidebar-border: 30 10% 20%; 
-    --sidebar-ring: 25 90% 70%;
+    /* Sidebar specific colors */
+    --sidebar-background: 210 20% 10%; /* Darker than main dark bg */
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 210 40% 65%;
+    --sidebar-primary-foreground: 210 30% 15%;
+    --sidebar-accent: 168 70% 55%;
+    --sidebar-accent-foreground: 168 80% 10%;
+    --sidebar-border: 210 20% 20%;
+    --sidebar-ring: 168 70% 55%;
   }
 }
 
