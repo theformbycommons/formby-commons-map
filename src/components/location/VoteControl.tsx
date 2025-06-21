@@ -31,9 +31,9 @@ function VoteResults({ votes }: { votes: VoteCounts }) {
   };
 
   const voteOptions: { type: VoteType; label: string; icon: React.ReactNode; color: string }[] = [
-    { type: 'neutral', label: 'Neutral', icon: <Meh className="h-5 w-5 text-yellow-600" />, color: 'bg-yellow-500' },
-    { type: 'positive', label: 'Positive', icon: <Smile className="h-5 w-5 text-green-600" />, color: 'bg-green-500' },
-    { type: 'fantastic', label: 'Fantastic!', icon: <Star className="h-5 w-5 text-blue-600" />, color: 'bg-blue-500' },
+    { type: 'neutral', label: 'Neutral', icon: <Meh className="h-6 w-6 text-yellow-600" />, color: 'bg-yellow-500' },
+    { type: 'positive', label: 'Positive', icon: <Smile className="h-6 w-6 text-green-600" />, color: 'bg-green-500' },
+    { type: 'fantastic', label: 'Fantastic!', icon: <Star className="h-6 w-6 text-blue-600" />, color: 'bg-blue-500' },
   ];
 
   return (
@@ -133,7 +133,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                 onClick={() => handleVote('neutral')}
                 disabled={isPending}
               >
-                <Meh className="h-8 w-8 text-yellow-500" />
+                <Meh className="h-10 w-10 text-yellow-500" />
                 <span className="text-xs text-muted-foreground">Neutral</span>
               </Button>
               <Button
@@ -143,7 +143,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                 onClick={() => handleVote('positive')}
                 disabled={isPending}
               >
-                <Smile className="h-8 w-8 text-green-500" />
+                <Smile className="h-10 w-10 text-green-500" />
                 <span className="text-xs text-muted-foreground">Positive</span>
               </Button>
               <Button
@@ -153,7 +153,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                 onClick={() => handleVote('fantastic')}
                 disabled={isPending}
               >
-                <Star className="h-8 w-8 text-blue-500" />
+                <Star className="h-10 w-10 text-blue-500" />
                 <span className="text-xs text-muted-foreground">Fantastic!</span>
               </Button>
               {isPending && <Loader2 className="absolute h-6 w-6 animate-spin text-primary" />}
