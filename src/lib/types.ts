@@ -34,6 +34,11 @@ export interface Location {
   comments: LocationComment[]; // Array of APPROVED comments
   createdAt: string; // ISO date string, populated when location is created from suggestion
   createdAtFirestore?: any; // For Firestore serverTimestamp
+  votes?: { // Added for the new voting system
+    neutral: number;
+    positive: number;
+    fantastic: number;
+  };
 }
 
 // For form validation and submission to 'suggestedLocations'

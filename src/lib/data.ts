@@ -146,6 +146,7 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         submittedBy: data.submittedBy,
         comments: uniqueComments,
         createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
+        votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
       };
       return location;
     });
@@ -197,10 +198,6 @@ export async function getLocationById(id: string): Promise<Location | undefined>
     // Sort all comments by date, most recent first.
     uniqueComments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // DIAGNOSTIC LOGGING:
-    console.log(`[DEBUG] getLocationById(${id}): Fetched comments:`, JSON.stringify(uniqueComments, null, 2));
-    // If uniqueComments is empty or only contains comments you expect, the issue is not data fetching here.
-    // If it contains the deleted comments, they are still in Firestore in either data.comments or suggestedComments (approved).
 
     const location: Location = {
       id: docSnap.id,
@@ -214,6 +211,7 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       submittedBy: data.submittedBy,
       comments: uniqueComments,
       createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
+      votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
     };
     return location;
   } catch (error) {

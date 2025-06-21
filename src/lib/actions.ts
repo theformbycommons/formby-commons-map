@@ -311,7 +311,7 @@ export async function approveSuggestion(
             const newLocationRef = adminDb.collection('locations').doc();
             publishedLocationId = newLocationRef.id;
 
-            const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt'> = {
+            const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt' | 'votes'> = {
               townId: townId,
               townName: townDataForLocation.name,
               name: suggestionData.name,
@@ -322,7 +322,11 @@ export async function approveSuggestion(
               submittedBy: suggestionData.suggesterName,
               createdAtFirestore: AdminFieldValue.serverTimestamp(),
             };
-            transaction.set(newLocationRef, { ...newLocationData, comments: [] });
+            transaction.set(newLocationRef, { 
+              ...newLocationData, 
+              comments: [],
+              votes: { neutral: 0, positive: 0, fantastic: 0 },
+            });
           } else {
             publishedLocationId = currentSuggestionData.publishedLocationId;
           }
@@ -554,6 +558,88 @@ export async function addCommentToLocation(
     return {
       message: error.message || "Failed to submit comment. Please try again.",
       type: 'error',
+    };
+  }
+}
+
+// --- Voting System Action ---
+export interface CastVoteFormState {
+    message: string;
+    type: 'success' | 'error' | 'info';
+    locationId?: string;
+    voteType?: string;
+}
+
+const CastVoteSchema = z.object({
+  locationId: z.string().min(1, "Location ID is required."),
+  voteType: z.enum(["neutral", "positive", "fantastic"], {
+    errorMap: () => ({ message: "Invalid vote type specified." }),
+  }),
+});
+
+export async function castVote(
+  prevState: CastVoteFormState | undefined,
+  formData: FormData
+): Promise<CastVoteFormState> {
+  const rawData = {
+    locationId: formData.get('locationId'),
+    voteType: formData.get('voteType'),
+  };
+
+  const validatedFields = CastVoteSchema.safeParse(rawData);
+
+  if (!validatedFields.success) {
+    const errorMessages = validatedFields.error.flatten().fieldErrors;
+    const message = errorMessages.locationId?.[0] || errorMessages.voteType?.[0] || "Invalid vote data provided.";
+    return {
+      message: message,
+      type: 'error',
+    };
+  }
+
+  const { locationId, voteType } = validatedFields.data;
+  const fieldToIncrement = `votes.${voteType}`;
+
+  try {
+    const locationRef = adminDb.collection('locations').doc(locationId);
+
+    await adminDb.runTransaction(async (transaction) => {
+        const locationDoc = await transaction.get(locationRef);
+        if (!locationDoc.exists) {
+            throw new Error("Location not found.");
+        }
+        
+        // If votes map doesn't exist, initialize it before incrementing.
+        const locationData = locationDoc.data();
+        if (!locationData?.votes) {
+            transaction.update(locationRef, {
+                votes: { neutral: 0, positive: 0, fantastic: 0 }
+            });
+        }
+        
+        // Increment the vote count. The dot notation is used to update a field within a map.
+        transaction.update(locationRef, {
+            [fieldToIncrement]: AdminFieldValue.increment(1)
+        });
+    });
+
+    revalidatePath(`/location/${locationId}`);
+    revalidatePath(`/action/${locationId}`);
+
+    return {
+      message: "Vote cast successfully!",
+      type: 'success',
+      locationId,
+      voteType,
+    };
+
+  } catch (error: any) {
+    console.error(`[Action:castVote] Error casting vote for location ${locationId}:`, error);
+    return {
+      message: error.message || "An unexpected error occurred while casting your vote.",
+      type: 'error',
+      locationId,
+      voteType,
     };
   }
 }
