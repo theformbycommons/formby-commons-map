@@ -9,7 +9,6 @@ import {
   query,
   where,
   Timestamp,
-  orderBy // Added orderBy
 } from 'firebase/firestore';
 import { randomUUID } from 'crypto'; // For comment IDs if necessary
 
@@ -108,8 +107,7 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
       const suggestedCommentsCol = collection(db, 'suggestedComments');
       const sq = query(suggestedCommentsCol, 
         where('locationId', '==', docSnap.id), 
-        where('status', '==', 'approved'),
-        orderBy('submittedAtFirestore', 'desc') // Or 'submittedAt' if that's the string version
+        where('status', '==', 'approved')
       );
       const suggestedCommentsSnap = await getDocs(sq);
       const approvedSuggestedComments: LocationComment[] = suggestedCommentsSnap.docs.map(sDoc => {
@@ -173,8 +171,7 @@ export async function getLocationById(id: string): Promise<Location | undefined>
     const suggestedCommentsCol = collection(db, 'suggestedComments');
     const sq = query(suggestedCommentsCol, 
       where('locationId', '==', id), 
-      where('status', '==', 'approved'),
-      orderBy('submittedAtFirestore', 'desc') // Or 'submittedAt' if that's the string version
+      where('status', '==', 'approved')
     );
     const suggestedCommentsSnap = await getDocs(sq);
     const approvedSuggestedComments: LocationComment[] = suggestedCommentsSnap.docs.map(sDoc => {
