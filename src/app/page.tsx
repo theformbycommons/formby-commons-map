@@ -71,7 +71,7 @@ export default async function HomePage() {
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">4</div>
               <div>
                 <h4 className="font-semibold mb-1 text-primary/90">Evaluate individual actions</h4>
-                <p>Vote on individual acctions by selecting the negative, neutral, or positive symbol.</p>
+                <p>Vote on individual actions by selecting the negative, neutral, or positive symbol.</p>
               </div>
             </div>
           </CardContent>
