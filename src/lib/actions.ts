@@ -248,7 +248,7 @@ export async function approveSuggestion(
             const newLocationRef = adminDb.collection('locations').doc();
             publishedLocationId = newLocationRef.id;
 
-            const newLocationData: Omit<Location, 'id' | 'createdAt' | 'votes' | 'imageUrl'> & { imageUrl: string | null } = {
+            const newLocationData: Omit<Location, 'id' | 'createdAt' | 'approvedAt' | 'votes' | 'imageUrl'> & { imageUrl: string | null } = {
               townId: townId,
               townName: townDataForLocation.name,
               name: suggestionData.name,
@@ -256,7 +256,8 @@ export async function approveSuggestion(
               imageUrl: suggestionData.imageUrl || null,
               coordinates: suggestionData.coordinates,
               submittedBy: suggestionData.suggesterName,
-              createdAtFirestore: AdminFieldValue.serverTimestamp(),
+              createdAtFirestore: suggestionData.submittedAtFirestore,
+              approvedAtFirestore: AdminFieldValue.serverTimestamp(),
             };
             transaction.set(newLocationRef, { 
               ...newLocationData, 

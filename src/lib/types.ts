@@ -25,6 +25,8 @@ export interface Location {
   submittedBy: string; // From suggesterName
   createdAt: string; // ISO date string, populated when location is created from suggestion
   createdAtFirestore?: any; // For Firestore serverTimestamp
+  approvedAt?: string; // ISO date string, populated when location is approved
+  approvedAtFirestore?: any; // For Firestore serverTimestamp
   votes?: { // Added for the new voting system
     neutral: number;
     positive: number;

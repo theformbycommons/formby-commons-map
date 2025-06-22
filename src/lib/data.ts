@@ -101,6 +101,7 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
     
     const locationsPromises = locationSnapshot.docs.map(async docSnap => {
       const data = docSnap.data();
+      const approvedAtRaw = data.approvedAtFirestore || data.approvedAt;
       
       const location: Location = {
         id: docSnap.id,
@@ -112,6 +113,7 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         coordinates: data.coordinates,
         submittedBy: data.submittedBy,
         createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
+        ...(approvedAtRaw && { approvedAt: formatDateField(approvedAtRaw) }),
         votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
       };
       return location;
@@ -133,6 +135,7 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       return undefined;
     }
     const data = docSnap.data();
+    const approvedAtRaw = data.approvedAtFirestore || data.approvedAt;
 
     const location: Location = {
       id: docSnap.id,
@@ -144,6 +147,7 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       coordinates: data.coordinates,
       submittedBy: data.submittedBy,
       createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
+      ...(approvedAtRaw && { approvedAt: formatDateField(approvedAtRaw) }),
       votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
     };
     return location;
