@@ -141,16 +141,18 @@ export async function submitSuggestion(
     const newDocRef = await suggestedLocationsColRef.add(suggestionForDb);
 
     revalidatePath('/admin/suggestions');
-    revalidatePath('/admin/actions');
+
+    // Create a plain object for the client, removing server-only values like FieldValue
+    const { submittedAtFirestore, ...plainSuggestionData } = suggestionForDb;
 
     return {
       message: `Thank you, ${validatedFields.data.suggesterName}! Your suggestion for "${validatedFields.data.name}" has been received and is pending review.`,
       type: 'success',
       submittedSuggestionData: {
         id: newDocRef.id,
-        ...suggestionForDb,
-        submittedAt: new Date().toISOString(),
-      } as unknown as NewLocationSuggestion,
+        ...plainSuggestionData,
+        submittedAt: new Date().toISOString(), // Use current date as a client-side representation
+      },
     };
 
   } catch (error: any) {
@@ -331,7 +333,6 @@ export async function deleteSuggestion(
     await suggestionDocRef.delete();
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
     revalidatePath('/admin/suggestions');
-    revalidatePath('/admin/actions');
 
     return { message: "Suggestion document deleted successfully.", type: 'success', suggestionId };
 
@@ -405,7 +406,6 @@ export async function castVote(
     });
 
     revalidatePath(`/location/${locationId}`);
-    revalidatePath(`/action/${locationId}`);
 
     return {
       message: "Vote cast successfully!",

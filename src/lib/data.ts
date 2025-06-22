@@ -39,7 +39,7 @@ export async function getTowns(): Promise<Town[]> {
         name: data.name,
         county: data.county,
         country: data.country,
-        coordinates: data.coordinates,
+        coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
         description: data.description,
         imageUrl: data.imageUrl,
       } as Omit<Town, 'locationCount'>;
@@ -77,7 +77,7 @@ export async function getTownByName(name: string): Promise<Town | undefined> {
         name: data.name,
         county: data.county,
         country: data.country,
-        coordinates: data.coordinates,
+        coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
         description: data.description,
         imageUrl: data.imageUrl,
     } as Omit<Town, 'locationCount'>;
@@ -110,7 +110,7 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         name: data.name,
         description: data.description,
         imageUrl: data.imageUrl || null,
-        coordinates: data.coordinates,
+        coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
         submittedBy: data.submittedBy,
         createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
         ...(approvedAtRaw && { approvedAt: formatDateField(approvedAtRaw) }),
@@ -144,7 +144,7 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       name: data.name,
       description: data.description,
       imageUrl: data.imageUrl || null,
-      coordinates: data.coordinates,
+      coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
       submittedBy: data.submittedBy,
       createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
       ...(approvedAtRaw && { approvedAt: formatDateField(approvedAtRaw) }),

@@ -44,7 +44,7 @@ export async function getSuggestedLocations(): Promise<NewLocationSuggestion[]> 
       const submittedAtString = formatDateField(data.submittedAtFirestore) || formatDateField(data.submittedAt);
       const approvedAtString = formatDateField(data.approvedAtFirestore) || formatDateField(data.approvedAt);
 
-      // Construct the object for the client, ensuring no raw Timestamp objects are passed.
+      // Construct the object for the client, ensuring no raw Timestamp or GeoPoint objects are passed.
       const clientSuggestion: NewLocationSuggestion = {
         id: docSnap.id,
         name: data.name,
@@ -55,7 +55,7 @@ export async function getSuggestedLocations(): Promise<NewLocationSuggestion[]> 
         submittedAt: submittedAtString || new Date(0).toISOString(), // Fallback if submittedAtString is undefined
         ...(approvedAtString && { approvedAt: approvedAtString }), 
         publishedLocationId: data.publishedLocationId, 
-        coordinates: data.coordinates, 
+        coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure coordinates is a plain object
         imageUrl: data.imageUrl, 
       };
       
