@@ -1,30 +1,5 @@
-
-import type {NextConfig} from 'next';
-
-const nextConfig: NextConfig = {
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-        port: '',
-        pathname: '/**',
-      }
-    ],
-  },
-};
-
-export default nextConfig;
+// This file is deprecated and has been replaced by next.config.mjs
+// to resolve a Next.js startup error.
+// Please make configuration changes in next.config.mjs.
+// This file can be safely deleted.
+export {};
