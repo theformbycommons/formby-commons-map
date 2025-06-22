@@ -16,14 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ID token is required.' }, { status: 400 });
     }
 
+    // This will now throw an error if initialization fails, which will be caught below.
     const adminAuth = getAdminAuth();
     
-    if (!adminAuth) {
-      console.error('CRITICAL: Firebase Admin SDK failed to initialize. Check server-side environment variables.');
-      return NextResponse.json({ error: 'Server not configured for authentication. Firebase Admin SDK initialization failed.' }, { status: 500 });
-    }
-
-
     // Verify the ID token
     const decodedIdToken = await adminAuth.verifyIdToken(idToken);
     
@@ -48,6 +43,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'success' }, { status: 200 });
   } catch (error: any) {
     console.error('Session login error:', error);
+    
+    // Check if it's the specific initialization error from our new admin library
+    if (error.message && error.message.includes('Firebase Admin SDK Error')) {
+        return NextResponse.json({ error: 'Server not configured for authentication. Firebase Admin SDK initialization failed.' }, { status: 500 });
+    }
+
     let errorMessage = 'Internal server error during session login.';
     if (error.code === 'auth/id-token-expired') {
         errorMessage = 'ID token has expired. Please try logging in again.';
@@ -56,8 +57,7 @@ export async function POST(request: NextRequest) {
     } else if (error.code === 'auth/user-disabled') {
         errorMessage = 'This admin account has been disabled.';
     }
-    // If the error was due to our 403 check, it would have already returned.
-    // This catches other errors during token verification or cookie creation.
+    
     return NextResponse.json({ error: errorMessage }, { status: 401 });
   }
 }

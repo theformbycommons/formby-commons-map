@@ -34,14 +34,11 @@ export interface SuggestionFormState {
 const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
 async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionNamePath: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-      return { allowed: false, message: 'Server is not configured for this action. Could not check daily limits.' };
-  }
-  const todayDateString = new Date().toISOString().split('T')[0];
-  const userLimitRef = adminDb.collection(collectionNamePath).doc(uid);
-
   try {
+    const adminDb = getAdminDb();
+    const todayDateString = new Date().toISOString().split('T')[0];
+    const userLimitRef = adminDb.collection(collectionNamePath).doc(uid);
+
     await adminDb.runTransaction(async (transaction) => {
       const userLimitDoc = await transaction.get(userLimitRef);
 
@@ -69,10 +66,12 @@ async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: numb
       transaction.update(userLimitRef, { [countFieldName]: AdminFieldValue.increment(1) });
     });
     return { allowed: true };
-  } catch (error: any)
-{
+  } catch (error: any) {
     console.error(`Error checking/incrementing daily limit for UID ${uid} in ${collectionNamePath}:`, error);
-    return { allowed: false, message: error.message || `Failed to verify daily submission limit for this action.` };
+    const errorMessage = error.message.includes('Firebase Admin SDK')
+      ? 'Server is not configured for this action. Could not check daily limits.'
+      : error.message || `Failed to verify daily submission limit for this action.`;
+    return { allowed: false, message: errorMessage };
   }
 }
 
@@ -109,14 +108,6 @@ export async function submitSuggestion(
     };
   }
   
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-      return {
-          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
-          type: 'error',
-      };
-  }
-
   const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
 
   try {
@@ -130,6 +121,7 @@ export async function submitSuggestion(
       }
     }
 
+    const adminDb = getAdminDb(); // This will throw on failure
     const suggestionForDb = {
       name: dataFromValidation.name,
       description: dataFromValidation.description,
@@ -162,13 +154,10 @@ export async function submitSuggestion(
     };
 
   } catch (error: any) {
-    let errorMessage = "There was an error submitting your suggestion. Please try again.";
-    if (error instanceof Error && error.message) {
-      errorMessage = `Error: ${error.message}`;
-    } else if (typeof error === 'string') {
-      errorMessage = `Error: ${error}`;
-    }
     console.error("Error in submitSuggestion action:", error);
+    const errorMessage = error.message.includes('Firebase Admin SDK')
+      ? "Server is not configured for this action. Please contact support."
+      : `Error: ${error.message || 'An unknown error occurred'}`;
     return {
       message: errorMessage,
       type: 'error',
@@ -193,16 +182,8 @@ export async function approveSuggestion(
     return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-      return {
-          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
-          type: 'error',
-          suggestionId,
-      };
-  }
-
   try {
+    const adminDb = getAdminDb();
     const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
     const suggestionSnap = await suggestionRef.get();
 
@@ -316,12 +297,9 @@ export async function approveSuggestion(
 
   } catch (error: any) {
     console.error("Error in approveSuggestion action:", error);
-    let errorMessage = "Failed to approve and publish suggestion.";
-     if (error instanceof Error && error.message) {
-      errorMessage = `Error: ${error.message}`;
-    } else {
-      errorMessage = `Error: An unknown error occurred. Raw error: ${String(error)}`;
-    }
+    let errorMessage = error.message.includes('Firebase Admin SDK')
+        ? "Server is not configured for this action."
+        : `Error: ${error.message || 'Failed to approve and publish suggestion.'}`;
     return {
       message: errorMessage,
       type: 'error',
@@ -347,16 +325,8 @@ export async function deleteSuggestion(
     return { message: "Suggestion ID is missing.", type: 'error', suggestionId };
   }
 
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-      return {
-          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
-          type: 'error',
-          suggestionId,
-      };
-  }
-
   try {
+    const adminDb = getAdminDb();
     const suggestionDocRef = adminDb.collection('suggestedLocations').doc(suggestionId);
     await suggestionDocRef.delete();
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
@@ -365,9 +335,12 @@ export async function deleteSuggestion(
 
     return { message: "Suggestion document deleted successfully.", type: 'success', suggestionId };
 
-  } catch (firestoreError: any) {
-    console.error(`[Admin Action] Failed to delete Firestore document '${suggestionId}':`, firestoreError);
-    return { message: `Failed to delete suggestion document: ${firestoreError.message}.`, type: 'error', suggestionId };
+  } catch (error: any) {
+    console.error(`[Admin Action] Failed to delete Firestore document '${suggestionId}':`, error);
+    const errorMessage = error.message.includes('Firebase Admin SDK')
+        ? "Server is not configured for this action."
+        : `Failed to delete suggestion document: ${error.message}.`;
+    return { message: errorMessage, type: 'error', suggestionId };
   }
 }
 
@@ -408,16 +381,8 @@ export async function addCommentToLocation(
     };
   }
 
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-      return {
-          message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
-          type: 'error',
-      };
-  }
-
   const { locationId, userName, commentText, suggesterUid } = validatedFields.data;
-
+  
   try {
     if (suggesterUid) {
       const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(
@@ -434,6 +399,7 @@ export async function addCommentToLocation(
       }
     }
 
+    const adminDb = getAdminDb();
     const locationDataDocRef = adminDb.collection('locations').doc(locationId);
     const locationDataDocSnap = await locationDataDocRef.get();
     if (!locationDataDocSnap.exists) {
@@ -465,8 +431,11 @@ export async function addCommentToLocation(
 
   } catch (error: any) {
     console.error("[Action:addCommentToLocation] Error during comment submission process:", error);
+    const errorMessage = error.message.includes('Firebase Admin SDK')
+        ? "Server is not configured for this action."
+        : error.message || "Failed to submit comment. Please try again.";
     return {
-      message: error.message || "Failed to submit comment. Please try again.",
+      message: errorMessage,
       type: 'error',
     };
   }
@@ -510,17 +479,8 @@ export async function castVote(
   const { locationId, voteType } = validatedFields.data;
   const fieldToIncrement = `votes.${voteType}`;
 
-  const adminDb = getAdminDb();
-  if (!adminDb) {
-    return {
-      message: "Server is not configured for this action. Please ensure Firebase Admin credentials are set.",
-      type: 'error',
-      locationId,
-      voteType,
-    };
-  }
-
   try {
+    const adminDb = getAdminDb();
     const locationRef = adminDb.collection('locations').doc(locationId);
 
     await adminDb.runTransaction(async (transaction) => {
@@ -553,8 +513,11 @@ export async function castVote(
 
   } catch (error: any) {
     console.error(`[Action:castVote] Error casting vote for location ${locationId}:`, error);
+    const errorMessage = error.message.includes('Firebase Admin SDK')
+        ? "Server is not configured for this action."
+        : error.message || "An unexpected error occurred while casting your vote.";
     return {
-      message: error.message || "An unexpected error occurred while casting your vote.",
+      message: errorMessage,
       type: 'error',
       locationId,
       voteType,
