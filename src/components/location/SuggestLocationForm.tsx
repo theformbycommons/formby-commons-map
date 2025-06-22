@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useActionState, startTransition, useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type FieldPath } from 'react-hook-form';
-import { useFormStatus } from 'react-dom';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,7 +68,8 @@ function SubmitButton() {
 }
 
 export default function SuggestLocationForm({ towns }: SuggestLocationFormProps) {
-  const [state, formAction] = useActionState(submitSuggestion, initialState);
+  const [state, formAction] = useFormState(submitSuggestion, initialState);
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
   const { user, loading: authLoading } = useAuth();
