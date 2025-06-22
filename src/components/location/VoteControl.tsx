@@ -5,7 +5,7 @@ import type { Location } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Meh, Smile, Star, Loader2 } from 'lucide-react';
+import { Meh, Smile, Star, Loader2, BarChart2 } from 'lucide-react';
 import { castVote, type CastVoteFormState } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,7 +22,7 @@ const initialFormState: CastVoteFormState = {
   type: 'info',
 };
 
-function VoteResults({ votes }: { votes: VoteCounts }) {
+function VoteResults({ votes, userHasVoted }: { votes: VoteCounts, userHasVoted: boolean }) {
   const totalVotes = votes.neutral + votes.positive + votes.fantastic;
 
   const getPercentage = (count: number) => {
@@ -37,7 +37,9 @@ function VoteResults({ votes }: { votes: VoteCounts }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-center text-muted-foreground">Thank you for your vote! Here are the current results:</p>
+      <p className="text-center text-muted-foreground">
+        {userHasVoted ? "Thank you for your vote! Here are the current results:" : "Here are the current results for this proposal:"}
+      </p>
       {voteOptions.map(({ type, label, icon, color }) => {
         const percentage = getPercentage(votes[type]);
         return (
@@ -60,7 +62,8 @@ function VoteResults({ votes }: { votes: VoteCounts }) {
 
 export default function VoteControl({ locationId, initialVotes }: VoteControlProps) {
   const { toast } = useToast();
-  const [hasVoted, setHasVoted] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [userHasVoted, setUserHasVoted] = useState(false);
   const [voteCounts, setVoteCounts] = useState<VoteCounts>(initialVotes || { neutral: 0, positive: 0, fantastic: 0 });
   const [state, formAction, isPending] = useActionState(castVote, initialFormState);
   
@@ -68,8 +71,13 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
     // Check local storage only on the client-side after mount
     try {
       const voted = localStorage.getItem(`voted_on_${locationId}`);
+      const viewedResults = localStorage.getItem(`viewed_results_${locationId}`);
+
       if (voted === 'true') {
-        setHasVoted(true);
+        setUserHasVoted(true);
+        setShowResults(true);
+      } else if (viewedResults === 'true') {
+        setShowResults(true);
       }
     } catch (e) {
       console.warn("Could not access localStorage. Voting may be affected.");
@@ -93,7 +101,8 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
              if (state.voteType) {
                  setVoteCounts(prev => ({...prev, [state.voteType!]: prev[state.voteType as VoteType] + 1}));
              }
-             setHasVoted(true);
+             setUserHasVoted(true);
+             setShowResults(true);
         } else if (state.type === 'error') {
             toast({
                 title: 'Vote Failed',
@@ -112,53 +121,79 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
       formAction(formData);
     });
   };
+
+  const handleSkipToResults = () => {
+    try {
+      localStorage.setItem(`viewed_results_${locationId}`, 'true');
+      setShowResults(true);
+    } catch (e) {
+      console.warn("Could not write to localStorage.");
+    }
+  };
   
   return (
     <div className="pt-4">
       <Card className="bg-card/50 border-primary/20 shadow-sm">
         <CardHeader className="pb-4 text-center">
-          <CardTitle className="font-headline text-xl text-primary">Vote on this Action</CardTitle>
-          {!hasVoted && (
+          <CardTitle className="font-headline text-xl text-primary">
+            {showResults ? "Proposal Results" : "Vote on this Action"}
+          </CardTitle>
+          {!showResults && (
             <CardDescription>How do you feel about this proposal?</CardDescription>
           )}
         </CardHeader>
         <CardContent>
-          {hasVoted ? (
-            <VoteResults votes={voteCounts} />
+          {showResults ? (
+            <VoteResults votes={voteCounts} userHasVoted={userHasVoted} />
           ) : (
-            <div className="flex justify-around items-center">
-              <Button
-                variant="ghost"
-                size="lg"
-                className="flex flex-col h-auto p-3 space-y-1 hover:bg-yellow-100 dark:hover:bg-yellow-900/50"
-                onClick={() => handleVote('neutral')}
-                disabled={isPending}
-              >
-                <Meh className="h-10 w-10 text-yellow-500" />
-                <span className="text-xs text-muted-foreground">Neutral</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="lg"
-                className="flex flex-col h-auto p-3 space-y-1 hover:bg-green-100 dark:hover:bg-green-900/50"
-                onClick={() => handleVote('positive')}
-                disabled={isPending}
-              >
-                <Smile className="h-10 w-10 text-green-500" />
-                <span className="text-xs text-muted-foreground">Positive</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="lg"
-                className="flex flex-col h-auto p-3 space-y-1 hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                onClick={() => handleVote('fantastic')}
-                disabled={isPending}
-              >
-                <Star className="h-10 w-10 text-blue-500" />
-                <span className="text-xs text-muted-foreground">Fantastic!</span>
-              </Button>
-              {isPending && <Loader2 className="absolute h-6 w-6 animate-spin text-primary" />}
-            </div>
+            <>
+              <div className="flex justify-around items-center">
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="flex flex-col h-auto p-3 space-y-1 hover:bg-yellow-100 dark:hover:bg-yellow-900/50"
+                  onClick={() => handleVote('neutral')}
+                  disabled={isPending}
+                >
+                  <Meh className="h-10 w-10 text-yellow-500" />
+                  <span className="text-xs text-muted-foreground">Neutral</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="flex flex-col h-auto p-3 space-y-1 hover:bg-green-100 dark:hover:bg-green-900/50"
+                  onClick={() => handleVote('positive')}
+                  disabled={isPending}
+                >
+                  <Smile className="h-10 w-10 text-green-500" />
+                  <span className="text-xs text-muted-foreground">Positive</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="flex flex-col h-auto p-3 space-y-1 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                  onClick={() => handleVote('fantastic')}
+                  disabled={isPending}
+                >
+                  <Star className="h-10 w-10 text-blue-500" />
+                  <span className="text-xs text-muted-foreground">Fantastic!</span>
+                </Button>
+                {isPending && <Loader2 className="absolute h-6 w-6 animate-spin text-primary" />}
+              </div>
+              <div className="text-center mt-4 pt-4 border-t border-dashed border-border/70">
+                <Button
+                    variant="link"
+                    className="text-muted-foreground hover:text-accent"
+                    onClick={handleSkipToResults}
+                >
+                    <BarChart2 className="mr-2 h-4 w-4" />
+                    See what others voted
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1 px-4">
+                    Note: Viewing results first will prevent you from voting on this proposal.
+                </p>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
