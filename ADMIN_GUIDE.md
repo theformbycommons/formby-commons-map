@@ -48,7 +48,7 @@ The admin script needs credentials to securely connect to your Firebase project.
     ```bash
     npm run set-admin THE_USER_ID_YOU_COPIED
     ```
-3.  Press Enter. If it's successful, you will see a confirmation message like `Successfully set admin claim for user...`.
+3.  Press Enter. If it's successful, you will see a confirmation message like `✅ Successfully set admin claim for user...`.
 
 **Step E: Log In**
 The user is now an admin! They may need to log out and log back in for the new permission to take effect. They can then access the `/admin/login` page.
