@@ -1,6 +1,5 @@
 # /apphosting.production.yaml
-# This file should be named to match the environment name you set in the Firebase Console
-# (e.g., if you named your environment "production", this file should be "apphosting.production.yaml").
+# This file contains overrides for the production environment.
 
 env:
   - variable: FIREBASE_ADMIN_PROJECT_ID
@@ -9,18 +8,15 @@ env:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_CLIENT_EMAIL
-    value: "firebase-adminsdk-fbsvc@act-local-glow.iam.gserviceaccount.com" # Updated from your JSON
+    value: "firebase-adminsdk-fbsvc@act-local-glow.iam.gserviceaccount.com"
     availability:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_ADMIN_PRIVATE_KEY
-    secret: act-local-glow-cloud-google-secret # This should be the ID/name of the secret you created in Google Secret Manager
+    secret: act-local-glow-cloud-google-secret
     availability:
       - BUILD
       - RUNTIME
-
-  # NEXT_PUBLIC_ variables are safe to be here as their values are meant to be public.
-  # Ensure these match your Firebase project configuration.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: "AIzaSyCfeC-ZrvvWe1nSj-PZCr4nKVL8Q8_oY9M"
     availability:
@@ -37,7 +33,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: "act-local-glow.firebasestorage.app" # Corrected from "community-80928.appspot.com" based on typical Firebase config
+    value: "act-local-glow.firebasestorage.app"
     availability:
       - BUILD
       - RUNTIME
@@ -57,7 +53,6 @@ env:
       - BUILD
       - RUNTIME
 
-# You can also include other settings from your main apphosting.yaml if they need to be
-# overridden for this specific environment. For example:
-# runConfig:
-#   maxInstances: 2
+# Production run command should use the optimized production server.
+runConfig:
+  run: npm run start
