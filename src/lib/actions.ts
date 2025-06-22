@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import type { NewLocationSuggestion, Location, SuggestedComment, Town } from './types';
+import type { NewLocationSuggestion, Location, Town } from './types';
 import { getAdminDb } from './firebase-admin';
 import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
@@ -248,7 +248,7 @@ export async function approveSuggestion(
             const newLocationRef = adminDb.collection('locations').doc();
             publishedLocationId = newLocationRef.id;
 
-            const newLocationData: Omit<Location, 'id' | 'comments' | 'createdAt' | 'votes' | 'imageUrl'> & { imageUrl: string | null } = {
+            const newLocationData: Omit<Location, 'id' | 'createdAt' | 'votes' | 'imageUrl'> & { imageUrl: string | null } = {
               townId: townId,
               townName: townDataForLocation.name,
               name: suggestionData.name,
@@ -260,7 +260,6 @@ export async function approveSuggestion(
             };
             transaction.set(newLocationRef, { 
               ...newLocationData, 
-              comments: [],
               votes: { neutral: 0, positive: 0, fantastic: 0 },
             });
           } else {
@@ -341,103 +340,6 @@ export async function deleteSuggestion(
         ? "Server is not configured for this action."
         : `Failed to delete suggestion document: ${error.message}.`;
     return { message: errorMessage, type: 'error', suggestionId };
-  }
-}
-
-const AddCommentSchema = z.object({
-  locationId: z.string().min(1, "Location ID is required."),
-  userName: z.string().min(2, "Name must be at least 2 characters.").max(50, "Name must be 50 characters or less."),
-  commentText: z.string().min(3, "Comment must be at least 3 characters.").max(500, "Comment must be 500 characters or less."),
-  suggesterUid: z.string().min(1, "User ID is missing.").nullable().optional(),
-});
-
-export interface AddCommentFormState {
-  message: string;
-  type: 'success' | 'error' | 'info';
-  errors?: Record<string, string[] | undefined>;
-  commentId?: string;
-}
-
-const ANONYMOUS_USER_DAILY_COMMENT_LIMIT = 20;
-
-export async function addCommentToLocation(
-  prevState: AddCommentFormState | undefined,
-  formData: FormData
-): Promise<AddCommentFormState> {
-  const rawData = {
-    locationId: formData.get('locationId') as string,
-    userName: formData.get('userName') as string,
-    commentText: formData.get('commentText') as string,
-    suggesterUid: formData.get('suggesterUid') as string | null | undefined,
-  };
-  const validatedFields = AddCommentSchema.safeParse(rawData);
-
-  if (!validatedFields.success) {
-    const validationErrors = validatedFields.error.flatten();
-    return {
-      message: "Validation failed. Please check your input.",
-      type: 'error',
-      errors: validationErrors.fieldErrors,
-    };
-  }
-
-  const { locationId, userName, commentText, suggesterUid } = validatedFields.data;
-  
-  try {
-    if (suggesterUid) {
-      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(
-        suggesterUid,
-        ANONYMOUS_USER_DAILY_COMMENT_LIMIT,
-        'userDailyCommentLimits',
-        'lastCommentDate'
-      );
-      if (!dailyLimitCheck.allowed) {
-        return {
-          message: dailyLimitCheck.message || "Daily comment limit reached.",
-          type: 'error',
-        };
-      }
-    }
-
-    const adminDb = getAdminDb();
-    const locationDataDocRef = adminDb.collection('locations').doc(locationId);
-    const locationDataDocSnap = await locationDataDocRef.get();
-    if (!locationDataDocSnap.exists) {
-      return { message: "Location not found.", type: 'error' };
-    }
-    const locationName = locationDataDocSnap.data()?.name || "Unknown Location";
-
-    const newSuggestedComment: Omit<SuggestedComment, 'id' | 'submittedAt'> = {
-      locationId,
-      locationName,
-      userName,
-      commentText,
-      status: 'pending',
-      submittedAtFirestore: AdminFieldValue.serverTimestamp(),
-      ...(suggesterUid && { suggesterUid }),
-    };
-
-    const suggestedCommentsColRef = adminDb.collection('suggestedComments');
-    const newCommentRef = await suggestedCommentsColRef.add(newSuggestedComment);
-
-    revalidatePath(`/location/${locationId}`);
-    revalidatePath(`/action/${locationId}`);
-
-    return {
-      message: "Thank you! Your comment has been submitted and is now pending review.",
-      type: 'success',
-      commentId: newCommentRef.id,
-    };
-
-  } catch (error: any) {
-    console.error("[Action:addCommentToLocation] Error during comment submission process:", error);
-    const errorMessage = error.message.includes('Firebase Admin SDK')
-        ? "Server is not configured for this action."
-        : error.message || "Failed to submit comment. Please try again.";
-    return {
-      message: errorMessage,
-      type: 'error',
-    };
   }
 }
 

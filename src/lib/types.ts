@@ -15,13 +15,6 @@ export interface Town {
   locationCount?: number; // Will be calculated, so make it optional from DB perspective
 }
 
-export interface LocationComment { // This is for APPROVED comments stored in the Location document
-  id: string; 
-  user: string;
-  comment: string;
-  date: string; // ISO date string (Firestore Timestamps will be converted)
-}
-
 export interface Location {
   id: string; // Firestore document ID
   townId: string;
@@ -30,7 +23,6 @@ export interface Location {
   description: string;
   coordinates: Coordinates;
   submittedBy: string; // From suggesterName
-  comments: LocationComment[]; // Array of APPROVED comments
   createdAt: string; // ISO date string, populated when location is created from suggestion
   createdAtFirestore?: any; // For Firestore serverTimestamp
   votes?: { // Added for the new voting system
@@ -56,24 +48,4 @@ export interface NewLocationSuggestion {
   publishedLocationId?: string; // ID of the location document created from this suggestion
   coordinates: Coordinates;
   imageUrl?: string | null; // For uploaded image URL, allow null
-}
-
-// For new comments awaiting moderation
-export interface SuggestedComment {
-  id?: string; // Firestore document ID, added when fetching. Made optional.
-  locationId: string;
-  locationName: string; // Denormalized for easier display in admin UI
-  userName: string;
-  commentText: string;
-  suggesterUid?: string; // If submitted by an anonymous user (for rate limiting etc.)
-  status: 'pending' | 'approved' | 'rejected';
-  submittedAt: string; // ISO date string for client
-  submittedAtFirestore?: any; // For Firestore serverTimestamp
-  // Optional fields to be added upon moderation:
-  approvedAt?: string;
-  approvedAtFirestore?: any;
-  rejectedAt?: string;
-  rejectedAtFirestore?: any;
-  // moderatedBy?: string; // Admin user ID/name
-  // moderationNotes?: string; // Notes from admin
 }

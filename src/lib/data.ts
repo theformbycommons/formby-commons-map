@@ -1,5 +1,5 @@
 
-import type { Town, Location, LocationComment, SuggestedComment } from './types';
+import type { Town, Location } from './types';
 import { db } from './firebase';
 import {
   collection,
@@ -10,7 +10,6 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore';
-import { randomUUID } from 'crypto'; // For comment IDs if necessary
 
 // Helper to convert Firestore timestamp to ISO string or return existing string
 const formatDateField = (dateField: any): string => {
@@ -103,37 +102,6 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
     const locationsPromises = locationSnapshot.docs.map(async docSnap => {
       const data = docSnap.data();
       
-      // Fetch approved suggested comments for this location
-      const suggestedCommentsCol = collection(db, 'suggestedComments');
-      const sq = query(suggestedCommentsCol, 
-        where('locationId', '==', docSnap.id), 
-        where('status', '==', 'approved')
-      );
-      const suggestedCommentsSnap = await getDocs(sq);
-      const approvedSuggestedComments: LocationComment[] = suggestedCommentsSnap.docs.map(sDoc => {
-        const sData = sDoc.data() as SuggestedComment;
-        return {
-          id: sDoc.id, // Use suggestedComment doc ID
-          user: sData.userName,
-          comment: sData.commentText,
-          date: formatDateField(sData.submittedAtFirestore || sData.submittedAt),
-        };
-      });
-
-      // Merge and sort comments
-      const existingComments: LocationComment[] = (data.comments || []).map((comment: any) => ({
-        id: comment.id || randomUUID(),
-        user: comment.user,
-        comment: comment.comment,
-        date: formatDateField(comment.date),
-      }));
-      
-      let allComments = [...existingComments, ...approvedSuggestedComments];
-      // Deduplicate comments based on ID, preferring original ones if IDs might clash (unlikely here)
-      const uniqueComments = Array.from(new Map(allComments.map(c => [c.id, c])).values());
-      uniqueComments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-
       const location: Location = {
         id: docSnap.id,
         townId: data.townId,
@@ -143,7 +111,6 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         imageUrl: data.imageUrl || null,
         coordinates: data.coordinates,
         submittedBy: data.submittedBy,
-        comments: uniqueComments,
         createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
         votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
       };
@@ -167,37 +134,6 @@ export async function getLocationById(id: string): Promise<Location | undefined>
     }
     const data = docSnap.data();
 
-    // Fetch approved suggested comments for this location
-    const suggestedCommentsCol = collection(db, 'suggestedComments');
-    const sq = query(suggestedCommentsCol, 
-      where('locationId', '==', id), 
-      where('status', '==', 'approved')
-    );
-    const suggestedCommentsSnap = await getDocs(sq);
-    const approvedSuggestedComments: LocationComment[] = suggestedCommentsSnap.docs.map(sDoc => {
-      const sData = sDoc.data() as SuggestedComment; // Cast to SuggestedComment type
-      return {
-        id: sDoc.id, // Use suggestedComment doc ID
-        user: sData.userName,
-        comment: sData.commentText,
-        date: formatDateField(sData.submittedAtFirestore || sData.submittedAt), // Use appropriate date field
-      };
-    });
-    
-    const existingComments: LocationComment[] = (data.comments || []).map((comment: any) => ({
-      id: comment.id || randomUUID(),
-      user: comment.user,
-      comment: comment.comment,
-      date: formatDateField(comment.date),
-    }));
-
-    let allComments = [...existingComments, ...approvedSuggestedComments];
-    // Deduplicate comments based on ID, preferring original ones if IDs might clash.
-    const uniqueComments = Array.from(new Map(allComments.map(c => [c.id, c])).values());
-    // Sort all comments by date, most recent first.
-    uniqueComments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-
     const location: Location = {
       id: docSnap.id,
       townId: data.townId,
@@ -207,7 +143,6 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       imageUrl: data.imageUrl || null,
       coordinates: data.coordinates,
       submittedBy: data.submittedBy,
-      comments: uniqueComments,
       createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
       votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
     };

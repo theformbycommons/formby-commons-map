@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -7,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { ListChecks, MessageSquareWarning, LogOut, Home as HomeIcon } from 'lucide-react'; // Renamed Home to HomeIcon
+import { ListChecks, LogOut, Home as HomeIcon } from 'lucide-react';
 import { useEffect } from 'react';
 
 export default function AdminDashboardPage() {
@@ -51,13 +50,6 @@ export default function AdminDashboardPage() {
             <Link href="/admin/suggestions">
               <ListChecks className="mr-3 h-5 w-5 text-primary" />
               Manage Location Suggestions
-            </Link>
-          </Button>
-          
-          <Button asChild variant="outline" className="w-full justify-start text-lg py-6 border-primary/50 hover:bg-primary/10 hover:border-primary">
-            <Link href="/admin/comments">
-              <MessageSquareWarning className="mr-3 h-5 w-5 text-primary" />
-              Manage Pending Comments
             </Link>
           </Button>
         </CardContent>
