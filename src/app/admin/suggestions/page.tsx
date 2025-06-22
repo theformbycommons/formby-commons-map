@@ -16,7 +16,8 @@ import {
   deleteSuggestion, type DeleteSuggestionFormState 
 } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState, useActionState, startTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
+import { useFormState } from 'react-dom';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,9 +53,10 @@ function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['st
 const initialApproveState: ApproveSuggestionFormState = { message: '', type: 'info' };
 const initialDeleteState: DeleteSuggestionFormState = { message: '', type: 'info' };
 
-function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, currentStatus: NewLocationSuggestion['status'] }) {
+function ApproveButton({ suggestionId, currentStatus, onActionComplete }: { suggestionId: string, currentStatus: NewLocationSuggestion['status'], onActionComplete: () => void }) {
   const { toast } = useToast();
-  const [state, formAction, isPending] = useActionState(approveSuggestion, initialApproveState);
+  const [state, formAction] = useFormState(approveSuggestion, initialApproveState);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (state.message && state.suggestionId === suggestionId) {
@@ -63,16 +65,27 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
         description: state.message,
         variant: state.type === 'error' ? 'destructive' : state.type === 'info' ? 'default' : 'default',
       });
+      if (state.type === 'success') {
+        onActionComplete();
+      }
     }
-  }, [state, toast, suggestionId]);
+  }, [state, toast, suggestionId, onActionComplete]);
 
 
   if (currentStatus === 'rejected') { // No approve button for rejected items
     return null; 
   }
+  
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => {
+      formAction(formData);
+    });
+  };
 
   return (
-    <form action={formAction}>
+    <form onSubmit={handleSubmit}>
         <input type="hidden" name="suggestionId" value={suggestionId} />
         <Button 
             type="submit"
@@ -89,9 +102,10 @@ function ApproveButton({ suggestionId, currentStatus }: { suggestionId: string, 
   );
 }
 
-function DeleteSuggestionButton({ suggestionId, suggestionName }: { suggestionId: string, suggestionName: string }) {
+function DeleteSuggestionButton({ suggestionId, suggestionName, onActionComplete }: { suggestionId: string, suggestionName: string, onActionComplete: () => void }) {
   const { toast } = useToast();
-  const [state, formAction, isPending] = useActionState(deleteSuggestion, initialDeleteState);
+  const [state, formAction] = useFormState(deleteSuggestion, initialDeleteState);
+  const [isPending, startTransition] = useTransition();
   const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   useEffect(() => {
@@ -103,9 +117,10 @@ function DeleteSuggestionButton({ suggestionId, suggestionName }: { suggestionId
       });
       if (state.type === 'success' || state.type === 'info') { 
         setIsAlertOpen(false);
+        onActionComplete();
       }
     }
-  }, [state, toast, suggestionId]);
+  }, [state, toast, suggestionId, onActionComplete]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); 
@@ -153,9 +168,10 @@ export default function AdminSuggestionsPage() {
   const { toast } = useToast();
   
   // This state is used to trigger a re-fetch when an action completes.
-  // It relies on the fact that useActionState causes a re-render of the parent.
-  const [actionState] = useActionState(() => Promise.resolve({ message: '', type: 'info' }), { message: '', type: 'info' });
-
+  const [actionTrigger, setActionTrigger] = useState(0);
+  const handleActionComplete = () => {
+    setActionTrigger(prev => prev + 1);
+  };
 
   useEffect(() => {
     document.title = 'Pending Suggestions - Local Glow Admin';
@@ -174,7 +190,7 @@ export default function AdminSuggestionsPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [toast, actionState]); 
+  }, [toast, actionTrigger]); 
 
 
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -256,7 +272,11 @@ export default function AdminSuggestionsPage() {
                         
                         <div className="pt-2 flex flex-wrap gap-2 items-center">
                           {suggestion.status !== 'rejected' && suggestion.id && (
-                            <ApproveButton suggestionId={suggestion.id} currentStatus={suggestion.status} />
+                            <ApproveButton 
+                                suggestionId={suggestion.id} 
+                                currentStatus={suggestion.status} 
+                                onActionComplete={handleActionComplete}
+                            />
                           )}
                           {firestoreConsoleBaseUrl && suggestion.id ? (
                             <Button asChild variant="outline" size="sm">
@@ -273,6 +293,7 @@ export default function AdminSuggestionsPage() {
                             <DeleteSuggestionButton 
                                 suggestionId={suggestion.id} 
                                 suggestionName={suggestion.name}
+                                onActionComplete={handleActionComplete}
                             />
                            )}
                         </div>
