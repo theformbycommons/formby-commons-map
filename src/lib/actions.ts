@@ -87,7 +87,7 @@ export async function submitSuggestion(
     suggesterName: formData.get('suggesterName') as string,
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
-    suggesterUid: formData.get('suggesterUid') as string | undefined,
+    suggesterUid: (formData.get('suggesterUid') as string | null) || undefined,
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
