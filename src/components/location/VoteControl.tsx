@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useEffect, useActionState, startTransition } from 'react';
+import { useState, useEffect, useTransition } from 'react';
+import { useFormState } from 'react-dom';
 import type { Location } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,8 +73,10 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
   const [showResults, setShowResults] = useState(false);
   const [userHasVoted, setUserHasVoted] = useState(false);
   const [voteCounts, setVoteCounts] = useState<VoteCounts>(initialVotes || { neutral: 0, positive: 0, fantastic: 0 });
-  const [state, formAction, isPending] = useActionState(castVote, initialFormState);
   
+  const [isPending, startTransition] = useTransition();
+  const [state, formAction] = useFormState(castVote, initialFormState);
+
   useEffect(() => {
     // Check local storage only on the client-side after mount
     try {
@@ -132,10 +135,10 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
   const handleSkipToResults = () => {
     try {
       localStorage.setItem(`viewed_results_${locationId}`, 'true');
-      setShowResults(true);
     } catch (e) {
       console.warn("Could not write to localStorage.");
     }
+    setShowResults(true);
   };
   
   return (
@@ -193,6 +196,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                       variant="link"
                       className="text-muted-foreground hover:text-accent"
                       onClick={handleSkipToResults}
+                      disabled={isPending}
                   >
                       <BarChart2 className="mr-2 h-4 w-4" />
                       See what others voted
