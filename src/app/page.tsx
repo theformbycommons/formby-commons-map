@@ -50,7 +50,7 @@ export default async function HomePage() {
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</div>
               <div>
                 <h4 className="font-semibold mb-1 text-primary/90">Find Your Town</h4>
-                <p>Tap or click markers on the UK map below to journey to a town, or select one from the preview cards that appear underneath it.</p>
+                <p>Tap or click markers on the UK map below to go to a town, or select one from the preview cards that appear underneath it.</p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
