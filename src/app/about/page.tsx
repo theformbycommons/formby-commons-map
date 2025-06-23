@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
-  title: 'About Local Glow',
-  description: 'The idea and vision behind the Local Glow project.',
+  title: 'About Act Local Glow',
+  description: 'The idea and vision behind the Act Local Glow project.',
 };
 
 export default function AboutPage() {
@@ -22,11 +22,9 @@ export default function AboutPage() {
         </CardHeader>
         <CardContent className="pt-8 px-6 md:px-8 space-y-6 text-foreground/90 leading-relaxed">
           <section aria-labelledby="section-introduction">
-            <h2 id="section-introduction" className="font-headline text-2xl text-primary mb-3">Our Changing World, Our Constant Places</h2>
+            <h2 id="section-introduction" className="font-headline text-2xl text-primary mb-3">The Power of Grassroots: Building Stronger Communities Together</h2>
             <p className="mb-4">
-              We live in an ever-changing world, where the places that shape us often feel like they're in flux, or even at risk of disappearing. But instead of focusing on what might be lost, imagine a space where we can celebrate the profound connections we have to our hometowns.
-            </p>
- <p>Act Local Glow provides a constructive online space where communities can share their ideas, and turn visions into real local change. We believe that the most meaningful improvements often start at the grassroots level – with the people who know their local areas best and are driven to make them better.</p>
+    Act Local Glow provides a constructive online space where communities can share their ideas, and turn visions into real local change. We believe that the most meaningful improvements often start at the grassroots level – with the people who know their local areas best and are driven to make them better.</p>
  <p>Our communities aren't fixed; they're living, changing spaces shaped by the people who live in them. While top-down solutions often miss the mark, Act Local Glow champions a more direct, democratic approach, empowering citizens to explore community support.</p>
  
           </section>
@@ -37,7 +35,10 @@ export default function AboutPage() {
  Act Local Glow builds on the foundation of celebrating local connections, much like our sister site, Local Glow (localglow.uk). While Local Glow highlights the valued aspects of our towns, Act Local Glow takes things in a slightly different direction: it's a space for action. This platform invites you to turn insights into initiatives, providing a public forum to share and gather support for projects that aim to improve our shared spaces and collective well-being.
             </p>
  <p>
- Whether it's a proposal for a new community garden, a plan to revitalize a neglected public space, or an idea for making key community spots easier to reach on foot or by bike, Act Local Glow helps these ideas gain traction. Users can upload and describe their proposed projects and, importantly, gather public votes of support. This public endorsement provides a clear measure of community backing, which can be a powerful tool for those considering formal petitions, seeking local government engagement, or directly launching projects. This approach aligns with the idea of local engagement, where community members actively shape their environment, rather than passively receiving change (Irvin & Stansbury, 2004).
+ Whether it's a proposal for a new community garden, a plan to revitalize a neglected public space, or an idea for making key community spots easier to reach on foot or by bike, Act Local Glow helps these ideas gain traction. Users can upload and describe their proposed projects and, importantly, gather public votes of support. 
+            </p>
+<p style={{ marginTop: '12px' }}>
+This public endorsement provides a clear measure of community backing, which can be a powerful tool for those considering formal petitions, seeking local government engagement, or directly launching projects. This approach aligns with the idea of local engagement, where community members actively shape their environment, rather than passively receiving change (Irvin & Stansbury, 2004).
             </p>
           </section>
 
@@ -47,7 +48,7 @@ export default function AboutPage() {
  Our approach is based on the understanding that a sense of collective efficacy – the shared belief in a group's ability to successfully organize and carry out actions to achieve common goals – is vital for community development (Bandura, 1991). By offering a platform for direct engagement and visible support for local projects, Act Local Glow aims to foster this collective strength, showing that individual actions, amplified by community backing, can lead to significant positive change.
             </p>
             <p>
- Furthermore, Act Local Glow seeks to bridge divides across different groups and viewpoints. By focusing on concrete, local improvements, the platform encourages collaborative thinking and helping to build a sense of shared purpose, moving beyond potential differences. It's about finding common ground in the desire for a better hometown, fostering a sense of shared ownership and responsibility for the local environment.
+ Furthermore, Act Local Glow seeks to bridge divides across different groups and viewpoints. By focusing on concrete, local improvements, the platform encourages collaborative thinking and helping to build a sense of shared purpose, moving beyond potential differences. It's about finding common ground in the desire for a better hometown, fostering a sense of shared ownership and responsibility for the local space and environment.
             </p>
           </section>
           
@@ -65,20 +66,19 @@ export default function AboutPage() {
             <h2 id="section-non-profit-mission" className="font-headline text-2xl text-primary mb-3">References</h2>
             <p className="mb-4">
  <ul>
- <li>
+ <li style={{ marginBottom: '10px' }}>
  Bandura, A. (1991). Social cognitive theory of self-regulation. Organizational Behavior and Human Decision Processes, 50(2), 248-287.
  </li>
- <li>
+ <li style={{ marginBottom: '10px' }}>
  Irvin, R. A., & Stansbury, J. (2004). Citizen participation in decision making: Is it worth the effort?. Public Administration Review, 64(1), 55-65.
  </li>
- <li>
+ <li style={{ marginBottom: '0' }}>
  Susha, I., & Janssen, M. (2017). Explaining the impact of open data: The case of digital democracy. Government Information Quarterly, 34(4), 743-755.
  </li>
  </ul>
-            </p>
+ </p>
             <p>
-              You won't find any advertising here, and it's not designed to be a tourist website or a platform for political agendas. Instead, it's driven purely by a deep love of place, a commitment to community building, and a desire to bridge divides across all age groups, from the young to the old.
-            </p>
+               </p>
           </section>
 
           <div className="pt-6 text-center">
