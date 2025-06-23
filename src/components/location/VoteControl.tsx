@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Meh, Smile, Star, Loader2, BarChart2, Info } from 'lucide-react';
 import { castVote, type CastVoteFormState } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Tooltip,
   TooltipContent,
@@ -70,6 +71,7 @@ function VoteResults({ votes, userHasVoted }: { votes: VoteCounts, userHasVoted:
 
 export default function VoteControl({ locationId, initialVotes }: VoteControlProps) {
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [showResults, setShowResults] = useState(false);
   const [userHasVoted, setUserHasVoted] = useState(false);
   const [voteCounts, setVoteCounts] = useState<VoteCounts>(initialVotes || { neutral: 0, positive: 0, fantastic: 0 });
@@ -109,7 +111,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
              }
              // Optimistically update counts and UI
              if (state.voteType) {
-                 setVoteCounts(prev => ({...prev, [state.voteType!]: prev[state.voteType as VoteType] + 1}));
+                 setVoteCounts(prev => ({...prev, [state.voteType as VoteType]: prev[state.voteType as VoteType] + 1}));
              }
              setUserHasVoted(true);
              setShowResults(true);
@@ -124,9 +126,16 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
   }, [state, toast, locationId]);
 
   const handleVote = (voteType: VoteType) => {
+    if (authLoading) {
+      toast({ title: 'Please wait', description: 'Authentication is initializing.' });
+      return;
+    }
     const formData = new FormData();
     formData.append('locationId', locationId);
     formData.append('voteType', voteType);
+    if (user?.uid) {
+      formData.append('suggesterUid', user.uid);
+    }
     startTransition(() => {
       formAction(formData);
     });
@@ -141,6 +150,8 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
     setShowResults(true);
   };
   
+  const isDisabled = isPending || authLoading;
+
   return (
     <TooltipProvider>
       <div className="pt-4">
@@ -164,7 +175,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                     size="lg"
                     className="flex flex-col h-auto p-3 space-y-1 hover:bg-yellow-100 dark:hover:bg-yellow-900/50"
                     onClick={() => handleVote('neutral')}
-                    disabled={isPending}
+                    disabled={isDisabled}
                   >
                     <Meh className="h-10 w-10 text-yellow-500" />
                     <span className="text-xs text-muted-foreground">Neutral</span>
@@ -174,7 +185,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                     size="lg"
                     className="flex flex-col h-auto p-3 space-y-1 hover:bg-green-100 dark:hover:bg-green-900/50"
                     onClick={() => handleVote('positive')}
-                    disabled={isPending}
+                    disabled={isDisabled}
                   >
                     <Smile className="h-10 w-10 text-green-500" />
                     <span className="text-xs text-muted-foreground">Positive</span>
@@ -184,7 +195,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                     size="lg"
                     className="flex flex-col h-auto p-3 space-y-1 hover:bg-blue-100 dark:hover:bg-blue-900/50"
                     onClick={() => handleVote('fantastic')}
-                    disabled={isPending}
+                    disabled={isDisabled}
                   >
                     <Star className="h-10 w-10 text-blue-500" />
                     <span className="text-xs text-muted-foreground">Fantastic!</span>
@@ -196,7 +207,7 @@ export default function VoteControl({ locationId, initialVotes }: VoteControlPro
                       variant="link"
                       className="text-muted-foreground hover:text-accent"
                       onClick={handleSkipToResults}
-                      disabled={isPending}
+                      disabled={isDisabled}
                   >
                       <BarChart2 className="mr-2 h-4 w-4" />
                       See what others voted

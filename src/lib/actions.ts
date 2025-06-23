@@ -7,6 +7,11 @@ import { getAdminDb } from './firebase-admin';
 import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 
+// --- CONFIGURABLE LIMITS ---
+// These values can be changed to adjust daily limits for anonymous users.
+const ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT = 10;
+const ANONYMOUS_USER_DAILY_VOTE_LIMIT = 5;
+
 // Zod schema for server-side validation (SuggestLocationForm)
 const SuggestionFormSchemaServer = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
@@ -30,8 +35,6 @@ export interface SuggestionFormState {
   errors?: Record<string, (string[] | undefined)>;
   submittedSuggestionData?: Omit<NewLocationSuggestion, 'suggesterComment'>;
 }
-
-const ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT = 10;
 
 async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionNamePath: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   try {
@@ -112,7 +115,7 @@ export async function submitSuggestion(
 
   try {
     if (suggesterUid) {
-      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid, ANONYMOUS_USER_DAILY_SUBMISSION_LIMIT, 'userDailySuggestionLimits', 'lastSubmissionDate');
+      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid, ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT, 'userDailySuggestionLimits', 'lastSubmissionDate');
       if (!dailyLimitCheck.allowed) {
         return {
           message: dailyLimitCheck.message || "Daily suggestion limit reached.",
@@ -358,6 +361,7 @@ const CastVoteSchema = z.object({
   voteType: z.enum(["neutral", "positive", "fantastic"], {
     errorMap: () => ({ message: "Invalid vote type specified." }),
   }),
+  suggesterUid: z.string().min(1, "User ID is missing.").optional(),
 });
 
 export async function castVote(
@@ -367,6 +371,7 @@ export async function castVote(
   const rawData = {
     locationId: formData.get('locationId'),
     voteType: formData.get('voteType'),
+    suggesterUid: (formData.get('suggesterUid') as string | null) || undefined,
   };
 
   const validatedFields = CastVoteSchema.safeParse(rawData);
@@ -380,10 +385,26 @@ export async function castVote(
     };
   }
 
-  const { locationId, voteType } = validatedFields.data;
+  const { locationId, voteType, suggesterUid } = validatedFields.data;
   const fieldToIncrement = `votes.${voteType}`;
 
   try {
+    if (suggesterUid) {
+      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(
+        suggesterUid, 
+        ANONYMOUS_USER_DAILY_VOTE_LIMIT, 
+        'userDailyVoteLimits', 
+        'lastVoteDate'
+      );
+      if (!dailyLimitCheck.allowed) {
+        return {
+          message: dailyLimitCheck.message || "Daily vote limit reached.",
+          type: 'error',
+          locationId
+        };
+      }
+    }
+
     const adminDb = getAdminDb();
     const locationRef = adminDb.collection('locations').doc(locationId);
 

@@ -63,5 +63,29 @@ The admin script needs credentials to securely connect to your Firebase project.
 The user is now an admin! They may need to log out and log back in if they were already logged in. They can now go to `/admin/login` and access the dashboard.
 **Note:** You can safely delete the `.env.local` file after you have successfully set up your admin users.
 
-## 4. Managing Content
-... (rest of guide is unchanged) ...
+## 4. Managing Application Limits
+
+To protect the application from abuse and control database costs, there are daily limits imposed on actions that can be performed by anonymous (non-admin) users.
+
+These limits are:
+-   **Suggestion Submissions:** How many new "Actions" a single user can suggest per day.
+-   **Voting:** How many times a single user can vote on different "Actions" per day.
+
+### How to Change the Limits
+
+These limits are not set in the Firebase Console. They are defined directly in the application code for easy access and modification.
+
+1.  In the Firebase Studio file explorer, open the following file:
+    `src/lib/actions.ts`
+
+2.  At the very top of the file, you will see these two constants:
+    ```javascript
+    const ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT = 10;
+    const ANONYMOUS_USER_DAILY_VOTE_LIMIT = 5;
+    ```
+
+3.  To change a limit, simply edit the number. For example, to increase the daily vote limit to 10, you would change the line to:
+    ```javascript
+    const ANONYMOUS_USER_DAILY_VOTE_LIMIT = 10;
+    ```
+4.  Save the file. The change will be applied the next time your application is deployed.
