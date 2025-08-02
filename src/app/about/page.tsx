@@ -55,7 +55,7 @@ This public endorsement provides a clear measure of community backing, which can
           <section aria-labelledby="section-catalyst-for-democratic-innovation">
             <h2 id="section-catalyst-for-democratic-innovation" className="font-headline text-2xl text-primary mb-3">A Catalyst for Democratic Innovation</h2>
             <p className="mb-4">
- This project demonstrates how digital tools can facilitate democratic innovation at the local level. While not replacing traditional forms of civic engagement, Act Local Glow complements them by providing an accessible, transparent, and user-friendly space for brainstorming and mobilization. It aligns with growing research on digital democracy and how online platforms can boost citizen participation and influence local governance (Susha & Janssen, 2017).
+ This project demonstrates how digital tools can facilitate democratic innovation at the local level. While not replacing traditional forms of civic engagement, Act Local Glow complements them by providing an accessible, transparent, and user-friendly space for brainstorming and mobilization. It aligns with growing research on digital democracy and how online platforms can boost citizen participation and influence local governance (Smith, 2009).
             </p>
             <p>
  Born from the same passion for place and community as Local Glow, Act Local Glow is a non-profit endeavour. It is free from advertising and commercial interests, driven solely by the desire to empower communities and facilitate positive change from the ground up. We believe that by providing a platform where local ideas can gain collective momentum, we can help create more responsive and democratic local communities.
@@ -70,10 +70,10 @@ This public endorsement provides a clear measure of community backing, which can
  Bandura, A. (1991). Social cognitive theory of self-regulation. Organizational Behavior and Human Decision Processes, 50(2), 248-287.
  </li>
  <li style={{ marginBottom: '10px' }}>
- Irvin, R. A., & Stansbury, J. (2004). Citizen participation in decision making: Is it worth the effort?. Public Administration Review, 64(1), 55-65.
+ Irvin, R. A., & Stansbury, J. (2004). Citizen participation in decision making: Is it worth the effort? Public Administration Review, 64(1), 55-65.
  </li>
  <li style={{ marginBottom: '0' }}>
- Susha, I., & Janssen, M. (2017). Explaining the impact of open data: The case of digital democracy. Government Information Quarterly, 34(4), 743-755.
+ Smith, G. (2009). Democratic innovations: Designing institutions for citizen participation. Cambridge University Press.
  </li>
  </ul>
  </p>
