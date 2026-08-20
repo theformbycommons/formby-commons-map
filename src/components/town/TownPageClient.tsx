@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
 import ClientTownMap from '@/components/map/ClientTownMap';
+import { bp } from "@/lib/basePath";
 import type { Town, Location } from '@/lib/types';
 
 interface Props {
@@ -57,7 +58,7 @@ export default function TownPageClient({ townName }: Props) {
         <h1 className="text-2xl font-bold text-destructive mb-4">Town Not Found</h1>
         <p className="text-muted-foreground mb-6">Sorry, we couldn't find information for "{decodeURIComponent(townName)}".</p>
         <Button asChild>
-          <Link href="/">
+          <Link href={bp('/')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
           </Link>
         </Button>
@@ -75,7 +76,7 @@ export default function TownPageClient({ townName }: Props) {
                     <CardDescription className="text-lg">{town.county}, {town.country}</CardDescription>
                 </div>
                 <Button asChild variant="outline" className="mt-4 md:mt-0 border-accent text-accent hover:bg-accent hover:text-accent-foreground">
-                  <Link href="/suggest-location">
+                  <Link href={bp('/suggest-location')}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Suggest an Action
                   </Link>
                 </Button>
@@ -83,8 +84,8 @@ export default function TownPageClient({ townName }: Props) {
         </CardHeader>
         <CardFooter>
             <Button asChild variant="link" className="px-0 text-accent">
-                <Link href="/">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Towns
+                  <Link href={bp('/')}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Towns
                 </Link>
             </Button>
         </CardFooter>

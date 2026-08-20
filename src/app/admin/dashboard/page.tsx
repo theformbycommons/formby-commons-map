@@ -23,7 +23,7 @@ export default function AdminDashboardPage() {
         await auth.signOut();
       }
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      router.push('/admin/login');
+      router.push('./login');
     } catch (err: any) {
       toast({ title: 'Logout Error', description: err.message, variant: 'destructive' });
     }
@@ -38,7 +38,7 @@ export default function AdminDashboardPage() {
       setIsAuthenticated(!!user);
       setAuthLoading(false);
       if (!user) {
-        router.push('/admin/login');
+        router.push('./login');
       }
     });
     return () => unsubscribe();
@@ -64,7 +64,7 @@ export default function AdminDashboardPage() {
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
           <Button asChild variant="outline" className="w-full justify-start text-lg py-6 border-primary/50 hover:bg-primary/10 hover:border-primary">
-            <Link href="/admin/suggestions">
+            <Link href="./suggestions">
               <ListChecks className="mr-3 h-5 w-5 text-primary" />
               Manage Location Suggestions
             </Link>
@@ -72,7 +72,7 @@ export default function AdminDashboardPage() {
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t">
            <Button asChild variant="ghost" className="text-muted-foreground hover:text-accent">
-            <Link href="/">
+            <Link href="../../">
               Back to Main Site
             </Link>
           </Button>

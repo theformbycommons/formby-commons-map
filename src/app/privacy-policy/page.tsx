@@ -2,6 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldCheck, BookText } from 'lucide-react';
 import Link from 'next/link';
+import { bp } from '@/lib/basePath';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -163,7 +164,7 @@ export default function PrivacyPolicyPage() {
 
           <div className="pt-6 text-center">
             <Button asChild variant="outline">
-              <Link href="/">
+              <Link href={bp('/')}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
               </Link>
             </Button>

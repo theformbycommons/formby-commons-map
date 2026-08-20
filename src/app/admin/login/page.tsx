@@ -33,8 +33,8 @@ export default function AdminLoginPage() {
           title: 'Login Successful',
           description: 'Redirecting to admin dashboard...',
         });
-        // Redirect to the new admin dashboard
-        window.location.href = '/admin/dashboard';
+        // Redirect to the new admin dashboard — use router to preserve basePath
+        router.push('./dashboard');
 
     } catch (err: any) {
       setError(err.message || 'An unknown error occurred during login.');

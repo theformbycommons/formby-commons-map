@@ -19,6 +19,7 @@ import {
 } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { useFormState } from 'react-dom';
 import {
   AlertDialog,
@@ -247,13 +248,14 @@ export default function AdminSuggestionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const [authLoading, setAuthLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(user => {
       setAuthLoading(false);
       if (!user) {
-        // Redirect to login if not signed in
-        window.location.href = '/admin/login';
+        // Redirect to login if not signed in (use relative route to respect basePath)
+        router.push('./login');
       }
     });
     return () => unsub();
@@ -409,7 +411,7 @@ export default function AdminSuggestionsPage() {
         </CardContent>
         <CardFooter className="text-center">
             <Button asChild variant="outline" className="mx-auto">
-              <Link href="/admin/dashboard">
+              <Link href="../dashboard">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Admin Dashboard
               </Link>
             </Button>

@@ -6,6 +6,7 @@ import { getLocationById } from '@/lib/data';
 import LocationDetailsDisplay from '@/components/location/LocationDetailsDisplay';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { bp } from '@/lib/basePath';
 import { ArrowLeft } from 'lucide-react';
 
 interface Props {
@@ -44,7 +45,7 @@ export default function LocationPageClient({ locationId }: Props) {
         <h1 className="text-2xl font-bold text-destructive mb-4">Location Not Found</h1>
         <p className="text-muted-foreground mb-6">Sorry, we couldn't find details for this location.</p>
         <Button asChild>
-          <Link href="/">
+          <Link href={bp('/')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
           </Link>
         </Button>
