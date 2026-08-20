@@ -27,7 +27,6 @@ export default function UKMap({ towns }: UKMapProps) {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
-      // Updated to center on Formby with a closer local zoom level
       const formbyCenter: L.LatLngExpression = [53.559, -3.069];
       const formbyZoom = 13;
 
@@ -40,7 +39,7 @@ export default function UKMap({ towns }: UKMapProps) {
       }).addTo(mapRef.current);
 
       towns.forEach((town) => {
-        if (town.coordinates) { // Ensure coordinates exist
+        if (town.coordinates) {
           const marker = L.marker([town.coordinates.lat, town.coordinates.lng]).addTo(mapRef.current!);
           const popupContent = `
             <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
