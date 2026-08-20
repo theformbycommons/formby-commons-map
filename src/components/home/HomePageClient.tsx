@@ -39,13 +39,13 @@ export default function HomePageClient() {
         />
         <div className="relative z-10 flex flex-col items-center justify-center">
           <div className="bg-background/20 p-6 rounded-lg max-w-2xl w-full mx-auto shadow-xl backdrop-blur-sm space-y-4">
-            <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to The Formby Commons</h1>
-            <p className="text-lg font-bold text-accent mx-auto drop-shadow-sm">
-              Act and Support Change in Our Local Communities
+            <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to The Formby Commons Map</h1>
+            <p className="text-lg font-bold text-white mx-auto drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+              Submit Suggestions and Issues for Formby
             </p>
             <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8 sm:mt-10">
               <Link href="/about">
-                <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind The Formby Commons
+                <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind The Formby Commons Map
               </Link>
             </Button>
           </div>
@@ -59,7 +59,7 @@ export default function HomePageClient() {
               <Compass className="h-8 w-8 text-primary" />
               <CardTitle className="font-headline text-2xl text-primary">How to Discover & Share The Formby Commons</CardTitle>
             </div>
-            <CardDescription>A quick guide to navigating the site and contributing your proposed Actions.</CardDescription>
+            <CardDescription>A quick guide to navigating the site and contributing your proposed Issues and Actions.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-foreground/90">
             {/* content omitted for brevity; reuse server markup */}
@@ -73,14 +73,14 @@ export default function HomePageClient() {
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
               <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Find local proposed Actions</h4>
+                <h4 className="font-semibold mb-1 text-primary/90">Find local proposed Issues and Actions</h4>
                 <p>Within each town, explore unique Actions revealed on the town's interactive map or listed beneath it.</p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
               <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</div>
               <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Contribute Your Actions</h4>
+                <h4 className="font-semibold mb-1 text-primary/90">Contribute Your Suggestions</h4>
                 <p>Want to propose an Action? Click the "Suggest Action" button (top right, with a <PlusCircle className="inline-block h-4 w-4 text-accent align-text-bottom" /> icon). Fill out the form, and crucially, set the location by clicking on the map within the form – you can zoom using +/- or pinch gestures.</p>
               </div>
             </div>
