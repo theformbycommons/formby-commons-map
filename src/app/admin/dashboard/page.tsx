@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { ListChecks, LogOut, Home as HomeIcon } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -22,18 +22,35 @@ export default function AdminDashboardPage() {
       if (auth) {
         await auth.signOut();
       }
-      
-      const response = await fetch('/api/auth/session-logout', { method: 'POST' });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Logout failed');
-      }
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       router.push('/admin/login');
     } catch (err: any) {
       toast({ title: 'Logout Error', description: err.message, variant: 'destructive' });
     }
   };
+
+  // Client-side auth guard: ensure only signed-in users see the dashboard.
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      setIsAuthenticated(!!user);
+      setAuthLoading(false);
+      if (!user) {
+        router.push('/admin/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  if (authLoading) {
+    return <div className="max-w-2xl mx-auto text-center py-10">Checking authentication...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return null; // router will redirect to login
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">

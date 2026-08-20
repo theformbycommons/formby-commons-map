@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,27 +28,13 @@ export default function AdminLoginPage() {
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await getIdToken(userCredential.user);
-
-      const response = await fetch('/api/auth/session-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ idToken }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to set session cookie.');
-      }
-      
-      toast({
-        title: 'Login Successful',
-        description: 'Redirecting to admin dashboard...',
-      });
-      // Redirect to the new admin dashboard
-      window.location.href = '/admin/dashboard';
+        // Successful sign-in with Firebase client SDK.
+        toast({
+          title: 'Login Successful',
+          description: 'Redirecting to admin dashboard...',
+        });
+        // Redirect to the new admin dashboard
+        window.location.href = '/admin/dashboard';
 
     } catch (err: any) {
       setError(err.message || 'An unknown error occurred during login.');

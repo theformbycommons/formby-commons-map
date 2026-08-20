@@ -1,7 +1,8 @@
 
-'use client'; 
+ 'use client'; 
 
 import { getSuggestedLocations } from '@/lib/admin-data';
+import { auth } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -245,6 +246,18 @@ export default function AdminSuggestionsPage() {
   const [suggestions, setSuggestions] = useState<NewLocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged(user => {
+      setAuthLoading(false);
+      if (!user) {
+        // Redirect to login if not signed in
+        window.location.href = '/admin/login';
+      }
+    });
+    return () => unsub();
+  }, []);
   
   // This state is used to trigger a re-fetch when an action completes.
   const [actionTrigger, setActionTrigger] = useState(0);
@@ -277,6 +290,10 @@ export default function AdminSuggestionsPage() {
     ? `https://console.firebase.google.com/project/${projectId}/firestore/data/suggestedLocations`
     : null;
 
+
+  if (authLoading) {
+    return <div className="max-w-5xl mx-auto space-y-8 text-center py-10">Checking authentication...</div>;
+  }
 
   if (isLoading) {
     return (
