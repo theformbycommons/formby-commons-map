@@ -7,6 +7,15 @@ import { ArrowLeft, PlusCircle } from 'lucide-react';
 import ClientTownMap from '@/components/map/ClientTownMap'; 
 import type { Town } from '@/lib/types'; 
 
+// Add this function at the top or bottom of page.tsx outside your component
+export async function generateStaticParams() {
+  // Return an array of all town names you want static HTML pages generated for
+  return [
+    { townName: 'formby' },
+    // Add any other specific town names here if applicable
+  ];
+}
+
 interface TownPageProps {
   params: {
     townName: string;
