@@ -3,7 +3,7 @@ import { getAuth, type Auth, signInAnonymously, onAuthStateChanged, type User as
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getAnalytics, type Analytics } from 'firebase/analytics';
 
-// Your new web app's Firebase configuration
+// Direct Firebase configuration for Formby Commons Map
 const firebaseConfig = {
   apiKey: "AIzaSyALKmzxvpnYwuuS_PSnXDUhfhddTsZqqHU",
   authDomain: "formby-commons-map.firebaseapp.com",
@@ -14,20 +14,12 @@ const firebaseConfig = {
   measurementId: "G-HCXGM3D6KL"
 };
 
-// Check for the API key
-if (!firebaseConfig.apiKey) {
-  console.error(`
-    CRITICAL ERROR: Firebase API Key is missing!
-    Please check your configuration in firebase.ts.
-  `);
-}
-
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let analytics: Analytics | undefined;
 
-// Initialize Firebase app singleton
+// Singleton initialization to prevent multiple instances during Next.js builds
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
 } else {
@@ -37,7 +29,7 @@ if (getApps().length === 0) {
 auth = getAuth(app);
 db = getFirestore(app);
 
-// Initialize analytics only on the client side (browser)
+// Safe client-side analytics check
 if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
   analytics = getAnalytics(app);
 }
