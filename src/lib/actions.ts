@@ -1,11 +1,21 @@
 
-'use server';
+
 
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, Town } from './types';
-import { getAdminDb } from './firebase-admin';
-import { FieldValue as AdminFieldValue } from 'firebase-admin/firestore';
-import { revalidatePath } from 'next/cache';
+import { db } from '@/lib/firebase';
+import { 
+  collection, 
+  addDoc, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  serverTimestamp,
+  getDoc,
+  deleteDoc,
+  runTransaction,
+  increment,
+} from 'firebase/firestore';
 
 // --- CONFIGURABLE LIMITS ---
 // These values can be changed to adjust daily limits for anonymous users.
@@ -45,14 +55,13 @@ export interface SuggestionFormState {
 
 async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: number, collectionNamePath: string, dateFieldName: string, countFieldName: string = 'count'): Promise<{ allowed: boolean; message?: string }> {
   try {
-    const adminDb = getAdminDb();
     const todayDateString = new Date().toISOString().split('T')[0];
-    const userLimitRef = adminDb.collection(collectionNamePath).doc(uid);
+    const userLimitRef = doc(db, collectionNamePath, uid);
 
-    await adminDb.runTransaction(async (transaction) => {
+    await runTransaction(db, async (transaction) => {
       const userLimitDoc = await transaction.get(userLimitRef);
 
-      if (!userLimitDoc.exists) {
+      if (!userLimitDoc.exists()) {
         transaction.set(userLimitRef, {
           [countFieldName]: 1,
           [dateFieldName]: todayDateString,
@@ -73,7 +82,7 @@ async function checkAndIncrementAnonymousUserDailyLimit(uid: string, limit: numb
         throw new Error(`You have reached the daily limit of ${limit} submissions for this action. Please try again tomorrow.`);
       }
 
-      transaction.update(userLimitRef, { [countFieldName]: AdminFieldValue.increment(1) });
+      transaction.update(userLimitRef, { [countFieldName]: increment(1) });
     });
     return { allowed: true };
   } catch (error: any) {
@@ -143,7 +152,7 @@ export async function submitSuggestion(
       }
     }
 
-    const adminDb = getAdminDb(); // This will throw on failure
+    // Use client Firestore `db` for static-export-friendly operations
     const suggestionForDb = {
       name: dataFromValidation.name,
       description: dataFromValidation.description,
@@ -153,7 +162,7 @@ export async function submitSuggestion(
       category: (validatedFields.data as any).category || null,
       issueStatus: (validatedFields.data as any).issueStatus || 'reported',
       status: 'pending' as const,
-      submittedAtFirestore: AdminFieldValue.serverTimestamp(),
+      submittedAtFirestore: serverTimestamp(),
       coordinates: {
         lat: latitude,
         lng: longitude,
@@ -163,10 +172,7 @@ export async function submitSuggestion(
 
     // Attachments removed: file uploads are no longer supported from the client.
 
-    const suggestedLocationsColRef = adminDb.collection('suggestedLocations');
-    const newDocRef = await suggestedLocationsColRef.add(suggestionForDb);
-
-    revalidatePath('/admin/suggestions');
+    const newDocRef = await addDoc(collection(db, 'suggestedLocations'), suggestionForDb);
 
     // Create a plain object for the client, removing server-only values like FieldValue
     const { submittedAtFirestore, ...plainSuggestionData } = suggestionForDb;
@@ -211,9 +217,8 @@ export async function approveSuggestion(
   }
 
   try {
-    const adminDb = getAdminDb();
-    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
-    const suggestionSnap = await suggestionRef.get();
+    const suggestionRef = doc(db, 'suggestedLocations', suggestionId);
+    const suggestionSnap = await getDoc(suggestionRef);
 
     if (!suggestionSnap.exists) {
       return { message: "Suggestion not found.", type: 'error', suggestionId };
@@ -225,18 +230,13 @@ export async function approveSuggestion(
     }
 
     if (suggestionData.status === 'approved' && suggestionData.publishedLocationId) {
-      revalidatePath('/admin/suggestions');
-      revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
-      if (suggestionData.publishedLocationId) {
-        revalidatePath(`/location/${suggestionData.publishedLocationId}`);
-      }
-      revalidatePath('/');
-      return { message: `Suggestion "${suggestionData.name}" is already approved and published with ID: ${suggestionData.publishedLocationId}. Paths revalidated.`, type: 'info', suggestionId };
+      // Static-export site: no server revalidation. Notify caller that item is already approved.
+      return { message: `Suggestion "${suggestionData.name}" is already approved and published with ID: ${suggestionData.publishedLocationId}.`, type: 'info', suggestionId };
     }
 
-    const townsColRef = adminDb.collection('towns');
-    const townQuery = townsColRef.where('name', '==', suggestionData.townName);
-    const townQuerySnapshot = await townQuery.get();
+    // Find town by name using a client-side query
+    const townsColRef = collection(db, 'towns');
+    const townQuerySnapshot = await (await import('firebase/firestore')).getDocs((await import('firebase/firestore')).query(townsColRef, (await import('firebase/firestore')).where('name', '==', suggestionData.townName)));
 
     let townId: string;
     let townDataForLocation: Pick<Town, 'id' | 'name' | 'county' | 'country' | 'coordinates' | 'description' | 'imageUrl'>;
@@ -264,16 +264,16 @@ export async function approveSuggestion(
 
     let publishedLocationId: string | undefined = suggestionData.publishedLocationId;
 
-    await adminDb.runTransaction(async (transaction) => {
+    await runTransaction(db, async (transaction) => {
       const transSuggestionSnap = await transaction.get(suggestionRef);
-      if (!transSuggestionSnap.exists) {
+      if (!transSuggestionSnap.exists()) {
         throw new Error("Suggestion not found within transaction.");
       }
       const currentSuggestionData = transSuggestionSnap.data() as NewLocationSuggestion;
 
       if (currentSuggestionData.status === 'pending' || (currentSuggestionData.status === 'approved' && !currentSuggestionData.publishedLocationId)) {
           if (!currentSuggestionData.publishedLocationId) {
-            const newLocationRef = adminDb.collection('locations').doc();
+            const newLocationRef = doc(collection(db, 'locations'));
             publishedLocationId = newLocationRef.id;
 
             const newLocationData: Omit<Location, 'id' | 'createdAt' | 'approvedAt' | 'votes' | 'imageUrl'> & { imageUrl: string | null } = {
@@ -287,7 +287,7 @@ export async function approveSuggestion(
               coordinates: suggestionData.coordinates,
               submittedBy: suggestionData.suggesterName,
               createdAtFirestore: suggestionData.submittedAtFirestore,
-              approvedAtFirestore: AdminFieldValue.serverTimestamp(),
+              approvedAtFirestore: serverTimestamp(),
             };
             transaction.set(newLocationRef, { 
               ...newLocationData, 
@@ -299,25 +299,20 @@ export async function approveSuggestion(
 
           transaction.update(suggestionRef, {
             status: 'approved',
-            approvedAtFirestore: AdminFieldValue.serverTimestamp(),
+            approvedAtFirestore: serverTimestamp(),
             publishedLocationId: publishedLocationId,
           });
       } else if (currentSuggestionData.status === 'approved' && currentSuggestionData.publishedLocationId) {
          publishedLocationId = currentSuggestionData.publishedLocationId;
          transaction.update(suggestionRef, {
-            approvedAtFirestore: AdminFieldValue.serverTimestamp(),
+            approvedAtFirestore: serverTimestamp(),
          });
       } else if (currentSuggestionData.status === 'rejected') {
         throw new Error(`Suggestion status changed to 'rejected' during processing. It may have been processed by another administrator.`);
       }
     });
 
-    revalidatePath('/admin/suggestions');
-    revalidatePath(`/town/${encodeURIComponent(suggestionData.townName)}`);
-    if (publishedLocationId) {
-        revalidatePath(`/location/${publishedLocationId}`);
-    }
-    revalidatePath('/');
+    // Static export: no server revalidation. Clients should update UI after write.
 
     return {
       message: `Suggestion "${suggestionData.name}" for ${suggestionData.townName} successfully processed. Location ID: ${publishedLocationId}.`,
@@ -367,16 +362,15 @@ export async function editSuggestion(
   if (suggesterName !== null) updates.suggesterName = suggesterName;
 
   try {
-    const adminDb = getAdminDb();
-    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
-    const snap = await suggestionRef.get();
-    if (!snap.exists) {
+    const suggestionRef = doc(db, 'suggestedLocations', suggestionId);
+    const snap = await getDoc(suggestionRef);
+    if (!snap.exists()) {
       return { message: 'Suggestion not found.', type: 'error', suggestionId };
     }
 
-    await suggestionRef.update({
+    await updateDoc(suggestionRef, {
       ...updates,
-      updatedAtFirestore: AdminFieldValue.serverTimestamp(),
+      updatedAtFirestore: serverTimestamp(),
     });
 
     // After update, optionally approve & publish if requested
@@ -390,7 +384,7 @@ export async function editSuggestion(
       return { message: approveResult.message, type: approveResult.type, suggestionId };
     }
 
-    revalidatePath('/admin/suggestions');
+    // Static export: no server revalidation.
     return { message: 'Suggestion updated successfully.', type: 'success', suggestionId };
 
   } catch (error: any) {
@@ -420,11 +414,9 @@ export async function deleteSuggestion(
   }
 
   try {
-    const adminDb = getAdminDb();
-    const suggestionDocRef = adminDb.collection('suggestedLocations').doc(suggestionId);
-    await suggestionDocRef.delete();
+    const suggestionDocRef = doc(db, 'suggestedLocations', suggestionId);
+    await deleteDoc(suggestionDocRef);
     console.log(`[Admin Action] Successfully deleted Firestore document '${suggestionId}'.`);
-    revalidatePath('/admin/suggestions');
 
     return { message: "Suggestion document deleted successfully.", type: 'success', suggestionId };
 
@@ -494,28 +486,27 @@ export async function castVote(
       }
     }
 
-    const adminDb = getAdminDb();
-    const locationRef = adminDb.collection('locations').doc(locationId);
+    const locationRef = doc(db, 'locations', locationId);
 
-    await adminDb.runTransaction(async (transaction) => {
-        const locationDoc = await transaction.get(locationRef);
-        if (!locationDoc.exists) {
-            throw new Error("Location not found.");
-        }
-        
-        const locationData = locationDoc.data();
-        if (!locationData?.votes) {
-            transaction.update(locationRef, {
-                votes: { neutral: 0, positive: 0, fantastic: 0 }
-            });
-        }
-        
+    await runTransaction(db, async (transaction) => {
+      const locationDoc = await transaction.get(locationRef);
+      if (!locationDoc.exists()) {
+        throw new Error("Location not found.");
+      }
+
+      const locationData = locationDoc.data();
+      if (!locationData?.votes) {
         transaction.update(locationRef, {
-            [fieldToIncrement]: AdminFieldValue.increment(1)
+          votes: { neutral: 0, positive: 0, fantastic: 0 }
         });
+      }
+
+      transaction.update(locationRef, {
+        [fieldToIncrement]: increment(1)
+      });
     });
 
-    revalidatePath(`/location/${locationId}`);
+    // Static-export site: no server revalidation. Clients should refresh their UI as needed.
 
     return {
       message: "Vote cast successfully!",

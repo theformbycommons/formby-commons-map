@@ -1,8 +1,6 @@
 
-'use server';
-
 import type { NewLocationSuggestion } from './types';
-import { db } from './firebase'; // Using client-side db for these admin read operations for now
+import { db } from '@/lib/firebase'; // Use shared client Firestore instance
 import {
   collection,
   getDocs,
