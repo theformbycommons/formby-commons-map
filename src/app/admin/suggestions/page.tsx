@@ -1,5 +1,4 @@
-
- 'use client'; 
+'use client';
 
 import { getSuggestedLocations } from '@/lib/admin-data';
 import { auth } from '@/lib/firebase';
@@ -89,17 +88,17 @@ function EditSuggestion({ suggestion, onActionComplete }: { suggestion: NewLocat
     <form onSubmit={handleSubmit} className="space-y-2 p-3 border rounded">
       <input type="hidden" name="suggestionId" value={suggestion.id} />
       <div>
-        <Label className="font-medium">Name</Label>
-        <Input name="name" defaultValue={suggestion.name} className="mt-1" />
+        <label className="font-medium text-sm">Name</label>
+        <input name="name" defaultValue={suggestion.name} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
       </div>
       <div>
-        <Label className="font-medium">Description</Label>
-        <Textarea name="description" defaultValue={suggestion.description} rows={3} className="mt-1" />
+        <label className="font-medium text-sm">Description</label>
+        <textarea name="description" defaultValue={suggestion.description} rows={3} className="mt-1 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
       </div>
       <div className="flex gap-2">
         <div className="flex-1">
-          <Label className="font-medium">Category</Label>
-          <select name="category" defaultValue={suggestion.category || ''} className="w-full mt-1 border rounded px-2 py-1">
+          <label className="font-medium text-sm">Category</label>
+          <select name="category" defaultValue={suggestion.category || ''} className="w-full mt-1 flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
             <option value="">(none)</option>
             <option>Overgrown Pavement</option>
             <option>Roundabout Improvement Needed</option>
@@ -111,16 +110,16 @@ function EditSuggestion({ suggestion, onActionComplete }: { suggestion: NewLocat
           </select>
         </div>
         <div>
-          <Label className="font-medium">Issue Status</Label>
-          <select name="issueStatus" defaultValue={suggestion.issueStatus || 'reported'} className="mt-1 border rounded px-2 py-1">
+          <label className="font-medium text-sm">Issue Status</label>
+          <select name="issueStatus" defaultValue={suggestion.issueStatus || 'reported'} className="mt-1 flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
             <option value="reported">Reported</option>
             <option value="improved">Improved</option>
           </select>
         </div>
       </div>
       <div>
-        <Label className="font-medium">Suggester Name</Label>
-        <Input name="suggesterName" defaultValue={suggestion.suggesterName} className="mt-1" />
+        <label className="font-medium text-sm">Suggester Name</label>
+        <input name="suggesterName" defaultValue={suggestion.suggesterName} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
       </div>
       <div className="flex gap-2 justify-end">
         <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
@@ -144,7 +143,7 @@ function ApproveButton({ suggestionId, currentStatus, onActionComplete }: { sugg
       toast({
         title: state.type === 'success' ? 'Success!' : state.type === 'error' ? 'Error' : 'Info',
         description: state.message,
-        variant: state.type === 'error' ? 'destructive' : state.type === 'info' ? 'default' : 'default',
+        variant: state.type === 'error' ? 'destructive' : 'default',
       });
       if (state.type === 'success') {
         onActionComplete();
@@ -153,7 +152,7 @@ function ApproveButton({ suggestionId, currentStatus, onActionComplete }: { sugg
   }, [state, toast, suggestionId, onActionComplete]);
 
 
-  if (currentStatus === 'rejected') { // No approve button for rejected items
+  if (currentStatus === 'rejected') {
     return null; 
   }
   
@@ -194,7 +193,7 @@ function DeleteSuggestionButton({ suggestionId, suggestionName, onActionComplete
       toast({
         title: state.type === 'success' ? 'Success!' : state.type === 'error' ? 'Error' : 'Info',
         description: state.message,
-        variant: state.type === 'error' ? 'destructive' : state.type === 'info' ? 'default' : 'default',
+        variant: state.type === 'error' ? 'destructive' : 'default',
       });
       if (state.type === 'success' || state.type === 'info') { 
         setIsAlertOpen(false);
@@ -248,20 +247,20 @@ export default function AdminSuggestionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const [authLoading, setAuthLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(user => {
-      setAuthLoading(false);
-      if (!user) {
-        // Redirect to login if not signed in (use relative route to respect basePath)
-        router.push('./login');
-      }
+      // Give firebase a tiny moment to settle persistence before deciding to kick user out
+      setTimeout(() => {
+        setAuthLoading(false);
+        if (!auth.currentUser) {
+          window.location.href = '/formby-commons-map/admin/login/';
+        }
+      }, 300);
     });
     return () => unsub();
   }, []);
   
-  // This state is used to trigger a re-fetch when an action completes.
   const [actionTrigger, setActionTrigger] = useState(0);
   const handleActionComplete = () => {
     setActionTrigger(prev => prev + 1);
@@ -365,7 +364,6 @@ export default function AdminSuggestionsPage() {
                           </p>
                           {suggestion.category && <p><strong>Category:</strong> {suggestion.category}</p>}
                           {suggestion.issueStatus && <p><strong>Issue Status:</strong> {suggestion.issueStatus === 'reported' ? 'Reported' : 'Improved'}</p>}
-                          {/* Attachments removed — no files are stored for suggestions. */}
                           {suggestion.publishedLocationId && (
                             <p><strong>Published ID:</strong> <code className="text-xs bg-muted px-1 rounded">{suggestion.publishedLocationId}</code></p>
                           )}
@@ -391,7 +389,7 @@ export default function AdminSuggestionsPage() {
                           ) : (
                              <Button variant="outline" size="sm" disabled>
                                 <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console (disabled)
-                              </Button>
+                             </Button>
                           )}
                            {suggestion.id && (
                             <DeleteSuggestionButton 
@@ -411,9 +409,9 @@ export default function AdminSuggestionsPage() {
         </CardContent>
         <CardFooter className="text-center">
             <Button asChild variant="outline" className="mx-auto">
-              <Link href="../dashboard">
+              <a href="/formby-commons-map/admin/dashboard/">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Admin Dashboard
-              </Link>
+              </a>
             </Button>
         </CardFooter>
       </Card>
