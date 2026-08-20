@@ -62,12 +62,12 @@ export default function UKMap({ towns }: UKMapProps) {
       <div className="relative w-full h-64 md:h-96 rounded-lg overflow-hidden shadow-lg border border-border">
         <div ref={mapContainerRef} className="h-full w-full z-0" />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent flex items-end justify-center p-8 pointer-events-none">
-          <h2 className="text-3xl font-headline font-bold text-white text-center drop-shadow-lg">Discover Actions Across the UK</h2>
+          <h2 className="text-3xl font-headline font-bold text-white text-center drop-shadow-lg">Discover Actions In Formby</h2>
         </div>
       </div>
 
       {towns.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">No towns available to display yet. Add some to Firestore!</p>
+        <p className="text-center text-muted-foreground py-8">No town available to display yet. Admin will add Formby to Firestore soon!</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {towns.map((town) => (
