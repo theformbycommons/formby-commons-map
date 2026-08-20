@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Town } from '@/lib/types';
@@ -28,12 +27,13 @@ export default function UKMap({ towns }: UKMapProps) {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
-      const ukCenter: L.LatLngExpression = [54.5, -2.5];
-      const ukZoom = 6;
+      // Updated to center on Formby with a closer local zoom level
+      const formbyCenter: L.LatLngExpression = [53.559, -3.069];
+      const formbyZoom = 13;
 
       mapRef.current = L.map(mapContainerRef.current, {
         scrollWheelZoom: false,
-      }).setView(ukCenter, ukZoom);
+      }).setView(formbyCenter, formbyZoom);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -46,7 +46,7 @@ export default function UKMap({ towns }: UKMapProps) {
             <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
               <strong style="font-size: 1.1em; color: hsl(var(--primary));">${town.name}</strong><br/>
               <span style="font-size: 0.9em; color: hsl(var(--muted-foreground));">${town.county}, ${town.country}</span><br/>
-              <a href="/town/${encodeURIComponent(town.name)}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
+              <a href="/formby-commons-map/town/${encodeURIComponent(town.name)}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
                 Explore ${town.name} &rarr;
               </a>
             </div>
@@ -81,13 +81,13 @@ export default function UKMap({ towns }: UKMapProps) {
               </CardHeader>
               <CardFooter className="p-4 mt-auto">
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
-                  <a href={`/town/${encodeURIComponent(town.name)}`} className="flex items-center gap-2">
+                  <a href={`/formby-commons-map/town/${encodeURIComponent(town.name)}`} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
                     Explore {town.name} ({town.locationCount || 0} Actions)
                   </a>
                 </Button>
               </CardFooter>
-            </Card>
+            </CardCard>
           ))}
         </div>
       )}
