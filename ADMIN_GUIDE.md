@@ -89,3 +89,18 @@ These limits are not set in the Firebase Console. They are defined directly in t
     const ANONYMOUS_USER_DAILY_VOTE_LIMIT = 10;
     ```
 4.  Save the file. The change will be applied the next time your application is deployed.
+
+## 5. Admin workflow (Client-only auth) — Static export notes
+
+- **Login:** the `/admin/login` page authenticates using the Firebase Client SDK (`signInWithEmailAndPassword`) in the browser. GitHub Pages is static-only — there is no server to create secure server-side sessions.
+- **Admin UI gating:** admin pages use `onAuthStateChanged` (client-side) to detect signed-in users and show admin controls. This protects the UI but does not prevent a motivated user from calling Firestore directly.
+- **Assigning admin privileges:** granting an `admin: true` custom claim requires the Firebase Admin SDK and must be performed from a secure environment (a one-time script, Cloud Function, or CI job). Do not run the Admin SDK in the browser. After a claim is set, a signed-in client can read that claim and see admin UI.
+- **Security caveats:**
+    - Any privileged writes performed directly from the browser are potentially discoverable and reproducible by attackers. Where possible, perform sensitive operations (approve/publish/delete) on a secure server using the Admin SDK.
+    - Never commit Admin SDK credentials. If you use a temporary `.env.local` for a one-time script, delete it immediately and store secrets in a secure secret manager.
+    - Harden Firestore rules: allow public reads for published data and restrict writes/approvals to server-side logic or to users with verified admin claims.
+- **Recommendations:**
+    - Prefer serverless endpoints (Vercel/Firebase Functions) to run Admin SDK operations for approve/delete/edit workflows.
+    - Use strong admin passwords and enable 2FA where possible.
+    - Keep an audit log of admin actions and rotate secrets after use.
+
