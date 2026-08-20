@@ -6,8 +6,8 @@ import 'leaflet/dist/leaflet.css';
 import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
 
 export const metadata: Metadata = {
-  title: 'Local Glow',
-  description: 'Discover and share local gems across the UK.',
+  title: 'The Formby Commons',
+  description: 'Discover and share local improvements and community actions.',
 };
 
 export default function RootLayout({

@@ -1,32 +1,33 @@
-
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth, signInAnonymously, onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getAnalytics, type Analytics } from 'firebase/analytics';
 
+// Your new web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyALKmzxvpnYwuuS_PSnXDUhfhddTsZqqHU",
+  authDomain: "formby-commons-map.firebaseapp.com",
+  projectId: "formby-commons-map",
+  storageBucket: "formby-commons-map.firebasestorage.app",
+  messagingSenderId: "440463030703",
+  appId: "1:440463030703:web:eda4658c8b51005fc1575a",
+  measurementId: "G-HCXGM3D6KL"
 };
 
-// A critical check for the API key. If it's missing, Firebase cannot initialize.
+// Check for the API key
 if (!firebaseConfig.apiKey) {
-  // This error will be visible in the server console and browser console.
   console.error(`
-    CRITICAL ERROR: Firebase API Key (NEXT_PUBLIC_FIREBASE_API_KEY) is missing!
-    Please ensure you have a '.env.local' file with the correct variable.
-    The application will not work until this is resolved.
+    CRITICAL ERROR: Firebase API Key is missing!
+    Please check your configuration in firebase.ts.
   `);
 }
 
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let analytics: Analytics | undefined;
 
+// Initialize Firebase app singleton
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
 } else {
@@ -36,4 +37,9 @@ if (getApps().length === 0) {
 auth = getAuth(app);
 db = getFirestore(app);
 
-export { app, auth, db, signInAnonymously, onAuthStateChanged, type FirebaseUser };
+// Initialize analytics only on the client side (browser)
+if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
+  analytics = getAnalytics(app);
+}
+
+export { app, auth, db, analytics, signInAnonymously, onAuthStateChanged, type FirebaseUser };

@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
             <KeyRound className="h-7 w-7" />
           </div>
           <CardTitle className="font-headline text-2xl text-primary">Admin Login</CardTitle>
-          <CardDescription>Access the Act Local Glow administration panel.</CardDescription>
+          <CardDescription>Access The Formby Commons administration panel.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-6" suppressHydrationWarning={true}>

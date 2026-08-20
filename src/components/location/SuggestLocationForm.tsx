@@ -29,9 +29,15 @@ const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerM
 
 const SuggestionFormClientSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long.").max(100, "Name must be 100 characters or less."),
-  description: z.string().min(10, "Description must be at least 10 characters long.").max(1000, "Description must be 1000 characters or less."),
+  description: z.string().max(1000, "Description must be 1000 characters or less.").optional().refine((val) => {
+    if (val === undefined) return true;
+    const t = String(val).trim();
+    return t.length === 0 || t.length >= 10;
+  }, { message: 'Description must be at least 10 characters if provided.' }),
   townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
+  category: z.string().optional(),
+  issueStatus: z.enum(['reported','improved']).optional(),
   latitude: z.number({ required_error: "Please select a location on the map." })
             .min(-90, "Invalid latitude. Please select a location on the map.")
             .max(90, "Invalid latitude. Please select a location on the map."),
@@ -72,6 +78,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [selectedMapCoords, setSelectedMapCoords] = useState<{ lat: number; lng: number } | null>(null);
+  
   const { user, loading: authLoading } = useAuth();
 
   const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError, watch } = useForm<SuggestionFormData>({
@@ -81,6 +88,8 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       description: '',
       townName: '',
       suggesterName: '',
+      category: undefined,
+      issueStatus: 'reported',
     }
   });
 
@@ -142,8 +151,28 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       }
     });
 
+    // No file attachments are supported from the client.
+
     if (user && user.isAnonymous && user.uid) {
       formDataForServerAction.append('suggesterUid', user.uid);
+    } else {
+      // Ensure an anonymous client id exists (stored in a cookie) so we can enforce daily limits for non-logged-in users
+      try {
+        const cookieName = 'anonId';
+        const getCookie = (name: string) => document.cookie.split('; ').find(row => row.startsWith(name + '='))?.split('=')[1];
+        let anonId = getCookie(cookieName);
+        if (!anonId && typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+          anonId = crypto.randomUUID();
+          const maxAgeDays = 7;
+          document.cookie = `${cookieName}=${anonId}; path=/; max-age=${60*60*24*maxAgeDays}`;
+        }
+        if (anonId) {
+          formDataForServerAction.append('suggesterAnonId', anonId);
+        }
+      } catch (e) {
+        // Non-fatal; proceed without anon id (server will treat as fully anonymous)
+        console.warn('Could not create anonId cookie', e);
+      }
     }
 
     startTransition(() => {
@@ -169,9 +198,50 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       </div>
 
       <div>
+        <Label htmlFor="category" className="font-medium">Issue Category</Label>
+        <Select
+          onValueChange={(val) => setValue('category', val, { shouldValidate: true })}
+          value={watch('category') || ''}
+        >
+          <SelectTrigger id="category" className="w-full mt-1">
+            <SelectValue placeholder="Select a category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Overgrown Pavement">Overgrown Pavement</SelectItem>
+            <SelectItem value="Roundabout Improvement Needed">Roundabout Improvement Needed</SelectItem>
+            <SelectItem value="Unsafe Crossing">Unsafe Crossing</SelectItem>
+            <SelectItem value="Missing Drop Kerb">Missing Drop Kerb</SelectItem>
+            <SelectItem value="Cars Parked On Pavement">Cars Parked On Pavement</SelectItem>
+            <SelectItem value="Speeding">Speeding</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">Choose the category that best fits the issue.</p>
+      </div>
+
+      <div>
+        <Label htmlFor="issueStatus" className="font-medium">Issue Status</Label>
+        <Select
+          onValueChange={(val) => setValue('issueStatus', val as 'reported' | 'improved', { shouldValidate: true })}
+          value={watch('issueStatus') || 'reported'}
+        >
+          <SelectTrigger id="issueStatus" className="w-full mt-1">
+            <SelectValue placeholder="Reported / Improved" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="reported">Reported</SelectItem>
+            <SelectItem value="improved">Improved</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">Mark whether this issue is still reported or already improved.</p>
+      </div>
+
+      {/* File attachments removed — users can only submit location, category, description, and name. */}
+
+      <div>
         <Label htmlFor="description" className="font-medium">Description</Label>
         <Textarea id="description" {...register('description')} rows={4} className="mt-1" aria-invalid={errors.description ? "true" : "false"} />
-        <p className="text-xs text-muted-foreground mt-1">Tell us concisely what Action you propose for your community. Please be specific and objective.</p>
+        <p className="text-xs text-muted-foreground mt-1">Optional — 2–4 short sentences describing the issue (concise, specific).</p>
         {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
       </div>
 

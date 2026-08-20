@@ -9,14 +9,20 @@ import { revalidatePath } from 'next/cache';
 
 // --- CONFIGURABLE LIMITS ---
 // These values can be changed to adjust daily limits for anonymous users.
-const ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT = 10;
+const ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT = 5;
 const ANONYMOUS_USER_DAILY_VOTE_LIMIT = 5;
 
 // Zod schema for server-side validation (SuggestLocationForm)
 const SuggestionFormSchemaServer = z.object({
   name: z.string().min(3, "Name must be at least 3 characters").max(100),
-  description: z.string().min(10, "Description must be at least 10 characters").max(1000),
+  description: z.string().max(1000).optional().refine((val) => {
+    if (val === undefined) return true;
+    const t = String(val).trim();
+    return t.length === 0 || t.length >= 10;
+  }, { message: 'Description must be at least 10 characters if provided.' }),
   townName: z.string().min(2, "Town name is required").max(50),
+  category: z.string().optional(),
+  issueStatus: z.enum(['reported','improved']).optional(),
   latitude: z.preprocess(
     (val) => Number(val),
     z.number().min(-90, "Invalid latitude. Please select a location on the map.").max(90, "Invalid latitude. Please select a location on the map.")
@@ -26,6 +32,7 @@ const SuggestionFormSchemaServer = z.object({
     z.number().min(-180, "Invalid longitude. Please select a location on the map.").max(180, "Invalid longitude. Please select a location on the map.")
   ),
   suggesterUid: z.string().min(1, "User ID is missing.").optional(),
+  suggesterAnonId: z.string().optional(),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters").max(50),
 });
 
@@ -85,12 +92,15 @@ export async function submitSuggestion(
 ): Promise<SuggestionFormState> {
   const rawFormData = {
     name: formData.get('name') as string,
-    description: formData.get('description') as string,
+    description: (formData.get('description') as string | null) || undefined,
     townName: formData.get('townName') as string,
     suggesterName: formData.get('suggesterName') as string,
+    category: (formData.get('category') as string | null) || undefined,
+    issueStatus: (formData.get('issueStatus') as string | null) || undefined,
     latitude: formData.get('latitude') as string,
     longitude: formData.get('longitude') as string,
     suggesterUid: (formData.get('suggesterUid') as string | null) || undefined,
+    suggesterAnonId: (formData.get('suggesterAnonId') as string | null) || undefined,
   };
 
   const validatedFields = SuggestionFormSchemaServer.safeParse(rawFormData);
@@ -122,6 +132,15 @@ export async function submitSuggestion(
           type: 'error',
         };
       }
+    } else if ((validatedFields.data as any).suggesterAnonId) {
+      const anonId = (validatedFields.data as any).suggesterAnonId as string;
+      const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(anonId, ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT, 'anonDailySuggestionLimits', 'lastSubmissionDate');
+      if (!dailyLimitCheck.allowed) {
+        return {
+          message: dailyLimitCheck.message || "Daily suggestion limit reached.",
+          type: 'error',
+        };
+      }
     }
 
     const adminDb = getAdminDb(); // This will throw on failure
@@ -131,6 +150,8 @@ export async function submitSuggestion(
       townName: dataFromValidation.townName,
       suggesterName: dataFromValidation.suggesterName,
       imageUrl: null,
+      category: (validatedFields.data as any).category || null,
+      issueStatus: (validatedFields.data as any).issueStatus || 'reported',
       status: 'pending' as const,
       submittedAtFirestore: AdminFieldValue.serverTimestamp(),
       coordinates: {
@@ -139,6 +160,8 @@ export async function submitSuggestion(
       },
       ...(suggesterUid && { suggesterUid }),
     };
+
+    // Attachments removed: file uploads are no longer supported from the client.
 
     const suggestedLocationsColRef = adminDb.collection('suggestedLocations');
     const newDocRef = await suggestedLocationsColRef.add(suggestionForDb);
@@ -259,6 +282,8 @@ export async function approveSuggestion(
               name: suggestionData.name,
               description: suggestionData.description,
               imageUrl: suggestionData.imageUrl || null,
+              category: suggestionData.category || null,
+              issueStatus: suggestionData.issueStatus || 'reported',
               coordinates: suggestionData.coordinates,
               submittedBy: suggestionData.suggesterName,
               createdAtFirestore: suggestionData.submittedAtFirestore,
@@ -310,6 +335,70 @@ export async function approveSuggestion(
       type: 'error',
       suggestionId
     };
+  }
+}
+
+export interface EditSuggestionFormState {
+  message: string;
+  type: 'success' | 'error' | 'info';
+  suggestionId?: string;
+}
+
+export async function editSuggestion(
+  prevState: EditSuggestionFormState | undefined,
+  formData: FormData
+): Promise<EditSuggestionFormState> {
+  const suggestionId = formData.get('suggestionId') as string;
+  if (!suggestionId) {
+    return { message: 'Suggestion ID is missing.', type: 'error' };
+  }
+
+  const updates: Record<string, any> = {};
+  const name = formData.get('name') as string | null;
+  const description = formData.get('description') as string | null;
+  const category = formData.get('category') as string | null;
+  const issueStatus = formData.get('issueStatus') as string | null;
+  const suggesterName = formData.get('suggesterName') as string | null;
+
+  if (name !== null) updates.name = name;
+  if (description !== null) updates.description = description;
+  if (category !== null) updates.category = category;
+  if (issueStatus !== null) updates.issueStatus = issueStatus;
+  if (suggesterName !== null) updates.suggesterName = suggesterName;
+
+  try {
+    const adminDb = getAdminDb();
+    const suggestionRef = adminDb.collection('suggestedLocations').doc(suggestionId);
+    const snap = await suggestionRef.get();
+    if (!snap.exists) {
+      return { message: 'Suggestion not found.', type: 'error', suggestionId };
+    }
+
+    await suggestionRef.update({
+      ...updates,
+      updatedAtFirestore: AdminFieldValue.serverTimestamp(),
+    });
+
+    // After update, optionally approve & publish if requested
+    const approveFlag = formData.get('approve') as string | null;
+    if (approveFlag === 'true') {
+      // Call existing approveSuggestion flow to publish the suggestion
+      const approveFormData = new FormData();
+      approveFormData.append('suggestionId', suggestionId);
+      const approveResult = await approveSuggestion(undefined, approveFormData);
+      // approveSuggestion will revalidate paths itself
+      return { message: approveResult.message, type: approveResult.type, suggestionId };
+    }
+
+    revalidatePath('/admin/suggestions');
+    return { message: 'Suggestion updated successfully.', type: 'success', suggestionId };
+
+  } catch (error: any) {
+    console.error('[Admin Action] editSuggestion failed:', error);
+    const errorMessage = error.message?.includes('Firebase Admin SDK')
+      ? 'Server is not configured for this action.'
+      : (error.message || 'Failed to update suggestion.');
+    return { message: errorMessage, type: 'error', suggestionId };
   }
 }
 

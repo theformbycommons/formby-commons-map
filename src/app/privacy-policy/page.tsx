@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
-  title: 'Privacy Policy - Act Local Glow',
-  description: 'Privacy Policy for Act Local Glow.',
+  title: 'Privacy Policy - The Formby Commons',
+  description: 'Privacy Policy for The Formby Commons.',
 };
 
 export default function PrivacyPolicyPage() {
@@ -133,7 +133,7 @@ export default function PrivacyPolicyPage() {
           <section aria-labelledby="section-children">
             <h2 id="section-children" className="font-headline text-2xl text-primary mb-3">Children</h2>
             <p>
-              We do not knowingly collect or use personal data from children under 16 years of age. If we learn that we have collected personal data from a child under 16 years of age, the personal data will be deleted as soon as possible. If a child under 16 years of age has provided us with personal data their parent or guardian may contact the owner of act.localglow.uk.
+              We do not knowingly collect or use personal data from children under 16 years of age. If we learn that we have collected personal data from a child under 16 years of age, the personal data will be deleted as soon as possible. If a child under 16 years of age has provided us with personal data their parent or guardian may contact the owner of theformbycommons.github.io.
             </p>
           </section>
 
@@ -155,9 +155,9 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section aria-labelledby="section-contact">
-            <h2 id="section-contact" className="font-headline text-2xl text-primary mb-3">Contact Information for Act Local Glow</h2>
+            <h2 id="section-contact" className="font-headline text-2xl text-primary mb-3">Contact Information for The Formby Commons</h2>
             <p>
-              act.localglow.uk (the "Site") is owned and operated by Felix Zajitschek (“owner of act.localglow.uk”; contact: <a href="mailto:localglowuk@gmail.com" className="text-accent hover:underline">localglowuk@gmail.com</a>).
+              https://theformbycommons.github.io (the "Site") is owned and operated by Felix Zajitschek (“owner of theformbycommons.github.io”; contact: <a href="mailto:theformbycommons@protonmail.com" className="text-accent hover:underline">theformbycommons@protonmail.com</a>).
             </p>
           </section>
 

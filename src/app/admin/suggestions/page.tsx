@@ -13,7 +13,8 @@ import type { NewLocationSuggestion } from '@/lib/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   approveSuggestion, type ApproveSuggestionFormState,
-  deleteSuggestion, type DeleteSuggestionFormState 
+  deleteSuggestion, type DeleteSuggestionFormState,
+  editSuggestion, type EditSuggestionFormState
 } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useTransition } from 'react';
@@ -48,6 +49,84 @@ function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['st
     default:
       return <Badge variant="secondary">Unknown</Badge>;
   }
+}
+
+function EditSuggestion({ suggestion, onActionComplete }: { suggestion: NewLocationSuggestion, onActionComplete: () => void }) {
+  const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
+  const [state, formAction] = useFormState(editSuggestion, { message: '', type: 'info' } as EditSuggestionFormState);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (state.message && state.suggestionId === suggestion.id) {
+      toast({ title: state.type === 'success' ? 'Success' : 'Notice', description: state.message, variant: state.type === 'error' ? 'destructive' : 'default' });
+      if (state.type === 'success') {
+        setIsEditing(false);
+        onActionComplete();
+      }
+    }
+  }, [state, toast, suggestion.id, onActionComplete]);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => {
+      formAction(formData);
+    });
+  };
+
+  if (!isEditing) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+        <Edit3 className="mr-2 h-4 w-4" /> Edit
+      </Button>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2 p-3 border rounded">
+      <input type="hidden" name="suggestionId" value={suggestion.id} />
+      <div>
+        <Label className="font-medium">Name</Label>
+        <Input name="name" defaultValue={suggestion.name} className="mt-1" />
+      </div>
+      <div>
+        <Label className="font-medium">Description</Label>
+        <Textarea name="description" defaultValue={suggestion.description} rows={3} className="mt-1" />
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <Label className="font-medium">Category</Label>
+          <select name="category" defaultValue={suggestion.category || ''} className="w-full mt-1 border rounded px-2 py-1">
+            <option value="">(none)</option>
+            <option>Overgrown Pavement</option>
+            <option>Roundabout Improvement Needed</option>
+            <option>Unsafe Crossing</option>
+            <option>Missing Drop Kerb</option>
+            <option>Cars Parked On Pavement</option>
+            <option>Speeding</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <Label className="font-medium">Issue Status</Label>
+          <select name="issueStatus" defaultValue={suggestion.issueStatus || 'reported'} className="mt-1 border rounded px-2 py-1">
+            <option value="reported">Reported</option>
+            <option value="improved">Improved</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <Label className="font-medium">Suggester Name</Label>
+        <Input name="suggesterName" defaultValue={suggestion.suggesterName} className="mt-1" />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
+        <Button type="submit" disabled={isPending} className="bg-primary text-primary-foreground">{isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Save</Button>
+        <Button name="approve" value="true" type="submit" disabled={isPending} className="bg-green-600 text-white">{isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Save & Approve</Button>
+      </div>
+    </form>
+  );
 }
 
 const initialApproveState: ApproveSuggestionFormState = { message: '', type: 'info' };
@@ -174,7 +253,7 @@ export default function AdminSuggestionsPage() {
   };
 
   useEffect(() => {
-    document.title = 'Pending Suggestions - Local Glow Admin';
+    document.title = 'Pending Suggestions - The Formby Commons Admin';
   }, []);
 
   useEffect(() => {
@@ -265,6 +344,9 @@ export default function AdminSuggestionsPage() {
                           <p>
                             <strong>Submitted:</strong> {suggestion.submittedAt ? format(parseISO(suggestion.submittedAt), 'dd MMM yyyy, HH:mm') : 'N/A'}
                           </p>
+                          {suggestion.category && <p><strong>Category:</strong> {suggestion.category}</p>}
+                          {suggestion.issueStatus && <p><strong>Issue Status:</strong> {suggestion.issueStatus === 'reported' ? 'Reported' : 'Improved'}</p>}
+                          {/* Attachments removed — no files are stored for suggestions. */}
                           {suggestion.publishedLocationId && (
                             <p><strong>Published ID:</strong> <code className="text-xs bg-muted px-1 rounded">{suggestion.publishedLocationId}</code></p>
                           )}
@@ -277,6 +359,9 @@ export default function AdminSuggestionsPage() {
                                 currentStatus={suggestion.status} 
                                 onActionComplete={handleActionComplete}
                             />
+                          )}
+                          {suggestion.id && (
+                            <EditSuggestion suggestion={suggestion} onActionComplete={handleActionComplete} />
                           )}
                           {firestoreConsoleBaseUrl && suggestion.id ? (
                             <Button asChild variant="outline" size="sm">

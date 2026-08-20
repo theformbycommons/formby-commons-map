@@ -1,8 +1,8 @@
-# ADMIN GUIDE for Local Glow
+# ADMIN GUIDE for The Formby Commons
 
 ## 1. Introduction
 
-This guide is for site administrators of Local Glow. It outlines how to manage content and, most importantly, how to set up an administrator account.
+This guide is for site administrators of The Formby Commons. It outlines how to manage content and, most importantly, how to set up an administrator account.
 
 Your primary responsibilities include moderating user-submitted content and ensuring the integrity of the data. To do this, you need an admin account.
 

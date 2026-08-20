@@ -16,7 +16,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </main>
       <footer className="bg-card border-t border-border text-center py-6">
         <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Act Local Glow. Proposing Local Actions.
+          © {new Date().getFullYear()} The Formby Commons. Proposing Local Actions.
         </p>
         <div className="mt-2 text-xs text-muted-foreground/80 space-x-4">
           <Link href="/privacy-policy" className="hover:text-accent hover:underline">

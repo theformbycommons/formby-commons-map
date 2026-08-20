@@ -110,6 +110,8 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         name: data.name,
         description: data.description,
         imageUrl: data.imageUrl || null,
+        category: data.category || undefined,
+        issueStatus: data.issueStatus || undefined,
         coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
         submittedBy: data.submittedBy,
         createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
@@ -144,6 +146,8 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       name: data.name,
       description: data.description,
       imageUrl: data.imageUrl || null,
+      category: data.category || undefined,
+      issueStatus: data.issueStatus || undefined,
       coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
       submittedBy: data.submittedBy,
       createdAt: formatDateField(data.createdAtFirestore || data.createdAt),

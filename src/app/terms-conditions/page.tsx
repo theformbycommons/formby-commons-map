@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
-  title: 'Terms and Conditions - Act Local Glow',
-  description: 'Terms and Conditions for using the Act Local Glow website.',
+  title: 'Terms and Conditions - The Formby Commons',
+  description: 'Terms and Conditions for using The Formby Commons website.',
 };
 
 export default function TermsAndConditionsPage() {
@@ -22,9 +22,9 @@ export default function TermsAndConditionsPage() {
           <p className="text-sm text-muted-foreground mt-2">Effective Date: 1 June 2025</p>
         </CardHeader>
         <CardContent className="pt-8 px-6 md:px-8 space-y-6 text-foreground/90 leading-relaxed">
-          <p>
-            These terms and conditions (the "Terms and Conditions") govern the use of act.localglow.uk (the "Site"). This Site is owned and operated by Felix Zajitschek (“owner of act.localglow.uk”). This Site is a not-for-profit community project that lets users submit and view descriptions of local Actions in the UK.
-          </p>
+            <p>
+              These terms and conditions (the "Terms and Conditions") govern the use of https://theformbycommons.github.io (the "Site"). This Site is owned and operated by Felix Zajitschek (“owner of theformbycommons.github.io”). This Site is a not-for-profit community project that lets users submit and view descriptions of local Actions in the UK.
+            </p>
           <p>
             By using this Site, you indicate that you have read and understand these Terms and Conditions and agree to abide by them at all times.
           </p>
@@ -32,7 +32,7 @@ export default function TermsAndConditionsPage() {
           <section aria-labelledby="section-intellectual-property">
             <h2 id="section-intellectual-property" className="font-headline text-2xl text-primary mb-3">Intellectual Property</h2>
             <p>
-              All content published and made available on our Site is the property of the owner of localglow.uk. This includes, but is not limited to images, text, logos, documents, downloadable files and anything that contributes to the composition of our Site.
+              All content published and made available on our Site is the property of the owner of theformbycommons.github.io. This includes, but is not limited to images, text, logos, documents, downloadable files and anything that contributes to the composition of our Site.
             </p>
           </section>
 
@@ -65,27 +65,27 @@ export default function TermsAndConditionsPage() {
               By submitting information to our Site, you agree not to act illegally or violate these Terms and Conditions.
             </p>
             <p className="mt-2">
-              By submitting any pictures or text ("User Submissions") to this website, you hereby grant to localglow.uk a worldwide, non-exclusive, royalty-free, perpetual, irrevocable, and sublicensable license to use, reproduce, distribute, prepare derivative works of, and display your User Submissions on the website, including without limitation for promoting and redistributing part or all of the website (and derivative works thereof) in any media formats and through any media channels.
+              By submitting any pictures or text ("User Submissions") to this website, you hereby grant to theformbycommons.github.io a worldwide, non-exclusive, royalty-free, perpetual, irrevocable, and sublicensable license to use, reproduce, distribute, prepare derivative works of, and display your User Submissions on the website, including without limitation for promoting and redistributing part or all of the website (and derivative works thereof) in any media formats and through any media channels.
             </p>
             <p className="mt-2">
-              You understand and agree that act.localglow.uk may, at its sole discretion, review, edit, modify, delete, or refuse to post any User Submissions for any reason, including but not limited to, User Submissions that violate these Terms and Conditions, are unlawful, offensive, or otherwise inappropriate. We reserve the right to make such changes to your User Submissions as we deem necessary or appropriate to conform to our editorial standards or the technical requirements of the website or any other media.
+              You understand and agree that theformbycommons.github.io may, at its sole discretion, review, edit, modify, delete, or refuse to post any User Submissions for any reason, including but not limited to, User Submissions that violate these Terms and Conditions, are unlawful, offensive, or otherwise inappropriate. We reserve the right to make such changes to your User Submissions as we deem necessary or appropriate to conform to our editorial standards or the technical requirements of the website or any other media.
             </p>
             <p className="mt-2">
-              You represent and warrant that you own or have the necessary licenses, rights, consents, and permissions to publish the User Submissions that you submit; and you grant to localglow.uk the license to use such User Submissions as set forth above. You further agree that you will not submit material that is copyrighted, protected by trade secret, or otherwise subject to third-party proprietary rights, including privacy and publicity rights, unless you are the owner of such rights or have permission from their rightful owner to post the material and to grant act.localglow.uk all of the license rights granted herein.
+              You represent and warrant that you own or have the necessary licenses, rights, consents, and permissions to publish the User Submissions that you submit; and you grant to theformbycommons.github.io the license to use such User Submissions as set forth above. You further agree that you will not submit material that is copyrighted, protected by trade secret, or otherwise subject to third-party proprietary rights, including privacy and publicity rights, unless you are the owner of such rights or have permission from their rightful owner to post the material and to grant theformbycommons.github.io all of the license rights granted herein.
             </p>
           </section>
 
           <section aria-labelledby="section-limitation-liability">
             <h2 id="section-limitation-liability" className="font-headline text-2xl text-primary mb-3">Limitation of Liability</h2>
             <p>
-              The owner of act.localglow.uk will not be liable for any actions, claims, losses, damages, liabilities, and expenses (including reasonable legal fees) arising from your use of this Site.
+              The owner of theformbycommons.github.io will not be liable for any actions, claims, losses, damages, liabilities, and expenses (including reasonable legal fees) arising from your use of this Site.
             </p>
           </section>
 
           <section aria-labelledby="section-indemnity">
             <h2 id="section-indemnity" className="font-headline text-2xl text-primary mb-3">Indemnity</h2>
             <p>
-              Except where prohibited by law, by using this Site you indemnify and hold harmless the owner of act.localglow.uk from any actions, claims, losses, damages, liabilities and expenses including legal fees arising out of your use of our Site or your violation of these Terms and Conditions.
+              Except where prohibited by law, by using this Site you indemnify and hold harmless the owner of theformbycommons.github.io from any actions, claims, losses, damages, liabilities and expenses including legal fees arising out of your use of our Site or your violation of these Terms and Conditions.
             </p>
           </section>
 
@@ -116,7 +116,7 @@ export default function TermsAndConditionsPage() {
               Please contact us if you have any questions or concerns. Our contact details are as follows:
             </p>
             <p>
-              <a href="mailto:localglowuk@gmail.com" className="text-accent hover:underline">localglowuk@gmail.com</a>
+              <a href="mailto:theformbycommons@protonmail.com" className="text-accent hover:underline">theformbycommons@protonmail.com</a>
             </p>
           </section>
 

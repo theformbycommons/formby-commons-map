@@ -23,13 +23,13 @@ export default async function HomePage() {
         />
         <div className="relative z-10 flex flex-col items-center justify-center">
           <div className="bg-background/20 p-6 rounded-lg max-w-2xl w-full mx-auto shadow-xl backdrop-blur-sm space-y-4">
-            <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to Act Local Glow</h1>
+            <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to The Formby Commons</h1>
             <p className="text-lg font-bold text-accent mx-auto drop-shadow-sm">
               Act and Support Change in Our Local Communities
             </p>
             <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8 sm:mt-10">
               <Link href="/about">
-                <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind Act Local Glow
+                <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind The Formby Commons
               </Link>
             </Button>
           </div>
@@ -41,7 +41,7 @@ export default async function HomePage() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <Compass className="h-8 w-8 text-primary" />
-              <CardTitle className="font-headline text-2xl text-primary">How to Discover & Share Your Act Local Glow</CardTitle>
+              <CardTitle className="font-headline text-2xl text-primary">How to Discover & Share The Formby Commons</CardTitle>
             </div>
             <CardDescription>A quick guide to navigating the site and contributing your proposed Actions.</CardDescription>
           </CardHeader>
@@ -80,7 +80,7 @@ export default async function HomePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-primary">Towns with Act Local Glow</CardTitle>
+          <CardTitle className="font-headline text-2xl text-primary">Towns with The Formby Commons</CardTitle>
           <CardDescription>Click on a town marker to explore its unique Actions, or see town cards below.</CardDescription>
         </CardHeader>
         <CardContent>

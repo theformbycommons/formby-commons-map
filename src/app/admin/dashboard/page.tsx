@@ -14,7 +14,7 @@ export default function AdminDashboardPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    document.title = 'Admin Dashboard - Local Glow';
+    document.title = 'Admin Dashboard - The Formby Commons';
   }, []);
 
   const handleLogout = async () => {
@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
             <HomeIcon className="h-8 w-8" />
           </div>
           <CardTitle className="font-headline text-3xl text-primary">Admin Dashboard</CardTitle>
-          <CardDescription>Select a task to manage Local Glow content.</CardDescription>
+          <CardDescription>Select a task to manage The Formby Commons content.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
           <Button asChild variant="outline" className="w-full justify-start text-lg py-6 border-primary/50 hover:bg-primary/10 hover:border-primary">

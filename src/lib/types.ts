@@ -33,6 +33,8 @@ export interface Location {
     fantastic: number;
   };
   imageUrl?: string | null;
+  category?: string;
+  issueStatus?: 'reported' | 'improved';
 }
 
 // For form validation and submission to 'suggestedLocations'
@@ -43,6 +45,10 @@ export interface NewLocationSuggestion {
   townName: string;
   suggesterName: string;
   status: 'pending' | 'approved' | 'rejected';
+  // Category chosen by the suggester (e.g. Overgrown Pavement, Speeding)
+  category?: string;
+  // Issue status from the suggester's perspective: reported (needs improvement) or improved
+  issueStatus?: 'reported' | 'improved';
   submittedAt: string; // ISO date string
   submittedAtFirestore?: any; // For Firestore serverTimestamp, will be converted to submittedAt
   approvedAt?: string; // ISO date string, populated when suggestion is approved
