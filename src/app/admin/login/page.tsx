@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/admin/dashboard/');
+      router.push('/formby-commons-map/admin/dashboard/');
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Failed to sign in');
