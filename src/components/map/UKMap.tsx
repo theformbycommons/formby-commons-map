@@ -1,34 +1,43 @@
 'use client';
 
-import type { Town } from '@/lib/types';
 import L, { type Map as LeafletMapClass } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, Eye } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
+import { createCategoryMarkerIcon } from '@/lib/map-markers';
+import { Locate } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-interface UKMapProps {
-  towns: Town[];
+export interface IssueItem {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  status?: 'reported' | 'resolved' | string;
+  locationName?: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  createdAt?: string;
 }
 
-export default function UKMap({ towns }: UKMapProps) {
+interface FormbyMapProps {
+  issues: IssueItem[];
+  selectedIssueId: string | null;
+  onSelectIssue: (id: string) => void;
+}
+
+export default function UKMap({ issues, selectedIssueId, onSelectIssue }: FormbyMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMapClass | null>(null);
+  const markersRef = useRef<Record<string, L.Marker>>({});
 
+  const formbyCenter: L.LatLngExpression = [53.559, -3.069];
+  const formbyZoom = 14;
+
+  // Initialize Map
   useEffect(() => {
     if (mapContainerRef.current && !mapRef.current) {
-      // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
-      delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      });
-
-      const formbyCenter: L.LatLngExpression = [53.559, -3.069];
-      const formbyZoom = 13;
-
       mapRef.current = L.map(mapContainerRef.current, {
         scrollWheelZoom: false,
       }).setView(formbyCenter, formbyZoom);
@@ -36,57 +45,102 @@ export default function UKMap({ towns }: UKMapProps) {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(mapRef.current);
-
-      towns.forEach((town) => {
-        if (town.coordinates) {
-          const marker = L.marker([town.coordinates.lat, town.coordinates.lng]).addTo(mapRef.current!);
-          const popupHtml = '<div style="font-family: sans-serif; padding: 4px;">' +
-            '<strong style="font-size: 1.1em; color: #0284c7;">' + town.name + '</strong><br/>' +
-            '<span style="font-size: 0.9em; color: #64748b;">' + town.county + ', ' + town.country + '</span><br/>' +
-            '<a href="/formby-commons-map/town/' + encodeURIComponent(town.name) + '" style="color: #0d9488; text-decoration: none; font-weight: bold; font-size: 0.95em;">' +
-            'Explore ' + town.name + ' &rarr;' +
-            '</a>' +
-            '</div>';
-          marker.bindPopup(popupHtml);
-        }
-      });
     }
-  }, [towns]);
+  }, []);
+
+  // Update Markers when issues or selection changes
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Clear previous markers
+    Object.values(markersRef.current).forEach((marker) => marker.remove());
+    markersRef.current = {};
+
+    issues.forEach((issue) => {
+      if (issue.coordinates?.lat && issue.coordinates?.lng) {
+        const isResolved = issue.status === 'resolved';
+        const isSelected = issue.id === selectedIssueId;
+
+        const icon = createCategoryMarkerIcon(issue.category, isResolved, isSelected);
+
+        const marker = L.marker([issue.coordinates.lat, issue.coordinates.lng], { icon }).addTo(mapRef.current!);
+
+        const titleText = issue.title || 'Reported Issue';
+        const locationText = issue.locationName || 'Formby';
+        const detailsUrl = '/formby-commons-map/town/' + encodeURIComponent(titleText);
+
+        const popupHtml = '<div style="font-family: sans-serif; padding: 4px; min-width: 160px;">' +
+          '<strong style="font-size: 1.05em; color: #0f172a;">' + titleText + '</strong><br/>' +
+          '<span style="font-size: 0.85em; color: #64748b;">' + locationText + '</span><br/>' +
+          '<a href="' + detailsUrl + '" style="color: #0284c7; text-decoration: none; font-weight: 600; font-size: 0.85em; display: inline-block; margin-top: 6px;">' +
+          'View Action Details &rarr;' +
+          '</a>' +
+          '</div>';
+
+        marker.bindPopup(popupHtml);
+
+        marker.on('click', () => {
+          onSelectIssue(issue.id);
+        });
+
+        markersRef.current[issue.id] = marker;
+      }
+    });
+  }, [issues, selectedIssueId, onSelectIssue]);
+
+  // Pan map when selectedIssueId changes from list interaction
+  useEffect(() => {
+    if (selectedIssueId && mapRef.current && markersRef.current[selectedIssueId]) {
+      const activeMarker = markersRef.current[selectedIssueId];
+      const latLng = activeMarker.getLatLng();
+      mapRef.current.panTo(latLng, { animate: true, duration: 0.5 });
+      activeMarker.openPopup();
+    }
+  }, [selectedIssueId]);
+
+  const handleLocateUser = () => {
+    if (navigator.geolocation && mapRef.current) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          mapRef.current?.setView([userLat, userLng], 16);
+          
+          L.circleMarker([userLat, userLng], {
+            radius: 8,
+            fillColor: '#2563eb',
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8,
+          }).addTo(mapRef.current!).bindPopup('Your Current Location').openPopup();
+        },
+        () => {
+          alert('Unable to retrieve your location.');
+        }
+      );
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="relative w-full h-64 md:h-96 rounded-lg overflow-hidden shadow-lg border border-border">
-        <div ref={mapContainerRef} className="h-full w-full z-0" />
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent flex items-end justify-center p-8 pointer-events-none">
-          <h2 className="text-3xl font-headline font-bold text-white text-center drop-shadow-lg">Discover Actions In Formby</h2>
-        </div>
-      </div>
+    <div className="relative w-full h-72 md:h-96 rounded-xl overflow-hidden shadow-md border border-border">
+      <div ref={mapContainerRef} className="h-full w-full z-0" />
+      
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={handleLocateUser}
+        className="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur hover:bg-white text-slate-700 shadow border border-slate-200 flex items-center gap-1.5 text-xs font-medium"
+      >
+        <Locate className="w-3.5 h-3.5 text-blue-600" />
+        Locate Me
+      </Button>
 
-      {towns.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">No town available to display yet. Admin will add Formby to Firestore soon!</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {towns.map((town) => (
-            <Card key={town.id} className="flex flex-col hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="p-4 flex-grow">
-                <CardTitle className="font-headline text-xl text-primary flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-accent" />
-                  {town.name}
-                </CardTitle>
-                <CardDescription>{town.county}, {town.country}</CardDescription>
-              </CardHeader>
-              <CardFooter className="p-4 mt-auto">
-                <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
-                  <a href={'/formby-commons-map/town/' + encodeURIComponent(town.name)} className="flex items-center gap-2">
-                    <Eye className="w-4 h-4" />
-                    Explore {town.name} ({town.locationCount || 0} Actions)
-                  </a>
-                </Button>
-                </CardFooter>
-              </Card>
-          ))}
-        </div>
-      )}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-4 md:p-6 pointer-events-none">
+        <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow">
+          Formby Community Issues Map
+        </h2>
+      </div>
     </div>
   );
 }
