@@ -18,7 +18,6 @@ export default function UKMap({ towns }: UKMapProps) {
 
   useEffect(() => {
     if (mapContainerRef.current && !mapRef.current) {
-      // Configure Leaflet icons using CDN paths
       // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
       delete L.Icon.Default.prototype._getIconUrl;
       L.Icon.Default.mergeOptions({
@@ -41,16 +40,14 @@ export default function UKMap({ towns }: UKMapProps) {
       towns.forEach((town) => {
         if (town.coordinates) {
           const marker = L.marker([town.coordinates.lat, town.coordinates.lng]).addTo(mapRef.current!);
-          const popupContent = `
-            <div style="font-family: 'PT Sans', sans-serif; padding: 4px;">
-              <strong style="font-size: 1.1em; color: hsl(var(--primary));">${town.name}</strong><br/>
-              <span style="font-size: 0.9em; color: hsl(var(--muted-foreground));">${town.county}, ${town.country}</span><br/>
-              <a href="/formby-commons-map/town/${encodeURIComponent(town.name)}" style="color: hsl(var(--accent)); text-decoration: none; font-weight: bold; font-size: 0.95em;">
-                Explore ${town.name} &rarr;
-              </a>
-            </div>
-          `;
-          marker.bindPopup(popupContent);
+          const popupHtml = '<div style="font-family: sans-serif; padding: 4px;">' +
+            '<strong style="font-size: 1.1em; color: #0284c7;">' + town.name + '</strong><br/>' +
+            '<span style="font-size: 0.9em; color: #64748b;">' + town.county + ', ' + town.country + '</span><br/>' +
+            '<a href="/formby-commons-map/town/' + encodeURIComponent(town.name) + '" style="color: #0d9488; text-decoration: none; font-weight: bold; font-size: 0.95em;">' +
+            'Explore ' + town.name + ' &rarr;' +
+            '</a>' +
+            '</div>';
+          marker.bindPopup(popupHtml);
         }
       });
     }
@@ -80,7 +77,7 @@ export default function UKMap({ towns }: UKMapProps) {
               </CardHeader>
               <CardFooter className="p-4 mt-auto">
                 <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90">
-                  <a href={`/formby-commons-map/town/${encodeURIComponent(town.name)}`} className="flex items-center gap-2">
+                  <a href={'/formby-commons-map/town/' + encodeURIComponent(town.name)} className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
                     Explore {town.name} ({town.locationCount || 0} Actions)
                   </a>
