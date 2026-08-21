@@ -1,109 +1,299 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from 'react';
-import { getTowns } from '@/lib/data';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import ClientUKMap from '@/components/map/ClientUKMap';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { BookOpenText, Compass, PlusCircle } from 'lucide-react';
-import Image from 'next/image';
-import type { Town } from '@/lib/types';
+import React, { useState, useMemo, useRef } from 'react';
+import dynamic from 'next/dynamic';
+import { CATEGORIES, getCategoryConfig } from '@/lib/categories';
+import type { IssueItem } from '@/components/map/UKMap';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
 
-export default function HomePageClient() {
-  const [towns, setTowns] = useState<Town[]>([]);
-  const [loading, setLoading] = useState(true);
+const UKMap = dynamic(() => import('@/components/map/UKMap'), {
+  ssr: false,
+  loading: () => <div className="h-72 md:h-96 w-full bg-slate-100 rounded-xl animate-pulse flex items-center justify-center text-slate-400">Loading Formby Map...</div>,
+});
 
-  useEffect(() => {
-    let mounted = true;
-    getTowns()
-      .then(t => { if (mounted) setTowns(t); })
-      .catch(err => { console.error('Error fetching towns on client:', err); if (mounted) setTowns([]); })
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
-  }, []);
+interface HomePageClientProps {
+  initialIssues?: IssueItem[];
+}
 
-  if (loading) return <div className="text-center py-10">Loading...</div>;
+export default function HomePageClient({ initialIssues = [] }: HomePageClientProps) {
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'reported' | 'resolved'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Filter issues dynamically
+  const filteredIssues = useMemo(() => {
+    return initialIssues.filter((issue) => {
+      // Category filter
+      if (selectedCategory !== 'all') {
+        const normCategory = issue.category?.toLowerCase().replace(/\s+/g, '-');
+        if (normCategory !== selectedCategory) return false;
+      }
+
+      // Status filter
+      if (statusFilter !== 'all') {
+        const isResolved = issue.status === 'resolved';
+        if (statusFilter === 'resolved' && !isResolved) return false;
+        if (statusFilter === 'reported' && isResolved) return false;
+      }
+
+      // Search query filter
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const titleMatch = issue.title?.toLowerCase().includes(q);
+        const descMatch = issue.description?.toLowerCase().includes(q);
+        const locationMatch = issue.locationName?.toLowerCase().includes(q);
+        if (!titleMatch && !descMatch && !locationMatch) return false;
+      }
+
+      return true;
+    });
+  }, [initialIssues, selectedCategory, statusFilter, searchQuery]);
+
+  // Handle Marker selection from Map -> scroll to row below
+  const handleSelectFromMap = (id: string) => {
+    setSelectedIssueId((prev) => (prev === id ? null : id));
+    if (rowRefs.current[id]) {
+      rowRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  // Handle Accordion click from List
+  const handleToggleRow = (id: string) => {
+    setSelectedIssueId((prev) => (prev === id ? null : id));
+  };
 
   return (
-    <div className="space-y-8">
-      <section className="relative text-center pt-4 pb-12 md:pt-6 md:pb-16 bg-card rounded-lg shadow-md overflow-hidden">
-        <Image
-          src="https://firebasestorage.googleapis.com/v0/b/community-80928.firebasestorage.app/o/background-images%2Fformby1.jpg?alt=media"
-          alt="Evocative background image of a charming local town scene"
-          layout="fill"
-          objectFit="cover"
-          className="absolute inset-0 w-full h-full z-0"
-          data-ai-hint="Formby beach woodland"
-          priority
-        />
-        <div className="relative z-10 flex flex-col items-center justify-center">
-          <div className="bg-background/20 p-6 rounded-lg max-w-2xl w-full mx-auto shadow-xl backdrop-blur-sm space-y-4">
-            <h1 className="text-4xl md:text-5xl font-headline font-bold text-primary mb-2 drop-shadow-md">Welcome to The Formby Commons Map</h1>
-            <p className="text-lg font-bold text-white mx-auto drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-              Submit Suggestions and Issues for Formby
-            </p>
-            <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground mt-8 sm:mt-10">
-              <Link href="/about">
-                <BookOpenText className="mr-2 h-4 w-4" /> The Idea Behind The Formby Commons Map
-              </Link>
-            </Button>
+    <div className="space-y-6 max-w-5xl mx-auto px-4 py-6">
+      {/* Intro Header */}
+      <div className="space-y-2 text-center md:text-left">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+          Formby Street & Transport Safety
+        </h1>
+        <p className="text-slate-600 text-sm md:text-base leading-relaxed max-w-2xl">
+          A community platform mapping local highway safety concerns across Formby. Filter by issue type or tap a marker to inspect and follow progress.
+        </p>
+      </div>
+
+      {/* Filter Controls Bar */}
+      <div className="space-y-4 bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
+        {/* Status Toggle Buttons */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Show Status:
+          </span>
+          <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                statusFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setStatusFilter('reported')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                statusFilter === 'reported'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Reported Only
+            </button>
+            <button
+              onClick={() => setStatusFilter('resolved')}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                statusFilter === 'resolved'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Resolved / Improved
+            </button>
           </div>
         </div>
-      </section>
 
-      <section>
-        <Card className="shadow-md">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <Compass className="h-8 w-8 text-primary" />
-              <CardTitle className="font-headline text-2xl text-primary">How to Discover & Share The Formby Commons</CardTitle>
-            </div>
-            <CardDescription>A quick guide to navigating the site and contributing your proposed Issues and Actions.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm text-foreground/90">
-            {/* content omitted for brevity; reuse server markup */}
-            <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
-              <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</div>
-              <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Find Your Town</h4>
-                <p>Tap or click markers on the UK map below to go to a town, or select one from the preview cards that appear underneath it.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
-              <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
-              <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Find local proposed Issues and Actions</h4>
-                <p>Within each town, explore unique Actions revealed on the town's interactive map or listed beneath it.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
-              <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</div>
-              <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Contribute Your Suggestions</h4>
-                <p>Want to propose an Action? Click the "Suggest Action" button (top right, with a <PlusCircle className="inline-block h-4 w-4 text-accent align-text-bottom" /> icon). Fill out the form, and crucially, set the location by clicking on the map within the form – you can zoom using +/- or pinch gestures.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 rounded-md bg-card border">
-              <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">4</div>
-              <div>
-                <h4 className="font-semibold mb-1 text-primary/90">Evaluate individual actions</h4>
-                <p>Vote on individual actions by selecting the negative, neutral, or positive symbol.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+        {/* Category Filter Chips */}
+        <div className="space-y-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Filter Category:
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                selectedCategory === 'all'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              All Categories ({initialIssues.length})
+            </button>
+            {Object.values(CATEGORIES).map((cat) => {
+              const count = initialIssues.filter(
+                (i) => i.category?.toLowerCase().replace(/\s+/g, '-') === cat.id
+              ).length;
+              const isActive = selectedCategory === cat.id;
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl text-primary">Towns with The Formby Commons</CardTitle>
-          <CardDescription>Click on a town marker to explore its unique Actions, or see town cards below.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ClientUKMap towns={towns} />
-        </CardContent>
-      </Card>
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                    isActive
+                      ? 'text-white border-transparent shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                  style={{
+                    backgroundColor: isActive ? cat.color : undefined,
+                  }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full inline-block"
+                    style={{ backgroundColor: isActive ? '#ffffff' : cat.color }}
+                  />
+                  {cat.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Formby Map Component */}
+      <UKMap
+        issues={filteredIssues}
+        selectedIssueId={selectedIssueId}
+        onSelectIssue={handleSelectFromMap}
+      />
+
+      {/* Search & Issue Accordion List */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <span>Reported Locations</span>
+            <Badge variant="secondary" className="text-xs font-medium">
+              {filteredIssues.length}
+            </Badge>
+          </h2>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Search by street or detail..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 text-xs bg-white border-slate-200"
+            />
+          </div>
+        </div>
+
+        {filteredIssues.length === 0 ? (
+          <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+            <p className="text-slate-500 text-sm">No issues matching your filters.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredIssues.map((issue) => {
+              const isExpanded = selectedIssueId === issue.id;
+              const catConfig = getCategoryConfig(issue.category);
+              const isResolved = issue.status === 'resolved';
+
+              return (
+                <Card
+                  key={issue.id}
+                  ref={(el) => {
+                    rowRefs.current[issue.id] = el;
+                  }}
+                  className={`transition-all duration-200 border ${
+                    isExpanded
+                      ? 'ring-2 ring-slate-900 border-transparent shadow-md'
+                      : 'hover:border-slate-300'
+                  }`}
+                >
+                  <CardHeader
+                    onClick={() => handleToggleRow(issue.id)}
+                    className="p-4 cursor-pointer select-none flex flex-row items-center justify-between space-y-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: catConfig.color }}
+                        title={catConfig.label}
+                      />
+                      <div>
+                        <CardTitle className="text-sm font-semibold text-slate-900">
+                          {issue.title}
+                        </CardTitle>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {issue.locationName || 'Formby'}
+                          </span>
+                          <span>•</span>
+                          <span>{catConfig.label}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs flex items-center gap-1 font-medium ${
+                          isResolved
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        {isResolved ? (
+                          <>
+                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                            Resolved
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                            Reported
+                          </>
+                        )}
+                      </Badge>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  {/* Accordion Unfolded Body */}
+                  {isExpanded && (
+                    <CardContent className="px-4 pb-4 pt-0 border-t border-slate-100 text-xs text-slate-600 space-y-3 mt-2">
+                      <p className="leading-relaxed text-slate-700 pt-2">
+                        {issue.description || 'No detailed description provided.'}
+                      </p>
+                      
+                      {issue.createdAt && (
+                        <div className="text-[11px] text-slate-400">
+                          Logged: {new Date(issue.createdAt).toLocaleDateString()}
+                        </div>
+                      )}
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
