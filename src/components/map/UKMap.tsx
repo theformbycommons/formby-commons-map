@@ -82,8 +82,8 @@ export default function UKMap({ towns }: UKMapProps) {
                     Explore {town.name} ({town.locationCount || 0} Actions)
                   </a>
                 </Button>
-              </CardFooter>
-            </CardCard>
+                </CardFooter>
+              </Card>
           ))}
         </div>
       )}
