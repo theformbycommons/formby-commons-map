@@ -73,10 +73,10 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
       {/* Intro Header */}
       <div className="space-y-2 text-center md:text-left">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-          Formby Street & Transport Safety
+          The Formby Commons Actions Map
         </h1>
         <p className="text-slate-600 text-sm md:text-base leading-relaxed max-w-2xl">
-          A community platform mapping local highway safety concerns across Formby. Filter by issue type or tap a marker to inspect and follow progress.
+          A community platform mapping local public space safety concerns across Formby. Filter by issue type or tap a marker to inspect and follow progress.
         </p>
       </div>
 
