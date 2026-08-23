@@ -5,6 +5,7 @@ import L, { type Map as LeafletMapClass, type LeafletMouseEvent, type Marker as 
 import 'leaflet/dist/leaflet.css';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MapPin as MapPinIcon } from 'lucide-react';
+import { FORMBY_BOUNDS, FORMBY_LEAFLET_BOUNDS, isWithinFormby } from '@/lib/map-config';
 
 if (typeof window !== 'undefined') {
   // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
@@ -14,16 +15,6 @@ if (typeof window !== 'undefined') {
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   });
-}
-
-const FORMBY_BOUNDS: [[number, number], [number, number]] = [
-  [53.515, -3.120],
-  [53.600, -3.010],
-];
-const FORMBY_CENTER: [number, number] = [53.5575, -3.065];
-
-function isWithinFormby(lat: number, lng: number): boolean {
-  return lat >= 53.515 && lat <= 53.600 && lng >= -3.120 && lng <= -3.010;
 }
 
 interface LocationPickerMapProps {
@@ -43,9 +34,11 @@ export default function LocationPickerMap({
 
   useEffect(() => {
     if (mapContainerRef.current && !mapRef.current) {
-      const initialCenter: L.LatLngExpression = value ? [value.lat, value.lng] : FORMBY_CENTER;
-      const initialZoom = value ? 14 : 13;
-      const leafletBounds = L.latLngBounds(FORMBY_BOUNDS);
+      const initialCenter: L.LatLngExpression = value 
+        ? [value.lat, value.lng] 
+        : [FORMBY_BOUNDS.center.lat, FORMBY_BOUNDS.center.lng];
+      const initialZoom = value ? 14 : FORMBY_BOUNDS.defaultZoom;
+      const leafletBounds = L.latLngBounds(FORMBY_LEAFLET_BOUNDS);
 
       mapRef.current = L.map(mapContainerRef.current, {
         scrollWheelZoom: true,
@@ -118,12 +111,12 @@ export default function LocationPickerMap({
         role="application"
         aria-label="Interactive map for picking location in Formby"
       />
-      <Alert variant={value ? 'default' : 'destructive'} className={value ? 'border-green-300 bg-green-50 text-green-700' : ''}>
-        <MapPinIcon className={`h-4 w-4 ${value ? 'text-green-700' : ''}`} />
+      <Alert className={value ? "border-green-300 bg-green-50 text-green-700" : "bg-muted/50 text-muted-foreground border-border"}>
+        <MapPinIcon className={`h-4 w-4 ${value ? "text-green-700" : "text-muted-foreground"}`} />
         <AlertDescription>
           {value
             ? `Selected: Lat ${value.lat.toFixed(5)}, Lng ${value.lng.toFixed(5)}`
-            : 'Please click within the Formby area to set the location.'}
+            : 'Click on the map to place a pin within Formby.'}
         </AlertDescription>
       </Alert>
     </div>
