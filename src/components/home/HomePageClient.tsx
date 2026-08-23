@@ -1,17 +1,23 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { CATEGORIES, getCategoryConfig } from '@/lib/categories';
+import { getApprovedLocations } from '@/lib/firestore-actions';
+import type { SuggestedLocation } from '@/lib/types';
 import type { IssueItem } from '@/components/map/UKMap';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, MapPin, Loader2 } from 'lucide-react';
 
 const UKMap = dynamic(() => import('@/components/map/UKMap'), {
   ssr: false,
-  loading: () => <div className="h-72 md:h-96 w-full bg-slate-100 rounded-xl animate-pulse flex items-center justify-center text-slate-400">Loading Formby Map...</div>,
+  loading: () => (
+    <div className="h-72 md:h-96 w-full bg-slate-100 rounded-xl animate-pulse flex items-center justify-center text-slate-400 text-xs">
+      Loading Formby Map...
+    </div>
+  ),
 });
 
 interface HomePageClientProps {
@@ -19,6 +25,9 @@ interface HomePageClientProps {
 }
 
 export default function HomePageClient({ initialIssues = [] }: HomePageClientProps) {
+  const [issues, setIssues] = useState<IssueItem[]>(initialIssues);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'reported' | 'resolved'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -26,9 +35,40 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Fetch approved locations from Firestore on client mount
+  useEffect(() => {
+    async function loadApprovedLocations() {
+      setIsLoading(true);
+      try {
+        const approvedLocations: SuggestedLocation[] = await getApprovedLocations();
+
+        // Transform Firestore SuggestedLocation models into IssueItem format
+        const mappedIssues: IssueItem[] = approvedLocations.map((loc) => ({
+          id: loc.id,
+          title: loc.name,
+          description: loc.description || '',
+          category: loc.category,
+          locationName: 'Formby',
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          status: (loc.issueStatus as 'reported' | 'resolved') || 'reported',
+          createdAt: loc.createdAt,
+        }));
+
+        setIssues(mappedIssues);
+      } catch (error) {
+        console.error('Error fetching approved map points:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadApprovedLocations();
+  }, []);
+
   // Filter issues dynamically
   const filteredIssues = useMemo(() => {
-    return initialIssues.filter((issue) => {
+    return issues.filter((issue) => {
       // Category filter
       if (selectedCategory !== 'all') {
         const normCategory = issue.category?.toLowerCase().replace(/\s+/g, '-');
@@ -53,7 +93,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
 
       return true;
     });
-  }, [initialIssues, selectedCategory, statusFilter, searchQuery]);
+  }, [issues, selectedCategory, statusFilter, searchQuery]);
 
   // Handle Marker selection from Map -> scroll to row below
   const handleSelectFromMap = (id: string) => {
@@ -135,10 +175,10 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              All Categories ({initialIssues.length})
+              All Categories ({issues.length})
             </button>
             {Object.values(CATEGORIES).map((cat) => {
-              const count = initialIssues.filter(
+              const count = issues.filter(
                 (i) => i.category?.toLowerCase().replace(/\s+/g, '-') === cat.id
               ).length;
               const isActive = selectedCategory === cat.id;
@@ -197,7 +237,12 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
           </div>
         </div>
 
-        {filteredIssues.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-200 rounded-xl flex items-center justify-center gap-2 text-slate-500 text-xs">
+            <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            Loading approved map submissions...
+          </div>
+        ) : filteredIssues.length === 0 ? (
           <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
             <p className="text-slate-500 text-sm">No issues matching your filters.</p>
           </div>
@@ -280,7 +325,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                       <p className="leading-relaxed text-slate-700 pt-2">
                         {issue.description || 'No detailed description provided.'}
                       </p>
-                      
+
                       {issue.createdAt && (
                         <div className="text-[11px] text-slate-400">
                           Logged: {new Date(issue.createdAt).toLocaleDateString()}
