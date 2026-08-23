@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Location, Town } from '@/lib/types';
@@ -6,6 +5,7 @@ import LocationCard from '@/components/location/LocationCard';
 import L, { type Map as LeafletMapClass } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import React, { useEffect, useRef, useState } from 'react';
+import { FORMBY_BOUNDS, FORMBY_LEAFLET_BOUNDS } from '@/lib/map-config';
 
 interface TownMapProps {
   locations: Location[];
@@ -19,7 +19,6 @@ export default function TownMap({ locations, town }: TownMapProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'reported' | 'improved'>('all');
 
-  // Map categories to marker colors
   const categoryColor: Record<string, string> = {
     'Overgrown Pavement': '#2b6cb0',
     'Roundabout Improvement Needed': '#d69e2e',
@@ -32,7 +31,6 @@ export default function TownMap({ locations, town }: TownMapProps) {
 
   useEffect(() => {
     if (mapContainerRef.current && !mapRef.current) {
-      // Configure Leaflet icons using CDN paths
       // @ts-ignore Property '_getIconUrl' is private and only accessible within class 'IconDefault'.
       delete L.Icon.Default.prototype._getIconUrl;
       L.Icon.Default.mergeOptions({
@@ -41,35 +39,34 @@ export default function TownMap({ locations, town }: TownMapProps) {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
-      const townCenter: L.LatLngExpression = [town.coordinates.lat, town.coordinates.lng];
-      const townZoom = 13;
+      const leafletBounds = L.latLngBounds(FORMBY_LEAFLET_BOUNDS);
+      const initialCenter: L.LatLngExpression = [FORMBY_BOUNDS.center.lat, FORMBY_BOUNDS.center.lng];
 
       mapRef.current = L.map(mapContainerRef.current, {
         scrollWheelZoom: false,
-      }).setView(townCenter, townZoom);
+        maxBounds: leafletBounds,
+        maxBoundsViscosity: 1.0,
+        minZoom: 12,
+      }).setView(initialCenter, FORMBY_BOUNDS.defaultZoom);
 
       L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          bounds: leafletBounds,
         }
       ).addTo(mapRef.current);
 
-      // Create a layer group to manage markers for easy clearing when filters change
       if (!markersLayerRef.current) {
         markersLayerRef.current = L.layerGroup().addTo(mapRef.current!);
       }
-      // markers will be populated by the filter effect below
-      
-      // Marker for town center - using default icon which is now configured
-      L.marker(townCenter)
+
+      L.marker(initialCenter)
         .addTo(mapRef.current!)
         .bindPopup(`<strong style="font-family: 'PT Sans', sans-serif; color: hsl(var(--primary));">${town.name} Town Center</strong>`);
-
     }
   }, [locations, town]);
 
-  // Initialize selected categories once based on available locations
   useEffect(() => {
     const cats = Array.from(new Set(locations.map(l => l.category || 'Other')));
     if (selectedCategories.length === 0) {
@@ -78,7 +75,6 @@ export default function TownMap({ locations, town }: TownMapProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations]);
 
-  // Update markers when locations or filters change
   useEffect(() => {
     if (!mapRef.current) return;
     if (!markersLayerRef.current) {
@@ -111,14 +107,13 @@ export default function TownMap({ locations, town }: TownMapProps) {
       `;
 
       marker.bindPopup(popupContent);
-      marker.bindTooltip(`${location.name} — ${cat}`);
+      marker.bindTooltip(`${location.name} (${cat})`);
       markersLayerRef.current!.addLayer(marker);
     });
   }, [locations, selectedCategories, statusFilter]);
 
   return (
     <div className="space-y-6">
-      {/* Filters and legend */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="text-sm font-medium">Filter Categories:</div>
@@ -147,7 +142,6 @@ export default function TownMap({ locations, town }: TownMapProps) {
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex items-center gap-3 flex-wrap">
         {Object.entries(categoryColor).map(([cat, color]) => (
           <div key={cat} className="flex items-center gap-2 text-xs">
