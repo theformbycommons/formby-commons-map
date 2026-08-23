@@ -35,25 +35,36 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Fetch approved locations from Firestore on client mount
   useEffect(() => {
     async function loadApprovedLocations() {
       setIsLoading(true);
       try {
         const approvedLocations: SuggestedLocation[] = await getApprovedLocations();
 
-        // Transform Firestore SuggestedLocation models into IssueItem format
-        const mappedIssues: IssueItem[] = approvedLocations.map((loc) => ({
-          id: loc.id,
-          title: loc.name,
-          description: loc.description || '',
-          category: loc.category,
-          locationName: 'Formby',
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          status: (loc.issueStatus as 'reported' | 'resolved') || 'reported',
-          createdAt: loc.createdAt,
-        }));
+        const mappedIssues: IssueItem[] = approvedLocations
+          .map((loc: any) => {
+            const rawLat = loc.latitude ?? loc.lat ?? loc.coordinates?.lat ?? loc.location?.latitude;
+            const rawLng = loc.longitude ?? loc.lng ?? loc.coordinates?.lng ?? loc.location?.longitude;
+
+            const lat = typeof rawLat === 'string' ? parseFloat(rawLat) : Number(rawLat);
+            const lng = typeof rawLng === 'string' ? parseFloat(rawLng) : Number(rawLng);
+
+            if (isNaN(lat) || isNaN(lng)) return null;
+
+            return {
+              id: loc.id,
+              title: loc.name || loc.title || 'Reported Action',
+              description: loc.description || '',
+              category: loc.category || 'other',
+              locationName: loc.locationName || 'Formby',
+              latitude: lat,
+              longitude: lng,
+              coordinates: { lat, lng },
+              status: (loc.issueStatus as 'reported' | 'resolved') || 'reported',
+              createdAt: loc.createdAt,
+            };
+          })
+          .filter((item): item is IssueItem => item !== null);
 
         setIssues(mappedIssues);
       } catch (error) {
@@ -66,23 +77,19 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
     loadApprovedLocations();
   }, []);
 
-  // Filter issues dynamically
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
-      // Category filter
       if (selectedCategory !== 'all') {
         const normCategory = issue.category?.toLowerCase().replace(/\s+/g, '-');
         if (normCategory !== selectedCategory) return false;
       }
 
-      // Status filter
       if (statusFilter !== 'all') {
         const isResolved = issue.status === 'resolved';
         if (statusFilter === 'resolved' && !isResolved) return false;
         if (statusFilter === 'reported' && isResolved) return false;
       }
 
-      // Search query filter
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
         const titleMatch = issue.title?.toLowerCase().includes(q);
@@ -95,7 +102,6 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
     });
   }, [issues, selectedCategory, statusFilter, searchQuery]);
 
-  // Handle Marker selection from Map -> scroll to row below
   const handleSelectFromMap = (id: string) => {
     setSelectedIssueId((prev) => (prev === id ? null : id));
     if (rowRefs.current[id]) {
@@ -103,14 +109,12 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
     }
   };
 
-  // Handle Accordion click from List
   const handleToggleRow = (id: string) => {
     setSelectedIssueId((prev) => (prev === id ? null : id));
   };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto px-4 py-6">
-      {/* Intro Header */}
       <div className="space-y-2 text-center md:text-left">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
           The Formby Commons Actions Map
@@ -120,9 +124,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
         </p>
       </div>
 
-      {/* Filter Controls Bar */}
       <div className="space-y-4 bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
-        {/* Status Toggle Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Show Status:
@@ -161,7 +163,6 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
           </div>
         </div>
 
-        {/* Category Filter Chips */}
         <div className="space-y-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Filter Category:
@@ -208,14 +209,12 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
         </div>
       </div>
 
-      {/* Formby Map Component */}
       <UKMap
         issues={filteredIssues}
         selectedIssueId={selectedIssueId}
         onSelectIssue={handleSelectFromMap}
       />
 
-      {/* Search & Issue Accordion List */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -319,7 +318,6 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                     </div>
                   </CardHeader>
 
-                  {/* Accordion Unfolded Body */}
                   {isExpanded && (
                     <CardContent className="px-4 pb-4 pt-0 border-t border-slate-100 text-xs text-slate-600 space-y-3 mt-2">
                       <p className="leading-relaxed text-slate-700 pt-2">
