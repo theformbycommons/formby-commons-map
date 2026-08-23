@@ -83,15 +83,14 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
 
         const titleText = issue.title || 'Reported Issue';
         const locationText = issue.locationName || 'Formby';
-        const detailsUrl = '/formby-commons-map/town/' + encodeURIComponent(titleText);
 
         const popupHtml =
           '<div style="font-family: sans-serif; padding: 4px; min-width: 160px;">' +
           '<strong style="font-size: 1.05em; color: #0f172a;">' + titleText + '</strong><br/>' +
           '<span style="font-size: 0.85em; color: #64748b;">' + locationText + '</span><br/>' +
-          '<a href="' + detailsUrl + '" style="color: #0284c7; text-decoration: none; font-weight: 600; font-size: 0.85em; display: inline-block; margin-top: 6px;">' +
-          'View Action Details &rarr;' +
-          '</a>' +
+          '<span style="font-size: 0.8em; color: #0284c7; display: inline-block; margin-top: 6px; font-weight: 500;">' +
+          'Details shown below map &darr;' +
+          '</span>' +
           '</div>';
 
         marker.bindPopup(popupHtml);
