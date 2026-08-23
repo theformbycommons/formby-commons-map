@@ -9,7 +9,8 @@ import type { IssueItem } from '@/components/map/UKMap';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, MapPin, Loader2 } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, MapPin, Loader2, Calendar } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 const UKMap = dynamic(() => import('@/components/map/UKMap'), {
   ssr: false,
@@ -61,7 +62,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
               longitude: lng,
               coordinates: { lat, lng },
               status: (loc.issueStatus as 'reported' | 'resolved') || 'reported',
-              createdAt: loc.createdAt,
+              createdAt: loc.submittedAt || loc.createdAt,
             };
           })
           .filter((item): item is IssueItem => item !== null);
@@ -111,6 +112,27 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
 
   const handleToggleRow = (id: string) => {
     setSelectedIssueId((prev) => (prev === id ? null : id));
+  };
+
+  const formatSubmissionDate = (rawDate?: any) => {
+    if (!rawDate) return null;
+    try {
+      if (typeof rawDate === 'string') {
+        return format(parseISO(rawDate), 'dd MMM yyyy');
+      }
+      if (typeof rawDate === 'number') {
+        return format(new Date(rawDate), 'dd MMM yyyy');
+      }
+      if (rawDate.toDate && typeof rawDate.toDate === 'function') {
+        return format(rawDate.toDate(), 'dd MMM yyyy');
+      }
+      if (rawDate instanceof Date) {
+        return format(rawDate, 'dd MMM yyyy');
+      }
+    } catch {
+      return null;
+    }
+    return null;
   };
 
   return (
@@ -251,6 +273,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
               const isExpanded = selectedIssueId === issue.id;
               const catConfig = getCategoryConfig(issue.category);
               const isResolved = issue.status === 'resolved';
+              const formattedDate = formatSubmissionDate(issue.createdAt);
 
               return (
                 <Card
@@ -324,9 +347,10 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                         {issue.description || 'No detailed description provided.'}
                       </p>
 
-                      {issue.createdAt && (
-                        <div className="text-[11px] text-slate-400">
-                          Logged: {new Date(issue.createdAt).toLocaleDateString()}
+                      {formattedDate && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 pt-1 border-t border-slate-100">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <span>Submitted on {formattedDate}</span>
                         </div>
                       )}
                     </CardContent>
