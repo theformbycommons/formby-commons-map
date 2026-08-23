@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import {
   getAllLocationsForAdmin,
   updateLocationStatus,
@@ -14,19 +16,39 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Trash2, Edit2, Save, X, RefreshCw, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, Trash2, Edit2, Save, X, RefreshCw, AlertTriangle, LogOut, Lock } from 'lucide-react';
 
 export default function AdminDashboardPage() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+  
+  // Login form state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Dashboard state
   const [locations, setLocations] = useState<SuggestedLocation[]>([]);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Edit Mode state
+  // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editCategory, setEditCategory] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthChecking(false);
+      if (user && user.uid === 'SGHMLAXGWeTj1OdGlnNg6coAs0h2') {
+        fetchLocations();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const fetchLocations = async () => {
     setIsLoading(true);
@@ -35,29 +57,54 @@ export default function AdminDashboardPage() {
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchLocations();
-  }, []);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setIsLoggingIn(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err: any) {
+      setLoginError(err.message || 'Login failed.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
-  // Quick Action Handlers
+  const handleLogout = async () => {
+    await signOut(auth);
+    setLocations([]);
+  };
+
+  // Status Handlers with Error Checks
   const handleStatusChange = async (id: string, status: 'approved' | 'rejected' | 'pending') => {
-    setLocations((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
-    await updateLocationStatus(id, status);
+    try {
+      await updateLocationStatus(id, status);
+      setLocations((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
+    } catch (err: any) {
+      alert('Firestore write rejected: ' + err.message);
+    }
   };
 
   const handleIssueStatusToggle = async (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === 'resolved' ? 'reported' : 'resolved';
-    setLocations((prev) => prev.map((item) => (item.id === id ? { ...item, issueStatus: nextStatus } : item)));
-    await updateIssueStatus(id, nextStatus);
+    try {
+      await updateIssueStatus(id, nextStatus);
+      setLocations((prev) => prev.map((item) => (item.id === id ? { ...item, issueStatus: nextStatus } : item)));
+    } catch (err: any) {
+      alert('Firestore write rejected: ' + err.message);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to permanently delete this report?')) return;
-    setLocations((prev) => prev.filter((item) => item.id !== id));
-    await deleteLocation(id);
+    if (!confirm('Permanently delete this report?')) return;
+    try {
+      await deleteLocation(id);
+      setLocations((prev) => prev.filter((item) => item.id !== id));
+    } catch (err: any) {
+      alert('Firestore delete rejected: ' + err.message);
+    }
   };
 
-  // Inline Edit Handlers
   const startEditing = (item: SuggestedLocation) => {
     setEditingId(item.id);
     setEditName(item.name);
@@ -65,54 +112,96 @@ export default function AdminDashboardPage() {
     setEditCategory(item.category);
   };
 
-  const cancelEditing = () => {
-    setEditingId(null);
-  };
-
   const saveEditing = async (id: string) => {
-    setLocations((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, name: editName, description: editDescription, category: editCategory }
-          : item
-      )
-    );
-    setEditingId(null);
-    await updateLocationDetails(id, {
-      name: editName,
-      description: editDescription,
-      category: editCategory,
-    });
+    try {
+      await updateLocationDetails(id, {
+        name: editName,
+        description: editDescription,
+        category: editCategory,
+      });
+      setLocations((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, name: editName, description: editDescription, category: editCategory }
+            : item
+        )
+      );
+      setEditingId(null);
+    } catch (err: any) {
+      alert('Firestore update rejected: ' + err.message);
+    }
   };
 
-  const filteredLocations = locations.filter((loc) => loc.status === activeTab);
+  if (authChecking) {
+    return <div className="text-center py-20 text-xs text-slate-400">Verifying security session...</div>;
+  }
 
+  // Render Login Form if Unauthenticated or Wrong UID
+  if (!currentUser || currentUser.uid !== 'SGHMLAXGWeTj1OdGlnNg6coAs0h2') {
+    return (
+      <div className="max-w-md mx-auto my-12 p-6 border rounded-xl shadow-sm bg-white space-y-4">
+        <div className="flex items-center gap-2 text-slate-900 font-bold text-lg">
+          <Lock className="w-5 h-5 text-emerald-600" />
+          Admin Authentication
+        </div>
+        <p className="text-xs text-slate-500">Sign in to manage community suggestions.</p>
+
+        <form onSubmit={handleLogin} className="space-y-3">
+          <Input
+            type="email"
+            placeholder="Admin Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="text-xs"
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="text-xs"
+          />
+          {loginError && <p className="text-xs text-red-500 font-medium">{loginError}</p>}
+          <Button type="submit" disabled={isLoggingIn} className="w-full text-xs bg-slate-900">
+            {isLoggingIn ? 'Signing in...' : 'Sign In'}
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  // Render Admin Control Panel
+  const filteredLocations = locations.filter((loc) => loc.status === activeTab);
   const pendingCount = locations.filter((l) => l.status === 'pending').length;
   const approvedCount = locations.filter((l) => l.status === 'approved').length;
   const rejectedCount = locations.filter((l) => l.status === 'rejected').length;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Admin Control Panel</h1>
           <p className="text-xs text-slate-500">Review, approve, and curate Formby community actions</p>
         </div>
-        <Button size="sm" variant="outline" onClick={fetchLocations} className="text-xs flex items-center gap-1">
-          <RefreshCw className="w-3.5 h-3.5" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={fetchLocations} className="text-xs flex items-center gap-1">
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleLogout} className="text-xs text-red-600 flex items-center gap-1">
+            <LogOut className="w-3.5 h-3.5" />
+            Exit
+          </Button>
+        </div>
       </div>
 
-      {/* Tabs */}
       <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1.5 rounded-xl text-center text-xs font-semibold">
         <button
           onClick={() => setActiveTab('pending')}
           className={`py-2 rounded-lg transition-all ${
-            activeTab === 'pending'
-              ? 'bg-white text-amber-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'pending' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           Pending ({pendingCount})
@@ -120,9 +209,7 @@ export default function AdminDashboardPage() {
         <button
           onClick={() => setActiveTab('approved')}
           className={`py-2 rounded-lg transition-all ${
-            activeTab === 'approved'
-              ? 'bg-white text-emerald-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'approved' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           Approved ({approvedCount})
@@ -130,16 +217,13 @@ export default function AdminDashboardPage() {
         <button
           onClick={() => setActiveTab('rejected')}
           className={`py-2 rounded-lg transition-all ${
-            activeTab === 'rejected'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'rejected' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           Rejected ({rejectedCount})
         </button>
       </div>
 
-      {/* Content List */}
       {isLoading ? (
         <div className="text-center py-12 text-slate-400 text-xs">Loading submissions...</div>
       ) : filteredLocations.length === 0 ? (
@@ -156,15 +240,10 @@ export default function AdminDashboardPage() {
             return (
               <Card key={item.id} className="border border-slate-200 shadow-sm">
                 {isEditing ? (
-                  /* Edit Form */
                   <CardContent className="p-4 space-y-3">
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold text-slate-500">Title</label>
-                      <Input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="text-xs"
-                      />
+                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="text-xs" />
                     </div>
 
                     <div className="space-y-1">
@@ -195,13 +274,12 @@ export default function AdminDashboardPage() {
                       <Button size="sm" onClick={() => saveEditing(item.id)} className="bg-slate-900 text-xs gap-1">
                         <Save className="w-3.5 h-3.5" /> Save
                       </Button>
-                      <Button size="sm" variant="outline" onClick={cancelEditing} className="text-xs gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="text-xs gap-1">
                         <X className="w-3.5 h-3.5" /> Cancel
                       </Button>
                     </div>
                   </CardContent>
                 ) : (
-                  /* Display View */
                   <>
                     <CardHeader className="p-4 pb-2 flex flex-row items-start justify-between space-y-0">
                       <div className="space-y-1">
@@ -234,7 +312,6 @@ export default function AdminDashboardPage() {
                     </CardContent>
 
                     <CardFooter className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                      {/* Resolution Toggle for Approved Items */}
                       {item.status === 'approved' && (
                         <button
                           onClick={() => handleIssueStatusToggle(item.id, item.issueStatus)}
@@ -256,7 +333,6 @@ export default function AdminDashboardPage() {
                         </button>
                       )}
 
-                      {/* Approval Controls */}
                       <div className="flex items-center gap-1.5 ml-auto">
                         {item.status !== 'approved' && (
                           <Button
