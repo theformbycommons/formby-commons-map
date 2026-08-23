@@ -37,7 +37,6 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
   const formbyCenter: L.LatLngExpression = [53.559, -3.069];
   const formbyZoom = 14;
 
-  // Initialize Map
   useEffect(() => {
     if (mapContainerRef.current && !mapRef.current) {
       mapRef.current = L.map(mapContainerRef.current, {
@@ -50,29 +49,37 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
     }
   }, []);
 
-  // Update Markers when issues or selection changes
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Clear previous markers
+    mapRef.current.invalidateSize();
+
     Object.values(markersRef.current).forEach((marker) => marker.remove());
     markersRef.current = {};
 
+    const validLatLngs: L.LatLngExpression[] = [];
+
     issues.forEach((issue) => {
-      // Extract coordinates from either nested object or flat properties
-      const rawLat = issue.coordinates?.lat ?? issue.latitude;
-      const rawLng = issue.coordinates?.lng ?? issue.longitude;
+      const rawLat = issue.latitude ?? issue.coordinates?.lat;
+      const rawLng = issue.longitude ?? issue.coordinates?.lng;
 
-      const lat = typeof rawLat === 'string' ? parseFloat(rawLat) : rawLat;
-      const lng = typeof rawLng === 'string' ? parseFloat(rawLng) : rawLng;
+      const lat = typeof rawLat === 'string' ? parseFloat(rawLat) : Number(rawLat);
+      const lng = typeof rawLng === 'string' ? parseFloat(rawLng) : Number(rawLng);
 
-      if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
         const isResolved = issue.status === 'resolved';
         const isSelected = issue.id === selectedIssueId;
 
-        const icon = createCategoryMarkerIcon(issue.category, isResolved, isSelected);
+        let icon: L.Icon | L.DivIcon;
+        try {
+          icon = createCategoryMarkerIcon(issue.category, isResolved, isSelected);
+        } catch (err) {
+          console.warn('Falling back to default marker icon:', err);
+          icon = new L.Icon.Default();
+        }
 
         const marker = L.marker([lat, lng], { icon }).addTo(mapRef.current!);
+        validLatLngs.push([lat, lng]);
 
         const titleText = issue.title || 'Reported Issue';
         const locationText = issue.locationName || 'Formby';
@@ -96,9 +103,13 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
         markersRef.current[issue.id] = marker;
       }
     });
+
+    if (validLatLngs.length > 0 && !selectedIssueId) {
+      const bounds = L.latLngBounds(validLatLngs);
+      mapRef.current.fitBounds(bounds, { maxZoom: 15, padding: [30, 30] });
+    }
   }, [issues, selectedIssueId, onSelectIssue]);
 
-  // Pan map when selectedIssueId changes from list interaction
   useEffect(() => {
     if (selectedIssueId && mapRef.current && markersRef.current[selectedIssueId]) {
       const activeMarker = markersRef.current[selectedIssueId];
