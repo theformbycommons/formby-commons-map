@@ -33,7 +33,7 @@ const SuggestionFormClientSchema = z.object({
     const t = String(val).trim();
     return t.length === 0 || t.length >= 10;
   }, { message: 'Description must be at least 10 characters if provided.' }),
-  townName: z.string().min(2, "Town name is required.").max(50, "Town name must be 50 characters or less."),
+  townName: z.string(),
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   category: z.string().optional(),
   issueStatus: z.enum(['reported','improved']).optional(),
@@ -52,21 +52,16 @@ const initialState: SuggestionFormState = {
 };
 
 interface SuggestLocationFormProps {
-  towns: Pick<Town, 'id' | 'name'>[];
+  towns?: Pick<Town, 'id' | 'name'>[];
 }
 
 function SubmitButton() {
   const { pending } = useFormStatus();
-  const isDisabled = pending;
-  let buttonText = 'Submit Suggestion';
-  if (pending) {
-    buttonText = 'Saving Suggestion...';
-  }
 
   return (
-    <Button type="submit" disabled={isDisabled} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
+    <Button type="submit" disabled={pending} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
       {pending && <Spinner size={20} className="mr-2" />}
-      {buttonText}
+      {pending ? 'Saving Suggestion...' : 'Submit Suggestion'}
     </Button>
   );
 }
@@ -79,19 +74,17 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
   
   const { user, loading: authLoading } = useAuth();
 
-  const { register, handleSubmit, control, formState: { errors }, reset, setValue, trigger, setError, watch } = useForm<SuggestionFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, setError, watch } = useForm<SuggestionFormData>({
     resolver: zodResolver(SuggestionFormClientSchema),
     defaultValues: {
       name: '',
       description: '',
-      townName: '',
+      townName: 'Formby',
       suggesterName: '',
       category: undefined,
       issueStatus: 'reported',
     }
   });
-
-  const townNameValue = watch('townName');
 
   useEffect(() => {
     if (state?.message) {
@@ -101,7 +94,14 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         variant: state.type === 'error' ? 'destructive' : 'default',
       });
       if (state.type === 'success') {
-        reset();
+        reset({
+          name: '',
+          description: '',
+          townName: 'Formby',
+          suggesterName: '',
+          category: undefined,
+          issueStatus: 'reported',
+        });
         setSelectedMapCoords(null);
         setValue('latitude', undefined as any, { shouldValidate: false });
         setValue('longitude', undefined as any, { shouldValidate: false });
@@ -129,10 +129,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       setValue('latitude', undefined as any, { shouldValidate: true });
       setValue('longitude', undefined as any, { shouldValidate: true });
     }
-  };
-
-  const handleTownSelection = (selectedTownName: string) => {
-    setValue('townName', selectedTownName === "__NEW__" ? "" : selectedTownName, { shouldValidate: true });
   };
 
   const processSubmit = async (data: SuggestionFormData) => {
@@ -173,15 +169,13 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
     });
   };
 
-  const selectValue = towns.find(t => t.name === townNameValue)
-    ? townNameValue
-    : (townNameValue === "" ? "" : "__NEW__");
-
   return (
     <form
       onSubmit={handleSubmit(processSubmit)}
       className="space-y-6"
     >
+      <input type="hidden" {...register('townName')} value="Formby" />
+
       <div>
         <Label htmlFor="name" className="font-medium">Action Name</Label>
         <Input id="name" {...register('name')} className="mt-1" aria-invalid={errors.name ? "true" : "false"} />
@@ -236,36 +230,8 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="townSelect" className="font-medium">Town</Label>
-        <Select
-          onValueChange={handleTownSelection}
-          value={selectValue}
-        >
-          <SelectTrigger id="townSelect" className="w-full">
-            <SelectValue placeholder="Select an existing town or enter new one below" />
-          </SelectTrigger>
-          <SelectContent>
-            {towns.map(town => (
-              <SelectItem key={town.id} value={town.name}>{town.name}</SelectItem>
-            ))}
-            <SelectItem value="__NEW__">-- Or enter a new town name below --</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Input
-            id="townName"
-            {...register('townName')}
-            className="mt-1"
-            placeholder="Enter new town name here if not listed above"
-            aria-invalid={errors.townName ? "true" : "false"}
-        />
-        <p className="text-xs text-muted-foreground mt-1">Select a town from the list or enter a new one.</p>
-        {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="locationMap" className="font-medium flex items-center gap-1">
-            <MapPinIcon className="h-5 w-5 text-primary" /> Precise Location (Required)
+            <MapPinIcon className="h-5 w-5 text-primary" /> Precise Location in Formby (Required)
         </Label>
         <p className="text-xs text-muted-foreground mt-1">Click on the map to place a pin within Formby.</p>
         <LocationPickerMap value={selectedMapCoords} onValueChange={handleCoordinatesChange} />
