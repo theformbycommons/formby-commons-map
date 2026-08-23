@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Edit3, CheckCircle, XCircle, Clock, AlertTriangle, Send, Loader2, Home, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
@@ -32,6 +34,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+const LocationPreviewMap = dynamic(
+  () => import('@/components/map/LocationPreviewMap'),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[180px] w-full rounded-md bg-muted" />,
+  }
+);
 
 function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['status'], approvedAt?: string }) {
   switch (status) {
@@ -151,7 +160,6 @@ function ApproveButton({ suggestionId, currentStatus, onActionComplete }: { sugg
     }
   }, [state, toast, suggestionId, onActionComplete]);
 
-
   if (currentStatus === 'rejected') {
     return null; 
   }
@@ -241,7 +249,6 @@ function DeleteSuggestionButton({ suggestionId, suggestionName, onActionComplete
   );
 }
 
-
 export default function AdminSuggestionsPage() {
   const [suggestions, setSuggestions] = useState<NewLocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -250,7 +257,6 @@ export default function AdminSuggestionsPage() {
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(user => {
-      // Give firebase a tiny moment to settle persistence before deciding to kick user out
       setTimeout(() => {
         setAuthLoading(false);
         if (!auth.currentUser) {
@@ -285,12 +291,10 @@ export default function AdminSuggestionsPage() {
     fetchData();
   }, [toast, actionTrigger]); 
 
-
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const firestoreConsoleBaseUrl = projectId
     ? `https://console.firebase.google.com/project/${projectId}/firestore/data/suggestedLocations`
     : null;
-
 
   if (authLoading) {
     return <div className="max-w-5xl mx-auto space-y-8 text-center py-10">Checking authentication...</div>;
@@ -331,79 +335,90 @@ export default function AdminSuggestionsPage() {
             <p className="text-muted-foreground text-center py-8">No pending suggestions found.</p>
           ) : (
             <ul className="space-y-6">
-              {suggestions.map((suggestion) => (
-                <li key={suggestion.id}>
-                  <Card className="overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="grid grid-cols-1 md:grid-cols-3">
-                      {suggestion.imageUrl && (
-                        <div className="relative h-48 md:h-full w-full bg-muted">
-                          <Image
-                            src={suggestion.imageUrl}
-                            alt={`Image for ${suggestion.name}`}
-                            fill
-                            style={{objectFit: "cover"}}
-                            data-ai-hint="user submitted photo"
-                          />
-                        </div>
-                      )}
-                      <div className={`p-4 space-y-3 ${suggestion.imageUrl ? 'md:col-span-2' : 'md:col-span-3'}`}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-headline text-xl text-primary">{suggestion.name}</h3>
-                            <p className="text-sm text-muted-foreground">{suggestion.townName}</p>
+              {suggestions.map((suggestion) => {
+                const lat = suggestion.latitude ?? (suggestion as any).lat ?? (suggestion as any).coordinates?.lat;
+                const lng = suggestion.longitude ?? (suggestion as any).lng ?? (suggestion as any).coordinates?.lng;
+
+                return (
+                  <li key={suggestion.id}>
+                    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="grid grid-cols-1 md:grid-cols-3">
+                        {suggestion.imageUrl && (
+                          <div className="relative h-48 md:h-full w-full bg-muted">
+                            <Image
+                              src={suggestion.imageUrl}
+                              alt={`Image for ${suggestion.name}`}
+                              fill
+                              style={{objectFit: "cover"}}
+                              data-ai-hint="user submitted photo"
+                            />
                           </div>
-                          <StatusBadge status={suggestion.status} approvedAt={suggestion.approvedAt} />
-                        </div>
-                        
-                        <p className="text-sm text-foreground/80 line-clamp-3">{suggestion.description}</p>
-                        
-                        <div className="text-xs text-muted-foreground space-y-1 pt-2">
-                          <p><strong>Suggester:</strong> {suggestion.suggesterName}</p>
-                          <p>
-                            <strong>Submitted:</strong> {suggestion.submittedAt ? format(parseISO(suggestion.submittedAt), 'dd MMM yyyy, HH:mm') : 'N/A'}
-                          </p>
-                          {suggestion.category && <p><strong>Category:</strong> {suggestion.category}</p>}
-                          {suggestion.issueStatus && <p><strong>Issue Status:</strong> {suggestion.issueStatus === 'reported' ? 'Reported' : 'Improved'}</p>}
-                          {suggestion.publishedLocationId && (
-                            <p><strong>Published ID:</strong> <code className="text-xs bg-muted px-1 rounded">{suggestion.publishedLocationId}</code></p>
+                        )}
+                        <div className={`p-4 space-y-3 ${suggestion.imageUrl ? 'md:col-span-2' : 'md:col-span-3'}`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-headline text-xl text-primary">{suggestion.name}</h3>
+                              <p className="text-sm text-muted-foreground">{suggestion.townName}</p>
+                            </div>
+                            <StatusBadge status={suggestion.status} approvedAt={suggestion.approvedAt} />
+                          </div>
+                          
+                          <p className="text-sm text-foreground/80 line-clamp-3">{suggestion.description}</p>
+                          
+                          <div className="text-xs text-muted-foreground space-y-1 pt-2">
+                            <p><strong>Suggester:</strong> {suggestion.suggesterName}</p>
+                            <p>
+                              <strong>Submitted:</strong> {suggestion.submittedAt ? format(parseISO(suggestion.submittedAt), 'dd MMM yyyy, HH:mm') : 'N/A'}
+                            </p>
+                            {suggestion.category && <p><strong>Category:</strong> {suggestion.category}</p>}
+                            {suggestion.issueStatus && <p><strong>Issue Status:</strong> {suggestion.issueStatus === 'reported' ? 'Reported' : 'Improved'}</p>}
+                            {suggestion.publishedLocationId && (
+                              <p><strong>Published ID:</strong> <code className="text-xs bg-muted px-1 rounded">{suggestion.publishedLocationId}</code></p>
+                            )}
+                          </div>
+
+                          {lat !== undefined && lng !== undefined && (
+                            <div className="pt-2">
+                              <LocationPreviewMap lat={Number(lat)} lng={Number(lng)} />
+                            </div>
                           )}
-                        </div>
-                        
-                        <div className="pt-2 flex flex-wrap gap-2 items-center">
-                          {suggestion.status !== 'rejected' && suggestion.id && (
-                            <ApproveButton 
-                                suggestionId={suggestion.id} 
-                                currentStatus={suggestion.status} 
-                                onActionComplete={handleActionComplete}
-                            />
-                          )}
-                          {suggestion.id && (
-                            <EditSuggestion suggestion={suggestion} onActionComplete={handleActionComplete} />
-                          )}
-                          {firestoreConsoleBaseUrl && suggestion.id ? (
-                            <Button asChild variant="outline" size="sm">
-                              <Link href={`${firestoreConsoleBaseUrl}/${suggestion.id}`} target="_blank" rel="noopener noreferrer">
-                                <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console
-                              </Link>
-                            </Button>
-                          ) : (
-                             <Button variant="outline" size="sm" disabled>
-                                <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console (disabled)
-                             </Button>
-                          )}
-                           {suggestion.id && (
-                            <DeleteSuggestionButton 
-                                suggestionId={suggestion.id} 
-                                suggestionName={suggestion.name}
-                                onActionComplete={handleActionComplete}
-                            />
-                           )}
+                          
+                          <div className="pt-2 flex flex-wrap gap-2 items-center">
+                            {suggestion.status !== 'rejected' && suggestion.id && (
+                              <ApproveButton 
+                                  suggestionId={suggestion.id} 
+                                  currentStatus={suggestion.status} 
+                                  onActionComplete={handleActionComplete}
+                              />
+                            )}
+                            {suggestion.id && (
+                              <EditSuggestion suggestion={suggestion} onActionComplete={handleActionComplete} />
+                            )}
+                            {firestoreConsoleBaseUrl && suggestion.id ? (
+                              <Button asChild variant="outline" size="sm">
+                                <Link href={`${firestoreConsoleBaseUrl}/${suggestion.id}`} target="_blank" rel="noopener noreferrer">
+                                  <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console
+                                </Link>
+                              </Button>
+                            ) : (
+                               <Button variant="outline" size="sm" disabled>
+                                  <Edit3 className="mr-2 h-4 w-4" /> Manage in Firebase Console (disabled)
+                               </Button>
+                            )}
+                             {suggestion.id && (
+                              <DeleteSuggestionButton 
+                                  suggestionId={suggestion.id} 
+                                  suggestionName={suggestion.name}
+                                  onActionComplete={handleActionComplete}
+                              />
+                             )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Card>
-                </li>
-              ))}
+                    </Card>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
