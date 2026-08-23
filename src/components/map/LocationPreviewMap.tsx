@@ -29,12 +29,15 @@ export default function LocationPreviewMap({
 }: LocationPreviewMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMapClass | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
 
   useEffect(() => {
-    if (mapContainerRef.current && !mapRef.current) {
+    if (!mapContainerRef.current) return;
+
+    if (!mapRef.current) {
       const coords: L.LatLngExpression = [lat, lng];
 
-      mapRef.current = L.map(mapContainerRef.current, {
+      const map = L.map(mapContainerRef.current, {
         center: coords,
         zoom: 15,
         zoomControl: false,
@@ -48,11 +51,36 @@ export default function LocationPreviewMap({
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap',
-      }).addTo(mapRef.current);
+      }).addTo(map);
 
-      L.marker(coords).addTo(mapRef.current);
+      markerRef.current = L.marker(coords).addTo(map);
+      mapRef.current = map;
+    } else {
+      mapRef.current.setView([lat, lng], 15);
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lng]);
+      }
     }
+
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+    };
   }, [lat, lng]);
+
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
 
@@ -72,7 +100,7 @@ export default function LocationPreviewMap({
           variant="outline"
           size="sm"
           asChild
-          className="h-7 text-xs gap-1"
+          className="h-7 text-xs gap-1 pointer-events-auto"
         >
           <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
             Open in Google Maps
