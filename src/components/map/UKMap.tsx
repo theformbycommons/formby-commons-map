@@ -161,7 +161,7 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
 
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent p-4 md:p-6 pointer-events-none">
         <h2 className="text-xl md:text-2xl font-bold text-white drop-shadow">
-          Formby Community Issues Map
+          Formby Commons Map
         </h2>
       </div>
     </div>
