@@ -14,9 +14,11 @@ export interface IssueItem {
   category: string;
   status?: 'reported' | 'resolved' | string;
   locationName?: string;
-  coordinates: {
-    lat: number;
-    lng: number;
+  latitude?: number | string;
+  longitude?: number | string;
+  coordinates?: {
+    lat: number | string;
+    lng: number | string;
   };
   createdAt?: string;
 }
@@ -57,19 +59,27 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
     markersRef.current = {};
 
     issues.forEach((issue) => {
-      if (issue.coordinates?.lat && issue.coordinates?.lng) {
+      // Extract coordinates from either nested object or flat properties
+      const rawLat = issue.coordinates?.lat ?? issue.latitude;
+      const rawLng = issue.coordinates?.lng ?? issue.longitude;
+
+      const lat = typeof rawLat === 'string' ? parseFloat(rawLat) : rawLat;
+      const lng = typeof rawLng === 'string' ? parseFloat(rawLng) : rawLng;
+
+      if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
         const isResolved = issue.status === 'resolved';
         const isSelected = issue.id === selectedIssueId;
 
         const icon = createCategoryMarkerIcon(issue.category, isResolved, isSelected);
 
-        const marker = L.marker([issue.coordinates.lat, issue.coordinates.lng], { icon }).addTo(mapRef.current!);
+        const marker = L.marker([lat, lng], { icon }).addTo(mapRef.current!);
 
         const titleText = issue.title || 'Reported Issue';
         const locationText = issue.locationName || 'Formby';
         const detailsUrl = '/formby-commons-map/town/' + encodeURIComponent(titleText);
 
-        const popupHtml = '<div style="font-family: sans-serif; padding: 4px; min-width: 160px;">' +
+        const popupHtml =
+          '<div style="font-family: sans-serif; padding: 4px; min-width: 160px;">' +
           '<strong style="font-size: 1.05em; color: #0f172a;">' + titleText + '</strong><br/>' +
           '<span style="font-size: 0.85em; color: #64748b;">' + locationText + '</span><br/>' +
           '<a href="' + detailsUrl + '" style="color: #0284c7; text-decoration: none; font-weight: 600; font-size: 0.85em; display: inline-block; margin-top: 6px;">' +
@@ -105,7 +115,7 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
           const userLat = position.coords.latitude;
           const userLng = position.coords.longitude;
           mapRef.current?.setView([userLat, userLng], 16);
-          
+
           L.circleMarker([userLat, userLng], {
             radius: 8,
             fillColor: '#2563eb',
@@ -113,7 +123,10 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
             weight: 2,
             opacity: 1,
             fillOpacity: 0.8,
-          }).addTo(mapRef.current!).bindPopup('Your Current Location').openPopup();
+          })
+            .addTo(mapRef.current!)
+            .bindPopup('Your Current Location')
+            .openPopup();
         },
         () => {
           alert('Unable to retrieve your location.');
@@ -125,7 +138,7 @@ export default function UKMap({ issues, selectedIssueId, onSelectIssue }: Formby
   return (
     <div className="relative w-full h-72 md:h-96 rounded-xl overflow-hidden shadow-md border border-border">
       <div ref={mapContainerRef} className="h-full w-full z-0" />
-      
+
       <Button
         variant="secondary"
         size="sm"
