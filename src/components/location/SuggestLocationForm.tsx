@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -20,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Town } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import { isWithinFormby } from '@/lib/map-config';
 
 const LocationPickerMap = dynamic(() => import('@/components/map/LocationPickerMap'), {
   ssr: false,
@@ -38,12 +37,11 @@ const SuggestionFormClientSchema = z.object({
   suggesterName: z.string().min(2, "Your name must be at least 2 characters long.").max(50, "Your name must be 50 characters or less."),
   category: z.string().optional(),
   issueStatus: z.enum(['reported','improved']).optional(),
-  latitude: z.number({ required_error: "Please select a location on the map." })
-            .min(-90, "Invalid latitude. Please select a location on the map.")
-            .max(90, "Invalid latitude. Please select a location on the map."),
-  longitude: z.number({ required_error: "Please select a location on the map." })
-             .min(-180, "Invalid longitude. Please select a location on the map.")
-             .max(180, "Invalid longitude. Please select a location on the map."),
+  latitude: z.number({ required_error: "Please select a location on the map." }),
+  longitude: z.number({ required_error: "Please select a location on the map." }),
+}).refine((data) => isWithinFormby(data.latitude, data.longitude), {
+  message: "Selected location must fall within the Formby boundary.",
+  path: ["latitude"],
 });
 
 type SuggestionFormData = z.infer<typeof SuggestionFormClientSchema>;
@@ -122,10 +120,9 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
     }
   }, [state, toast, reset, setError, setValue]);
 
-
   const handleCoordinatesChange = (coords: { lat: number; lng: number } | null) => {
     setSelectedMapCoords(coords);
-    if (coords) {
+    if (coords && isWithinFormby(coords.lat, coords.lng)) {
       setValue('latitude', coords.lat, { shouldValidate: true });
       setValue('longitude', coords.lng, { shouldValidate: true });
     } else {
@@ -151,12 +148,9 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
       }
     });
 
-    // No file attachments are supported from the client.
-
     if (user && user.isAnonymous && user.uid) {
       formDataForServerAction.append('suggesterUid', user.uid);
     } else {
-      // Ensure an anonymous client id exists (stored in a cookie) so we can enforce daily limits for non-logged-in users
       try {
         const cookieName = 'anonId';
         const getCookie = (name: string) => document.cookie.split('; ').find(row => row.startsWith(name + '='))?.split('=')[1];
@@ -170,7 +164,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
           formDataForServerAction.append('suggesterAnonId', anonId);
         }
       } catch (e) {
-        // Non-fatal; proceed without anon id (server will treat as fully anonymous)
         console.warn('Could not create anonId cookie', e);
       }
     }
@@ -183,7 +176,6 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
   const selectValue = towns.find(t => t.name === townNameValue)
     ? townNameValue
     : (townNameValue === "" ? "" : "__NEW__");
-
 
   return (
     <form
@@ -236,12 +228,10 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         <p className="text-xs text-muted-foreground mt-1">Mark whether this issue is still reported or already improved.</p>
       </div>
 
-      {/* File attachments removed — users can only submit location, category, description, and name. */}
-
       <div>
         <Label htmlFor="description" className="font-medium">Description</Label>
         <Textarea id="description" {...register('description')} rows={4} className="mt-1" aria-invalid={errors.description ? "true" : "false"} />
-        <p className="text-xs text-muted-foreground mt-1">Optional — 2–4 short sentences describing the issue (concise, specific).</p>
+        <p className="text-xs text-muted-foreground mt-1">Optional short description of the issue.</p>
         {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
       </div>
 
@@ -269,7 +259,7 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
             placeholder="Enter new town name here if not listed above"
             aria-invalid={errors.townName ? "true" : "false"}
         />
-        <p className="text-xs text-muted-foreground mt-1">Select a town from the list. If your town isn't listed, choose "-- Or enter a new town name below --" and then type the new town name directly in the text field above. It will be created upon approval.</p>
+        <p className="text-xs text-muted-foreground mt-1">Select a town from the list or enter a new one.</p>
         {errors.townName && <p className="text-sm text-destructive mt-1">{errors.townName.message}</p>}
       </div>
 
@@ -277,13 +267,13 @@ export default function SuggestLocationForm({ towns }: SuggestLocationFormProps)
         <Label htmlFor="locationMap" className="font-medium flex items-center gap-1">
             <MapPinIcon className="h-5 w-5 text-primary" /> Precise Location (Required)
         </Label>
-        <p className="text-xs text-muted-foreground mt-1">Click on the map to place a pin for the exact location. You can drag the pin too.</p>
+        <p className="text-xs text-muted-foreground mt-1">Click on the map to place a pin within Formby.</p>
         <LocationPickerMap value={selectedMapCoords} onValueChange={handleCoordinatesChange} />
         <input type="hidden" {...register('latitude')} />
         <input type="hidden" {...register('longitude')} />
         {(errors.latitude || errors.longitude) && (
             <p className="text-sm text-destructive mt-1">
-                {errors.latitude?.message || errors.longitude?.message || "Please select a valid location on the map."}
+                {errors.latitude?.message || errors.longitude?.message || "Please select a valid location inside Formby."}
             </p>
         )}
       </div>
