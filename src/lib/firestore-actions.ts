@@ -17,9 +17,11 @@ export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
     querySnapshot.forEach((doc) => {
       const data = doc.data();
 
-      // Flexible timestamp extraction
+      // Debug output: inspect raw data in DevTools Console
+      console.log(`[Firestore Doc: ${doc.id}] Keys found:`, Object.keys(data), data);
+
       let formattedDate: string | undefined = undefined;
-      const rawDate = data.submittedAt || data.createdAt || data.timestamp;
+      const rawDate = data.submittedAt || data.createdAt || data.timestamp || data.date;
 
       if (rawDate) {
         if (typeof rawDate.toDate === 'function') {
@@ -44,6 +46,7 @@ export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
           lng: data.coordinates?.lng || -3.069,
         },
         submittedAt: formattedDate,
+        createdAt: formattedDate,
         suggesterName: data.suggesterName || '',
         imageUrl: data.imageUrl || null,
       });
@@ -72,13 +75,14 @@ export async function submitNewAction(data: {
     name: data.name,
     description: data.description,
     category: data.category,
-    status: 'pending', // Starts as pending for admin review
+    status: 'pending',
     issueStatus: 'reported',
     townName: 'Formby',
     coordinates: data.coordinates,
     suggesterName: data.suggesterName || 'Anonymous',
     imageUrl: null,
     submittedAt: serverTimestamp(),
+    createdAt: new Date().toISOString(), // Hardcoded ISO string backup
   });
 
   return newDoc.id;
