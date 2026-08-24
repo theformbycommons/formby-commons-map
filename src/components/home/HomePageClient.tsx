@@ -62,7 +62,8 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
               longitude: lng,
               coordinates: { lat, lng },
               status: (loc.issueStatus as 'reported' | 'resolved') || 'reported',
-              createdAt: loc.submittedAt || loc.createdAt,
+              // Checks all standard Firestore timestamp field names
+              createdAt: loc.submittedAt || loc.createdAt || loc.timestamp || loc.date,
             };
           })
           .filter((item): item is IssueItem => item !== null);
@@ -114,6 +115,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
     setSelectedIssueId((prev) => (prev === id ? null : id));
   };
 
+  // Safe helper to convert ISO strings, numbers, or raw Firestore objects into formatted dates
   const formatSubmissionDate = (rawDate?: any) => {
     if (!rawDate) return null;
     try {
@@ -123,7 +125,10 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
       if (typeof rawDate === 'number') {
         return format(new Date(rawDate), 'dd MMM yyyy');
       }
-      if (rawDate.toDate && typeof rawDate.toDate === 'function') {
+      if (typeof rawDate?.seconds === 'number') {
+        return format(new Date(rawDate.seconds * 1000), 'dd MMM yyyy');
+      }
+      if (typeof rawDate?.toDate === 'function') {
         return format(rawDate.toDate(), 'dd MMM yyyy');
       }
       if (rawDate instanceof Date) {
@@ -301,13 +306,24 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                         <CardTitle className="text-sm font-semibold text-slate-900">
                           {issue.title}
                         </CardTitle>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-0.5">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
                             {issue.locationName || 'Formby'}
                           </span>
                           <span>•</span>
                           <span>{catConfig.label}</span>
+
+                          {/* Date display in header */}
+                          {formattedDate && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 text-slate-400">
+                                <Calendar className="w-3 h-3" />
+                                {formattedDate}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -336,7 +352,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                       {isExpanded ? (
                         <ChevronUp className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400 text-slate-400" />
                       )}
                     </div>
                   </CardHeader>
