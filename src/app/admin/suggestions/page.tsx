@@ -15,7 +15,7 @@ export default function SuggestionsPage() {
         setSuggestions(data || []);
       } catch (error) {
         console.error('Failed to load suggestions:', error);
-      } font-medium {
+      } finally {
         setLoading(false);
       }
     }
@@ -23,7 +23,6 @@ export default function SuggestionsPage() {
     loadData();
   }, []);
 
-  // Updated date parser to explicitly check for Firestore Timestamp objects or string formats
   const formatDate = (rawDate?: any) => {
     if (!rawDate) return 'N/A';
     try {
@@ -57,7 +56,6 @@ export default function SuggestionsPage() {
     return 'N/A';
   };
 
-  // Helper function to build Google Maps URL from nested Firestore coordinates
   const getGoogleMapsUrl = (coordinates?: { lat: number; lng: number }) => {
     if (
       coordinates &&
@@ -86,13 +84,12 @@ export default function SuggestionsPage() {
                 <th className="border p-2 text-left">Town</th>
                 <th className="border p-2 text-left">Submitted By</th>
                 <th className="border p-2 text-left">Location / Map Link</th>
-                <th className="border p-2 text-left">Submitted Date</th>
+                <th className="border p-2 text-left">Date</th>
                 <th className="border p-2 text-left">Status</th>
               </tr>
             </thead>
             <tbody>
               {suggestions.map((suggestion) => {
-                // Priority given to 'submittedAtFirestore' as seen in database schema
                 const rawDate =
                   (suggestion as any).submittedAtFirestore ||
                   suggestion.submittedAt ||
@@ -108,7 +105,6 @@ export default function SuggestionsPage() {
                     <td className="border p-2">{suggestion.townName || 'N/A'}</td>
                     <td className="border p-2">{suggestion.suggesterName || 'Anonymous'}</td>
                     
-                    {/* Coordinates & Google Maps Link */}
                     <td className="border p-2">
                       {mapsUrl && coords ? (
                         <div className="flex flex-col gap-1">
@@ -129,7 +125,6 @@ export default function SuggestionsPage() {
                       )}
                     </td>
 
-                    {/* Submission Date */}
                     <td className="border p-2">{formatDate(rawDate)}</td>
                     <td className="border p-2 capitalize">{suggestion.status}</td>
                   </tr>
