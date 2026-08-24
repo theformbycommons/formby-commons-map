@@ -1,5 +1,14 @@
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  doc, 
+  updateDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
 import type { SuggestedLocation } from '@/lib/types';
 
 const COLLECTION_NAME = 'suggestedLocations';
@@ -38,6 +47,38 @@ function parseRawTimestamp(rawDate: any): string | undefined {
 }
 
 /**
+ * Helper to transform raw Firestore document data into a typed SuggestedLocation.
+ */
+function mapDocToLocation(id: string, data: any): SuggestedLocation {
+  const rawDate =
+    data.submittedAtFirestore ??
+    data.submittedAt ??
+    data.createdAt ??
+    data.timestamp ??
+    data.date;
+
+  const formattedDate = parseRawTimestamp(rawDate);
+
+  return {
+    id,
+    name: data.name || 'Reported Action',
+    description: data.description || '',
+    category: data.category || 'other',
+    status: data.status || 'pending',
+    issueStatus: data.issueStatus || 'reported',
+    townName: data.townName || 'Formby',
+    coordinates: {
+      lat: data.coordinates?.lat || 53.559,
+      lng: data.coordinates?.lng || -3.069,
+    },
+    submittedAt: formattedDate,
+    createdAt: formattedDate,
+    suggesterName: data.suggesterName || '',
+    imageUrl: data.imageUrl || null,
+  };
+}
+
+/**
  * Fetches all approved actions for display on the Formby map.
  */
 export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
@@ -47,42 +88,50 @@ export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
     const querySnapshot = await getDocs(q);
 
     const locations: SuggestedLocation[] = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-
-      // Check submittedAtFirestore first to align with your Firestore schema
-      const rawDate =
-        data.submittedAtFirestore ??
-        data.submittedAt ??
-        data.createdAt ??
-        data.timestamp ??
-        data.date;
-
-      const formattedDate = parseRawTimestamp(rawDate);
-
-      locations.push({
-        id: doc.id,
-        name: data.name || 'Reported Action',
-        description: data.description || '',
-        category: data.category || 'other',
-        status: data.status || 'approved',
-        issueStatus: data.issueStatus || 'reported',
-        townName: data.townName || 'Formby',
-        coordinates: {
-          lat: data.coordinates?.lat || 53.559,
-          lng: data.coordinates?.lng || -3.069,
-        },
-        submittedAt: formattedDate,
-        createdAt: formattedDate,
-        suggesterName: data.suggesterName || '',
-        imageUrl: data.imageUrl || null,
-      });
+    querySnapshot.forEach((docSnapshot) => {
+      locations.push(mapDocToLocation(docSnapshot.id, docSnapshot.data()));
     });
 
     return locations;
   } catch (error) {
     console.error('Error fetching approved locations:', error);
     return [];
+  }
+}
+
+/**
+ * Fetches all pending submissions for the Admin Dashboard queue.
+ */
+export async function getPendingLocations(): Promise<SuggestedLocation[]> {
+  try {
+    const locationsRef = collection(db, COLLECTION_NAME);
+    const q = query(locationsRef, where('status', '==', 'pending'));
+    const querySnapshot = await getDocs(q);
+
+    const locations: SuggestedLocation[] = [];
+    querySnapshot.forEach((docSnapshot) => {
+      locations.push(mapDocToLocation(docSnapshot.id, docSnapshot.data()));
+    });
+
+    return locations;
+  } catch (error) {
+    console.error('Error fetching pending locations:', error);
+    return [];
+  }
+}
+
+/**
+ * Approves a pending submission without clearing its timestamp.
+ */
+export async function approveLocation(docId: string): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTION_NAME, docId);
+    await updateDoc(docRef, {
+      status: 'approved',
+    });
+  } catch (error) {
+    console.error(`Error approving location ${docId}:`, error);
+    throw error;
   }
 }
 
@@ -109,7 +158,7 @@ export async function submitNewAction(data: {
     coordinates: data.coordinates,
     suggesterName: data.suggesterName || 'Anonymous',
     imageUrl: null,
-    submittedAtFirestore: serverTimestamp(), // Writes to existing schema key
+    submittedAtFirestore: serverTimestamp(),
     submittedAt: serverTimestamp(),
     createdAt: nowIso,
   });
