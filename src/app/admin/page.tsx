@@ -17,6 +17,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2, XCircle, Trash2, Edit2, Save, X, RefreshCw, AlertTriangle, LogOut, Lock } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+
+function formatSubmissionDate(rawDate?: any): string {
+  if (!rawDate) return 'N/A';
+  try {
+    if (typeof rawDate?.toDate === 'function') {
+      return format(rawDate.toDate(), 'dd MMM yyyy, HH:mm');
+    }
+    if (typeof rawDate?.seconds === 'number') {
+      return format(new Date(rawDate.seconds * 1000), 'dd MMM yyyy, HH:mm');
+    }
+    if (typeof rawDate === 'string') {
+      const parsed = parseISO(rawDate);
+      if (!isNaN(parsed.getTime())) {
+        return format(parsed, 'dd MMM yyyy, HH:mm');
+      }
+    }
+    if (typeof rawDate === 'number') {
+      return format(new Date(rawDate), 'dd MMM yyyy, HH:mm');
+    }
+    if (rawDate instanceof Date) {
+      return format(rawDate, 'dd MMM yyyy, HH:mm');
+    }
+  } catch (e) {
+    console.warn('Date parsing error:', e);
+  }
+  return 'N/A';
+}
 
 export default function AdminDashboardPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -237,6 +265,12 @@ export default function AdminDashboardPage() {
             const catConfig = getCategoryConfig(item.category);
             const isResolved = item.issueStatus === 'resolved';
 
+            const rawDate = 
+              (item as any).submittedAt ?? 
+              (item as any).submittedAtFirestore ?? 
+              (item as any).createdAt ?? 
+              (item as any).timestamp;
+
             return (
               <Card key={item.id} className="border border-slate-200 shadow-sm">
                 {isEditing ? (
@@ -290,10 +324,12 @@ export default function AdminDashboardPage() {
                           />
                           <CardTitle className="text-sm font-bold text-slate-900">{item.name}</CardTitle>
                         </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                        <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
                           <span>{catConfig.label}</span>
                           <span>•</span>
-                          <span>Reporter: {item.suggesterName}</span>
+                          <span>Reporter: {item.suggesterName || 'Anonymous'}</span>
+                          <span>•</span>
+                          <span>{formatSubmissionDate(rawDate)}</span>
                         </div>
                       </div>
 
