@@ -1,4 +1,3 @@
-
 import type { Town, Location } from './types';
 import { db } from './firebase';
 import {
@@ -11,22 +10,45 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 
-// Helper to convert Firestore timestamp to ISO string or return existing string
+// Universal date formatter that extracts ISO strings from any format
 const formatDateField = (dateField: any): string => {
-  if (dateField instanceof Timestamp) {
-    return dateField.toDate().toISOString();
-  }
-  if (typeof dateField === 'string') {
-    try {
-      return new Date(dateField).toISOString();
-    } catch (e) {
-      console.warn(`Invalid date string encountered: ${dateField}`);
-      return new Date(0).toISOString();
-    }
-  }
-  return new Date(0).toISOString();
-};
+  if (!dateField) return new Date().toISOString();
 
+  try {
+    // 1. Direct Timestamp instance or object with .toDate() method
+    if (typeof dateField?.toDate === 'function') {
+      return dateField.toDate().toISOString();
+    }
+
+    // 2. Serialized Timestamp object with seconds ({ seconds, nanoseconds } or { _seconds, _nanoseconds })
+    const seconds = dateField?.seconds ?? dateField?._seconds;
+    if (typeof seconds === 'number') {
+      return new Date(seconds * 1000).toISOString();
+    }
+
+    // 3. Already a JS Date instance
+    if (dateField instanceof Date) {
+      return dateField.toISOString();
+    }
+
+    // 4. Parseable date string (e.g. ISO string)
+    if (typeof dateField === 'string') {
+      const parsedDate = new Date(dateField);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate.toISOString();
+      }
+    }
+
+    // 5. Epoch milliseconds timestamp
+    if (typeof dateField === 'number') {
+      return new Date(dateField).toISOString();
+    }
+  } catch (e) {
+    console.warn(`Invalid date encountered in data.ts:`, dateField, e);
+  }
+
+  return new Date().toISOString();
+};
 
 export async function getTowns(): Promise<Town[]> {
   try {
@@ -39,7 +61,7 @@ export async function getTowns(): Promise<Town[]> {
         name: data.name,
         county: data.county,
         country: data.country,
-        coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
+        coordinates: { lat: Number(data.coordinates?.lat) || 0, lng: Number(data.coordinates?.lng) || 0 },
         description: data.description,
         imageUrl: data.imageUrl,
       } as Omit<Town, 'locationCount'>;
@@ -64,7 +86,7 @@ export async function getTownByName(name: string): Promise<Town | undefined> {
     const decodedName = decodeURIComponent(name);
     const townsCol = collection(db, 'towns');
     const q = query(townsCol, where('name', '==', decodedName));
-    const townSnapshot = await getDocs(q);
+    const townSnapshot = await getDocs(townsCol);
 
     if (townSnapshot.empty) {
       console.log(`No town found with name: ${decodedName}`);
@@ -73,13 +95,13 @@ export async function getTownByName(name: string): Promise<Town | undefined> {
     const townDoc = townSnapshot.docs[0];
     const data = townDoc.data();
     const townData = {
-        id: townDoc.id,
-        name: data.name,
-        county: data.county,
-        country: data.country,
-        coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
-        description: data.description,
-        imageUrl: data.imageUrl,
+      id: townDoc.id,
+      name: data.name,
+      county: data.county,
+      country: data.country,
+      coordinates: { lat: Number(data.coordinates?.lat) || 0, lng: Number(data.coordinates?.lng) || 0 },
+      description: data.description,
+      imageUrl: data.imageUrl,
     } as Omit<Town, 'locationCount'>;
 
     const locationsCol = collection(db, 'locations');
@@ -102,6 +124,7 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
     const locationsPromises = locationSnapshot.docs.map(async docSnap => {
       const data = docSnap.data();
       const approvedAtRaw = data.approvedAtFirestore || data.approvedAt;
+      const createdAtRaw = data.createdAtFirestore || data.createdAt || data.submittedAtFirestore || data.submittedAt;
       
       const location: Location = {
         id: docSnap.id,
@@ -112,9 +135,9 @@ export async function getLocationsByTownId(townId: string): Promise<Location[]> 
         imageUrl: data.imageUrl || null,
         category: data.category || undefined,
         issueStatus: data.issueStatus || undefined,
-        coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
+        coordinates: { lat: Number(data.coordinates?.lat) || 0, lng: Number(data.coordinates?.lng) || 0 },
         submittedBy: data.submittedBy,
-        createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
+        createdAt: formatDateField(createdAtRaw),
         ...(approvedAtRaw && { approvedAt: formatDateField(approvedAtRaw) }),
         votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
       };
@@ -138,6 +161,7 @@ export async function getLocationById(id: string): Promise<Location | undefined>
     }
     const data = docSnap.data();
     const approvedAtRaw = data.approvedAtFirestore || data.approvedAt;
+    const createdAtRaw = data.createdAtFirestore || data.createdAt || data.submittedAtFirestore || data.submittedAt;
 
     const location: Location = {
       id: docSnap.id,
@@ -148,9 +172,9 @@ export async function getLocationById(id: string): Promise<Location | undefined>
       imageUrl: data.imageUrl || null,
       category: data.category || undefined,
       issueStatus: data.issueStatus || undefined,
-      coordinates: { lat: data.coordinates.lat, lng: data.coordinates.lng }, // Ensure plain object
+      coordinates: { lat: Number(data.coordinates?.lat) || 0, lng: Number(data.coordinates?.lng) || 0 },
       submittedBy: data.submittedBy,
-      createdAt: formatDateField(data.createdAtFirestore || data.createdAt),
+      createdAt: formatDateField(createdAtRaw),
       ...(approvedAtRaw && { approvedAt: formatDateField(approvedAtRaw) }),
       votes: data.votes || { neutral: 0, positive: 0, fantastic: 0 },
     };
