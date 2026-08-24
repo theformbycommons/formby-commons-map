@@ -17,28 +17,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2, XCircle, Trash2, Edit2, Save, X, RefreshCw, AlertTriangle, LogOut, Lock } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 
 function formatSubmissionDate(rawDate?: any): string {
   if (!rawDate) return 'N/A';
   try {
+    // 1. Direct Firestore Timestamp instance
     if (typeof rawDate?.toDate === 'function') {
       return format(rawDate.toDate(), 'dd MMM yyyy, HH:mm');
     }
-    if (typeof rawDate?.seconds === 'number') {
-      return format(new Date(rawDate.seconds * 1000), 'dd MMM yyyy, HH:mm');
+    // 2. Serialized Firestore Timestamp object ({ seconds, nanoseconds } or { _seconds, _nanoseconds })
+    const seconds = rawDate?.seconds ?? rawDate?._seconds;
+    if (typeof seconds === 'number') {
+      return format(new Date(seconds * 1000), 'dd MMM yyyy, HH:mm');
     }
-    if (typeof rawDate === 'string') {
-      const parsed = parseISO(rawDate);
-      if (!isNaN(parsed.getTime())) {
-        return format(parsed, 'dd MMM yyyy, HH:mm');
-      }
-    }
-    if (typeof rawDate === 'number') {
-      return format(new Date(rawDate), 'dd MMM yyyy, HH:mm');
-    }
+    // 3. JS Date instance
     if (rawDate instanceof Date) {
       return format(rawDate, 'dd MMM yyyy, HH:mm');
+    }
+    // 4. String or Epoch Number
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      return format(d, 'dd MMM yyyy, HH:mm');
     }
   } catch (e) {
     console.warn('Date parsing error:', e);
@@ -103,7 +103,6 @@ export default function AdminDashboardPage() {
     setLocations([]);
   };
 
-  // Status Handlers with Error Checks
   const handleStatusChange = async (id: string, status: 'approved' | 'rejected' | 'pending') => {
     try {
       await updateLocationStatus(id, status);
@@ -164,7 +163,6 @@ export default function AdminDashboardPage() {
     return <div className="text-center py-20 text-xs text-slate-400">Verifying security session...</div>;
   }
 
-  // Render Login Form if Unauthenticated or Wrong UID
   if (!currentUser || currentUser.uid !== 'SGHMLAXGWeTj1OdGlnNg6coAs0h2') {
     return (
       <div className="max-w-md mx-auto my-12 p-6 border rounded-xl shadow-sm bg-white space-y-4">
@@ -200,7 +198,6 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Render Admin Control Panel
   const filteredLocations = locations.filter((loc) => loc.status === activeTab);
   const pendingCount = locations.filter((l) => l.status === 'pending').length;
   const approvedCount = locations.filter((l) => l.status === 'approved').length;
@@ -265,10 +262,14 @@ export default function AdminDashboardPage() {
             const catConfig = getCategoryConfig(item.category);
             const isResolved = item.issueStatus === 'resolved';
 
+            // Catch any potential date property name across Firestore variations
             const rawDate = 
-              (item as any).submittedAt ?? 
-              (item as any).submittedAtFirestore ?? 
-              (item as any).createdAt ?? 
+              (item as any).createdAt ||
+              (item as any).createdAtFirestore ||
+              (item as any).submittedAt || 
+              (item as any).submittedAtFirestore || 
+              (item as any).approvedAt ||
+              (item as any).approvedAtFirestore ||
               (item as any).timestamp;
 
             return (
