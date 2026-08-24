@@ -1,108 +1,82 @@
 import type { NewLocationSuggestion } from './types';
-import { db } from '@/lib/firebase'; // Use shared client Firestore instance
-import {
-  collection,
-  getDocs,
-  orderBy,
-  query,
-  Timestamp,
-} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
-// Helper to convert any Firestore timestamp, string, or date representation to an ISO string
-const formatDateField = (dateField: any): string | undefined => {
-  if (!dateField) return undefined;
+function parseAnyDate(val: any): string | undefined {
+  if (!val) return undefined;
 
-  try {
-    // 1. Direct Timestamp instance or object with .toDate() method
-    if (typeof dateField?.toDate === 'function') {
-      return dateField.toDate().toISOString();
+  // 1. Direct JS Date
+  if (val instanceof Date) return val.toISOString();
+
+  // 2. Firestore Timestamp object or instance with .toDate()
+  if (typeof val?.toDate === 'function') {
+    try {
+      return val.toDate().toISOString();
+    } catch (e) {
+      /* ignore */
     }
+  }
 
-    // 2. Serialized Timestamp object with seconds ({ seconds, nanoseconds } or { _seconds, _nanoseconds })
-    const seconds = dateField?.seconds ?? dateField?._seconds;
-    if (typeof seconds === 'number') {
-      return new Date(seconds * 1000).toISOString();
-    }
+  // 3. Serialized Firestore object with seconds ({ seconds, nanoseconds } or { _seconds, _nanoseconds })
+  const seconds = val?.seconds ?? val?._seconds;
+  if (typeof seconds === 'number') {
+    return new Date(seconds * 1000).toISOString();
+  }
 
-    // 3. Already a JS Date object
-    if (dateField instanceof Date) {
-      return dateField.toISOString();
-    }
+  // 4. ISO String or parseable date string
+  if (typeof val === 'string') {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  }
 
-    // 4. String format
-    if (typeof dateField === 'string') {
-      const parsedDate = new Date(dateField);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate.toISOString();
-      }
-    }
-
-    // 5. Numeric epoch ms timestamp
-    if (typeof dateField === 'number') {
-      return new Date(dateField).toISOString();
-    }
-  } catch (e) {
-    console.warn('formatDateField in admin-data failed to parse date:', dateField, e);
+  // 5. Epoch milliseconds
+  if (typeof val === 'number') {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString();
   }
 
   return undefined;
-};
+}
 
 export async function getSuggestedLocations(): Promise<NewLocationSuggestion[]> {
   try {
     const suggestionsCol = collection(db, 'suggestedLocations');
-    
-    // Try executing with orderBy; fallback to plain collection fetch if query fails (e.g. index issue)
-    let suggestionSnapshot;
-    try {
-      const q = query(suggestionsCol, orderBy('submittedAtFirestore', 'desc'));
-      suggestionSnapshot = await getDocs(q);
-    } catch (queryErr) {
-      console.warn('Ordered query failed, falling back to unordered fetch:', queryErr);
-      suggestionSnapshot = await getDocs(suggestionsCol);
-    }
+    const snapshot = await getDocs(suggestionsCol);
 
-    return suggestionSnapshot.docs.map((docSnap) => {
+    return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
 
-      // Exhaustive fallback chain across potential date keys
-      const rawSubmittedAt =
+      // LOG RAW DATA TO BROWSER CONSOLE FOR EASY DEBBUGGING
+      console.log(`[DEBUG] Raw suggestion doc (${docSnap.id}):`, data);
+
+      // Check every single possible property name where date might live
+      const rawDate =
         data.submittedAtFirestore ??
         data.submittedAt ??
         data.createdAt ??
+        data.createdAtFirestore ??
         data.timestamp ??
         data.date;
 
-      const rawApprovedAt =
-        data.approvedAtFirestore ??
-        data.approvedAt;
+      const validIsoDate = parseAnyDate(rawDate) || new Date().toISOString();
 
-      const submittedAtString = formatDateField(rawSubmittedAt);
-      const approvedAtString = formatDateField(rawApprovedAt);
-
-      // Handle nested coordinates safely
-      const coordinates = data.coordinates
-        ? { lat: Number(data.coordinates.lat) || 0, lng: Number(data.coordinates.lng) || 0 }
-        : { lat: 0, lng: 0 };
-
-      const clientSuggestion: NewLocationSuggestion = {
+      return {
         id: docSnap.id,
-        name: data.name ?? data.locationName ?? data.title ?? '',
+        name: data.name ?? data.locationName ?? data.title ?? 'Untitled',
         description: data.description ?? '',
         townName: data.townName ?? '',
         suggesterName: data.suggesterName ?? data.submittedBy ?? data.email ?? 'Anonymous',
         status: data.status ?? 'Pending',
-        submittedAt: submittedAtString || new Date().toISOString(),
-        ...(approvedAtString && { approvedAt: approvedAtString }),
+        submittedAt: validIsoDate,
         publishedLocationId: data.publishedLocationId ?? null,
-        coordinates,
+        coordinates: data.coordinates
+          ? { lat: Number(data.coordinates.lat) || 0, lng: Number(data.coordinates.lng) || 0 }
+          : { lat: 0, lng: 0 },
         imageUrl: data.imageUrl ?? null,
       };
-
-      return clientSuggestion;
     });
   } catch (error) {
-    console.error('Error fetching suggested locations in admin-data:', error);
+    console.error('Error fetching suggested locations:', error);
     return [];
   }
 }
