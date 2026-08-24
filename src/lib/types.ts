@@ -10,7 +10,9 @@ export interface SuggestedLocation {
     lat: number;
     lng: number;
   };
-  submittedAt?: string;
+  // Accepts ISO strings, raw numbers, or raw Firestore Timestamp objects
+  submittedAt?: string | number | { seconds: number; nanoseconds?: number } | any;
+  createdAt?: string | number | { seconds: number; nanoseconds?: number } | any; 
   suggesterName?: string;
   imageUrl?: string | null;
 }
