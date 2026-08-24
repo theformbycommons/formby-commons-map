@@ -10,13 +10,27 @@ const COLLECTION_NAME = 'suggestedLocations';
 export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
   try {
     const locationsRef = collection(db, COLLECTION_NAME);
-    // Fetch locations that are approved (or fallback to status if needed)
     const q = query(locationsRef, where('status', '==', 'approved'));
     const querySnapshot = await getDocs(q);
 
     const locations: SuggestedLocation[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+
+      // Flexible timestamp extraction
+      let formattedDate: string | undefined = undefined;
+      const rawDate = data.submittedAt || data.createdAt || data.timestamp;
+
+      if (rawDate) {
+        if (typeof rawDate.toDate === 'function') {
+          formattedDate = rawDate.toDate().toISOString();
+        } else if (typeof rawDate.seconds === 'number') {
+          formattedDate = new Date(rawDate.seconds * 1000).toISOString();
+        } else if (typeof rawDate === 'string' || typeof rawDate === 'number') {
+          formattedDate = new Date(rawDate).toISOString();
+        }
+      }
+
       locations.push({
         id: doc.id,
         name: data.name || 'Reported Action',
@@ -29,7 +43,7 @@ export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
           lat: data.coordinates?.lat || 53.559,
           lng: data.coordinates?.lng || -3.069,
         },
-        submittedAt: data.submittedAt ? new Date(data.submittedAt.seconds * 1000).toISOString() : undefined,
+        submittedAt: formattedDate,
         suggesterName: data.suggesterName || '',
         imageUrl: data.imageUrl || null,
       });
