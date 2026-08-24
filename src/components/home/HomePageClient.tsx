@@ -115,9 +115,9 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
     setSelectedIssueId((prev) => (prev === id ? null : id));
   };
 
-  // Safe helper to convert ISO strings, numbers, or raw Firestore objects into formatted dates
-  const formatSubmissionDate = (rawDate?: any) => {
-    if (!rawDate) return null;
+  // Converts strings, numbers, or Firestore objects into formatted dates with fallback string
+  const formatSubmissionDate = (rawDate?: any): string => {
+    if (!rawDate) return 'Date pending';
     try {
       if (typeof rawDate === 'string') {
         return format(parseISO(rawDate), 'dd MMM yyyy');
@@ -134,10 +134,10 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
       if (rawDate instanceof Date) {
         return format(rawDate, 'dd MMM yyyy');
       }
-    } catch {
-      return null;
+    } catch (e) {
+      return 'Date pending';
     }
-    return null;
+    return 'Date pending';
   };
 
   return (
@@ -315,15 +315,11 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                           <span>{catConfig.label}</span>
 
                           {/* Date display in header */}
-                          {formattedDate && (
-                            <>
-                              <span>•</span>
-                              <span className="flex items-center gap-1 text-slate-400">
-                                <Calendar className="w-3 h-3" />
-                                {formattedDate}
-                              </span>
-                            </>
-                          )}
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-slate-400">
+                            <Calendar className="w-3 h-3" />
+                            {formattedDate}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -352,7 +348,7 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                       {isExpanded ? (
                         <ChevronUp className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-400 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       )}
                     </div>
                   </CardHeader>
@@ -363,12 +359,10 @@ export default function HomePageClient({ initialIssues = [] }: HomePageClientPro
                         {issue.description || 'No detailed description provided.'}
                       </p>
 
-                      {formattedDate && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 pt-1 border-t border-slate-100">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>Submitted on {formattedDate}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 pt-1 border-t border-slate-100">
+                        <Calendar className="w-3 h-3 text-slate-400" />
+                        <span>Submitted: {formattedDate}</span>
+                      </div>
                     </CardContent>
                   )}
                 </Card>
