@@ -42,6 +42,39 @@ const LocationPreviewMap = dynamic(
   }
 );
 
+/**
+ * Safely parses any date format (ISO string, Firestore Timestamp, unix seconds, alternative keys)
+ * and formats it into a readable string.
+ */
+function formatSubmissionDate(rawDate?: any): string {
+  if (!rawDate) return 'N/A';
+
+  try {
+    if (typeof rawDate?.toDate === 'function') {
+      return format(rawDate.toDate(), 'dd MMM yyyy, HH:mm');
+    }
+    if (typeof rawDate?.seconds === 'number') {
+      return format(new Date(rawDate.seconds * 1000), 'dd MMM yyyy, HH:mm');
+    }
+    if (typeof rawDate === 'string') {
+      const parsed = parseISO(rawDate);
+      if (!isNaN(parsed.getTime())) {
+        return format(parsed, 'dd MMM yyyy, HH:mm');
+      }
+    }
+    if (typeof rawDate === 'number') {
+      return format(new Date(rawDate), 'dd MMM yyyy, HH:mm');
+    }
+    if (rawDate instanceof Date) {
+      return format(rawDate, 'dd MMM yyyy, HH:mm');
+    }
+  } catch (e) {
+    console.warn('Date formatting error:', e);
+  }
+
+  return 'N/A';
+}
+
 function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['status'], approvedAt?: string }) {
   switch (status) {
     case 'pending':
@@ -49,9 +82,10 @@ function StatusBadge({ status, approvedAt }: { status: NewLocationSuggestion['st
     case 'approved':
       let approvedText = "Approved";
       if (approvedAt) {
-        try {
-            approvedText += ` on ${format(parseISO(approvedAt), 'dd MMM yyyy')}`;
-        } catch (e) { /* ignore date parsing error for badge */ }
+        const formatted = formatSubmissionDate(approvedAt);
+        if (formatted !== 'N/A') {
+          approvedText += ` on ${formatted.split(',')[0]}`;
+        }
       }
       return <Badge variant="default" className="bg-green-500 hover:bg-green-600"><CheckCircle className="mr-1 h-3 w-3" />{approvedText}</Badge>;
     case 'rejected':
@@ -339,6 +373,13 @@ export default function AdminSuggestionsPage() {
                 const lat = suggestion.latitude ?? (suggestion as any).lat ?? (suggestion as any).coordinates?.lat;
                 const lng = suggestion.longitude ?? (suggestion as any).lng ?? (suggestion as any).coordinates?.lng;
 
+                // Fallback sequence for timestamp key resolution across data schemas
+                const rawSubmissionDate = 
+                  suggestion.submittedAt ?? 
+                  (suggestion as any).submittedAtFirestore ?? 
+                  (suggestion as any).createdAt ?? 
+                  (suggestion as any).timestamp;
+
                 return (
                   <li key={suggestion.id}>
                     <Card className="overflow-hidden hover:shadow-md transition-shadow">
@@ -368,7 +409,7 @@ export default function AdminSuggestionsPage() {
                           <div className="text-xs text-muted-foreground space-y-1 pt-2">
                             <p><strong>Suggester:</strong> {suggestion.suggesterName}</p>
                             <p>
-                              <strong>Submitted:</strong> {suggestion.submittedAt ? format(parseISO(suggestion.submittedAt), 'dd MMM yyyy, HH:mm') : 'N/A'}
+                              <strong>Submitted:</strong> {formatSubmissionDate(rawSubmissionDate)}
                             </p>
                             {suggestion.category && <p><strong>Category:</strong> {suggestion.category}</p>}
                             {suggestion.issueStatus && <p><strong>Issue Status:</strong> {suggestion.issueStatus === 'reported' ? 'Reported' : 'Improved'}</p>}
