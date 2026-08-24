@@ -21,35 +21,50 @@ import { format } from 'date-fns';
 
 function formatSubmissionDate(rawDate?: any): string {
   if (!rawDate) return 'N/A';
+
   try {
-    // 1. Direct Firestore Timestamp instance
+    // 1. Direct Firestore Timestamp instance with .toDate()
     if (typeof rawDate?.toDate === 'function') {
       return format(rawDate.toDate(), 'dd MMM yyyy, HH:mm');
     }
+
     // 2. Serialized Firestore Timestamp object ({ seconds, nanoseconds } or { _seconds, _nanoseconds })
     const seconds = rawDate?.seconds ?? rawDate?._seconds;
     if (typeof seconds === 'number') {
       return format(new Date(seconds * 1000), 'dd MMM yyyy, HH:mm');
     }
-    // 3. JS Date instance
-    if (rawDate instanceof Date) {
+
+    // 3. Standard JS Date object
+    if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
       return format(rawDate, 'dd MMM yyyy, HH:mm');
     }
-    // 4. String or Epoch Number
-    const d = new Date(rawDate);
-    if (!isNaN(d.getTime())) {
-      return format(d, 'dd MMM yyyy, HH:mm');
+
+    // 4. ISO String or numeric Epoch timestamp
+    if (typeof rawDate === 'string' || typeof rawDate === 'number') {
+      const parsedDate = new Date(rawDate);
+      if (!isNaN(parsedDate.getTime())) {
+        return format(parsedDate, 'dd MMM yyyy, HH:mm');
+      }
     }
-  } catch (e) {
-    console.warn('Date parsing error:', e);
+
+    // 5. Plain object containing ISO string or date property
+    if (typeof rawDate === 'object') {
+      if (rawDate.iso && typeof rawDate.iso === 'string') {
+        const parsedIso = new Date(rawDate.iso);
+        if (!isNaN(parsedIso.getTime())) return format(parsedIso, 'dd MMM yyyy, HH:mm');
+      }
+    }
+  } catch (error) {
+    console.warn('Date parsing error:', error);
   }
+
   return 'N/A';
 }
 
 export default function AdminDashboardPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
-  
+
   // Login form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,9 +95,14 @@ export default function AdminDashboardPage() {
 
   const fetchLocations = async () => {
     setIsLoading(true);
-    const data = await getAllLocationsForAdmin();
-    setLocations(data);
-    setIsLoading(false);
+    try {
+      const data = await getAllLocationsForAdmin();
+      setLocations(data);
+    } catch (err: any) {
+      console.error('Failed to fetch locations:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -262,15 +282,16 @@ export default function AdminDashboardPage() {
             const catConfig = getCategoryConfig(item.category);
             const isResolved = item.issueStatus === 'resolved';
 
-            // Catch any potential date property name across Firestore variations
-            const rawDate = 
-              (item as any).createdAt ||
-              (item as any).createdAtFirestore ||
-              (item as any).submittedAt || 
-              (item as any).submittedAtFirestore || 
-              (item as any).approvedAt ||
-              (item as any).approvedAtFirestore ||
-              (item as any).timestamp;
+            // Check every common date key pattern outputted by Firestore / server actions
+            const rawDate =
+              (item as any).createdAt ??
+              (item as any).createdAtFirestore ??
+              (item as any).submittedAt ??
+              (item as any).submittedAtFirestore ??
+              (item as any).approvedAt ??
+              (item as any).approvedAtFirestore ??
+              (item as any).timestamp ??
+              (item as any).date;
 
             return (
               <Card key={item.id} className="border border-slate-200 shadow-sm">
@@ -366,7 +387,8 @@ export default function AdminDashboardPage() {
                             <>
                               <AlertTriangle className="w-3 h-3" /> Status: Reported
                             </>
-                          )}
+                          )
+                          }
                         </button>
                       )}
 
