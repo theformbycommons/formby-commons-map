@@ -5,6 +5,39 @@ import type { SuggestedLocation } from '@/lib/types';
 const COLLECTION_NAME = 'suggestedLocations';
 
 /**
+ * Helper to safely resolve various Firestore timestamp formats into a valid ISO string.
+ */
+function parseRawTimestamp(rawDate: any): string | undefined {
+  if (!rawDate) return undefined;
+
+  try {
+    // 1. Standard Firestore Timestamp object with .toDate() method
+    if (typeof rawDate?.toDate === 'function') {
+      return rawDate.toDate().toISOString();
+    }
+    // 2. Serialized Firestore Timestamp object with seconds/nanoseconds
+    if (typeof rawDate?.seconds === 'number') {
+      return new Date(rawDate.seconds * 1000).toISOString();
+    }
+    // 3. String representation or numerical Unix milliseconds
+    if (typeof rawDate === 'string' || typeof rawDate === 'number') {
+      const parsed = new Date(rawDate);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+    // 4. Native JS Date object
+    if (rawDate instanceof Date) {
+      return rawDate.toISOString();
+    }
+  } catch (err) {
+    console.warn('[parseRawTimestamp] Could not parse date field:', rawDate, err);
+  }
+
+  return undefined;
+}
+
+/**
  * Fetches all approved actions for display on the Formby map.
  */
 export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
@@ -17,21 +50,19 @@ export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
     querySnapshot.forEach((doc) => {
       const data = doc.data();
 
-      // Debug output: inspect raw data in DevTools Console
-      console.log(`[Firestore Doc: ${doc.id}] Keys found:`, Object.keys(data), data);
+      // Debug output: Check raw keys and data object in your browser DevTools Console
+      console.log(`[Firestore Doc ID: ${doc.id}]`, {
+        keys: Object.keys(data),
+        submittedAt: data.submittedAt,
+        createdAt: data.createdAt,
+        timestamp: data.timestamp,
+        date: data.date,
+        rawDocument: data,
+      });
 
-      let formattedDate: string | undefined = undefined;
-      const rawDate = data.submittedAt || data.createdAt || data.timestamp || data.date;
-
-      if (rawDate) {
-        if (typeof rawDate.toDate === 'function') {
-          formattedDate = rawDate.toDate().toISOString();
-        } else if (typeof rawDate.seconds === 'number') {
-          formattedDate = new Date(rawDate.seconds * 1000).toISOString();
-        } else if (typeof rawDate === 'string' || typeof rawDate === 'number') {
-          formattedDate = new Date(rawDate).toISOString();
-        }
-      }
+      // Try multiple potential date fields stored in Firestore
+      const rawDate = data.submittedAt ?? data.createdAt ?? data.timestamp ?? data.date;
+      const formattedDate = parseRawTimestamp(rawDate);
 
       locations.push({
         id: doc.id,
@@ -70,6 +101,7 @@ export async function submitNewAction(data: {
   suggesterName?: string;
 }): Promise<string> {
   const locationsRef = collection(db, COLLECTION_NAME);
+  const nowIso = new Date().toISOString();
 
   const newDoc = await addDoc(locationsRef, {
     name: data.name,
@@ -82,7 +114,7 @@ export async function submitNewAction(data: {
     suggesterName: data.suggesterName || 'Anonymous',
     imageUrl: null,
     submittedAt: serverTimestamp(),
-    createdAt: new Date().toISOString(), // Hardcoded ISO string backup
+    createdAt: nowIso,
   });
 
   return newDoc.id;
