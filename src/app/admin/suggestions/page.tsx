@@ -23,21 +23,37 @@ export default function SuggestionsPage() {
     loadData();
   }, []);
 
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return 'N/A';
+  const formatDate = (rawDate?: any) => {
+    if (!rawDate) return 'N/A';
     try {
-      const d = new Date(isoString);
-      if (isNaN(d.getTime())) return 'N/A';
-      return d.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      let dateObj: Date | null = null;
+
+      if (typeof rawDate?.toDate === 'function') {
+        dateObj = rawDate.toDate();
+      } else if (typeof (rawDate?.seconds ?? rawDate?._seconds) === 'number') {
+        dateObj = new Date((rawDate.seconds ?? rawDate._seconds) * 1000);
+      } else if (rawDate instanceof Date) {
+        dateObj = rawDate;
+      } else {
+        const parsed = new Date(rawDate);
+        if (!isNaN(parsed.getTime())) {
+          dateObj = parsed;
+        }
+      }
+
+      if (dateObj) {
+        return dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
     } catch {
       return 'N/A';
     }
+    return 'N/A';
   };
 
   if (loading) return <div className="p-6">Loading suggestions...</div>;
@@ -61,15 +77,23 @@ export default function SuggestionsPage() {
               </tr>
             </thead>
             <tbody>
-              {suggestions.map((suggestion) => (
-                <tr key={suggestion.id} className="hover:bg-gray-50">
-                  <td className="border p-2">{suggestion.name}</td>
-                  <td className="border p-2">{suggestion.townName || 'N/A'}</td>
-                  <td className="border p-2">{suggestion.suggesterName}</td>
-                  <td className="border p-2">{formatDate(suggestion.submittedAt)}</td>
-                  <td className="border p-2">{suggestion.status}</td>
-                </tr>
-              ))}
+              {suggestions.map((suggestion) => {
+                const rawDate = 
+                  suggestion.submittedAt || 
+                  (suggestion as any).submittedAtFirestore || 
+                  (suggestion as any).createdAt || 
+                  (suggestion as any).createdAtFirestore;
+
+                return (
+                  <tr key={suggestion.id} className="hover:bg-gray-50">
+                    <td className="border p-2">{suggestion.name}</td>
+                    <td className="border p-2">{suggestion.townName || 'N/A'}</td>
+                    <td className="border p-2">{suggestion.suggesterName}</td>
+                    <td className="border p-2">{formatDate(rawDate)}</td>
+                    <td className="border p-2">{suggestion.status}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
