@@ -50,18 +50,14 @@ export async function getApprovedLocations(): Promise<SuggestedLocation[]> {
     querySnapshot.forEach((doc) => {
       const data = doc.data();
 
-      // Debug output: Check raw keys and data object in your browser DevTools Console
-      console.log(`[Firestore Doc ID: ${doc.id}]`, {
-        keys: Object.keys(data),
-        submittedAt: data.submittedAt,
-        createdAt: data.createdAt,
-        timestamp: data.timestamp,
-        date: data.date,
-        rawDocument: data,
-      });
+      // Check submittedAtFirestore first to align with your Firestore schema
+      const rawDate =
+        data.submittedAtFirestore ??
+        data.submittedAt ??
+        data.createdAt ??
+        data.timestamp ??
+        data.date;
 
-      // Try multiple potential date fields stored in Firestore
-      const rawDate = data.submittedAt ?? data.createdAt ?? data.timestamp ?? data.date;
       const formattedDate = parseRawTimestamp(rawDate);
 
       locations.push({
@@ -113,6 +109,7 @@ export async function submitNewAction(data: {
     coordinates: data.coordinates,
     suggesterName: data.suggesterName || 'Anonymous',
     imageUrl: null,
+    submittedAtFirestore: serverTimestamp(), // Writes to existing schema key
     submittedAt: serverTimestamp(),
     createdAt: nowIso,
   });
