@@ -19,7 +19,7 @@ import {
 
 // --- CONFIGURABLE LIMITS ---
 // These values can be changed to adjust daily limits for anonymous users.
-const ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT = 30;
+const ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT = 5;
 const ANONYMOUS_USER_DAILY_VOTE_LIMIT = 5;
 
 // Zod schema for server-side validation (SuggestLocationForm)
