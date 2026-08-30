@@ -21,7 +21,7 @@ Setting up an admin involves two different sets of Firebase credentials for secu
 1.  Go to the **[Firebase Console](https://console.firebase.google.com/)** and select your project (`act-local-glow`).
 2.  In the left-hand menu, go to **Build > Authentication**.
 3.  Click the **"Add user"** button.
-4.  Enter the user's email (e.g., `felix.zajitschek@gmail.com`) and a secure password.
+4.  Enter the user's email (e.g., `xyz@gmail.com`) and a secure password.
 5.  Click **"Add user"**.
 
 ### Step B: Get the New User's UID
