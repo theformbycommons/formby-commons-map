@@ -1,5 +1,5 @@
-# Firebase Studio for JDF
+# The Formby Commons Actions Map
 
-This is a NextJS starter in Firebase Studio!
+Interactive local map, with user input. Custom built.
 
-To get started, take a look at src/app/page.tsx.
+Formby, NW England.
