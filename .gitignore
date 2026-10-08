@@ -29,7 +29,3 @@ out/
 
 # macOS
 .DS_Store
-
-# Admin credentials (NEVER commit these)
-.env.admin.local
-admin-config.json
