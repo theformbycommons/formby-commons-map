@@ -1,9 +1,6 @@
-
-
-
 import { z } from 'zod';
 import type { NewLocationSuggestion, Location, Town } from './types';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { 
   collection, 
   addDoc, 
@@ -129,10 +126,22 @@ export async function submitSuggestion(
       errors: flatErrors.fieldErrors,
     };
   }
-  
-  const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
 
+  // In submitSuggestion() - add auth check
   try {
+    const user = auth.currentUser;
+    
+    // Check: either authenticated user OR has anonId (for guest submissions)
+    const hasAnonId = (validatedFields.data as any).suggesterAnonId;
+    if (!user && !hasAnonId) {
+      return {
+        message: "You must be logged in or have a valid session to submit suggestions.",
+        type: 'error',
+      };
+    }
+
+    const { latitude, longitude, suggesterUid, ...dataFromValidation } = validatedFields.data;
+
     if (suggesterUid) {
       const dailyLimitCheck = await checkAndIncrementAnonymousUserDailyLimit(suggesterUid, ANONYMOUS_USER_DAILY_SUGGESTION_LIMIT, 'userDailySuggestionLimits', 'lastSubmissionDate');
       if (!dailyLimitCheck.allowed) {
